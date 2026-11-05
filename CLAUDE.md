@@ -262,4 +262,6 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    the Deck does with Blizzard's gamepad style waits.
 5. Week - done and tested in game 2026-11-05 (level 6: Legacy 0/90, PvP rank 0/14, four factions).
    Still to see on a higher character: currencies, lockouts, dailies; world bosses by `/week record`.
-6. Release, then the Deck test.
+6. **Released**: v1.0.0 on 2026-11-05 (tag, Release workflow, CurseForge file id 9452977, game version
+   1.60.1 id 17053 / type 88568). Next versions: `bump-version.ps1`, a `## x.y.z` section in CHANGELOG.md,
+   commit, tag. Then the Deck test.
