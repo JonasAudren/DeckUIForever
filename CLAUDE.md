@@ -56,6 +56,12 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
 
 ## Naming
 
+- **Renamed on 2026-11-05 from DeckForever to DeckUIForever**: the CurseForge name DeckForever was taken.
+  Folders, toc files, the global table, SavedVariables, frame names, bindings, scripts, docs, the logo and
+  the GitHub repository (`JonasAudren/DeckUIForever`) carry the new name; `/df` stays. **The repository
+  folder on disk is still `C:\Users\Gottl\Desktop\TitelX\DeckForever`** (a Claude session was running
+  in it) and the client's junctions point there - rename it when nothing runs in it, then make the ten
+  junctions again. Old `DeckForever*` SavedVariables in the client's WTF folder are orphans, harmless.
 - Global table `DeckUIForever` (`local D = DeckUIForever`), SavedVariables `DeckUIForeverDB`, slash command
   **`/df`** (`/df build`, `/df unlock`, `/df bars`, `/df layout`, `/df errors`, `/df <page>`), key
   bindings `DECKUIFOREVER_*` in `DeckUIForever/Bindings.xml`, frame names `DeckUIForever*`. Module tables and
