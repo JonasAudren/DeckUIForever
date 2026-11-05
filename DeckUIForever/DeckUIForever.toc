@@ -5,6 +5,7 @@
 ## Version: 0.1.0
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Curse-Project-ID: 1784984
 ## X-Category: Action Bars, Unit Frames
 ## SavedVariables: DeckUIForeverDB
 

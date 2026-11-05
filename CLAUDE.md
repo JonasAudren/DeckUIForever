@@ -235,7 +235,8 @@ folders at the top level, `bump-version.ps1 <version> [-Interface 16002]` raises
 (`.github/workflows/release.yml`) uploads on a `v*` tag through `upload-curseforge.ps1`; it needs the
 secret `CF_API_TOKEN` and the repository variable `CF_PROJECT_ID`. The repository is
 `https://github.com/JonasAudren/DeckUIForever` (public, made 2026-11-05, `origin`); the CurseForge project
-does not exist yet - the owner makes it, then `## X-Curse-Project-ID` goes into the hub's toc. The tag's suffix decides the release type (`-beta`, `-alpha`, none = full release).
+is `https://www.curseforge.com/wow/addons/deckuiforever`, id **1784984** (`## X-Curse-Project-ID` in the
+hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are the owner's to set. The tag's suffix decides the release type (`-beta`, `-alpha`, none = full release).
 
 ## Open, in order (DECKUIFOREVER_BERICHT.md section 7)
 
