@@ -213,6 +213,25 @@ local function ShowPushed(b, on)
     local left = PUSH_MIN - (GetTime() - (b.DeckPushedAt or 0))
     if left <= 0 then b.DeckPushed:Hide() else C_Timer.After(left, function() b.DeckPushed:Hide() end) end
 end
+ns.StyleSlot, ns.ShowPushed = Style, ShowPushed   -- the stance, pet and totem bars wear the same look
+
+-- the key in the corner of a button that is not LibActionButton's
+-- (stance.lua, pet.lua): the same font and place as LAB's hotkey text
+function ns.KeyText(b)
+    local fs = b:CreateFontString(nil, "OVERLAY", nil)
+    fs:SetFont(D.FONT, 11, "OUTLINE")
+    fs:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 2)
+    fs:SetJustifyH("LEFT")
+    return fs
+end
+
+-- the short name of a command's first key ("c1" for CTRL-1), "" without one
+function ns.KeyLabel(command)
+    if DeckUIForeverBarsDB.hideKeys then return "" end
+    local key = GetBindingKey(command)
+    return key and GetBindingText(key, true) or ""
+end
+ns.extraRows = {}   -- the stance and pet rows, for the shared opacity
 
 -- Retail's ActionButtonTemplate puts a TextOverlayContainer on top of the
 -- button with textures that dim it while a modifier is held; the stack
@@ -352,6 +371,7 @@ local pending = false
 function ns.ApplyBarAlpha()
     local alpha = DeckUIForeverBarsDB and DeckUIForeverBarsDB.barAlpha or 1
     for _, bar in pairs(bars) do bar.holder:SetAlpha(alpha) end
+    for _, row in ipairs(ns.extraRows) do row:SetAlpha(alpha) end
 end
 
 -- the number tags, live
@@ -392,6 +412,9 @@ function ns.ApplyBars()
     -- our bar 1 pages to the override bar, so Blizzard's stays faded then
     ns.SetOverrideBarFaded(Settings(1).shown and true or false)
     ns.ApplyBarAlpha()
+    -- the stance and pet rows follow the scale and the opacity (stance.lua, pet.lua)
+    if ns.ApplyStanceBar then ns.ApplyStanceBar() end
+    if ns.ApplyPetBar then ns.ApplyPetBar() end
 end
 
 local ev = CreateFrame("Frame")
@@ -417,6 +440,9 @@ function ns.PrintBars()
             (bar and bar.header:GetAttribute("state")) and (", page " .. bar.header:GetAttribute("state")) or ""))
     end
     ns.PrintBlizzardBars()
+    if ns.PrintStanceBar then ns.PrintStanceBar() end
+    if ns.PrintPetBar then ns.PrintPetBar() end
+    if ns.PrintTotemBar then ns.PrintTotemBar() end
 end
 
 local function Init()
@@ -424,7 +450,13 @@ local function Init()
     local db = DeckUIForeverBarsDB
     if db.barAlpha == nil then db.barAlpha = 1 end
     if db.barNumbers == nil then db.barNumbers = true end
+    for _, key in ipairs({ "stanceBar", "petBar", "totemBar" }) do
+        if db[key] == nil then db[key] = true end
+    end
     ns.InitLeaveButton()
+    if ns.InitStanceBar then ns.InitStanceBar() end
+    if ns.InitPetBar then ns.InitPetBar() end
+    if ns.ApplyTotemBar then ns.ApplyTotemBar() end
     ns.ApplyBars()
 end
 

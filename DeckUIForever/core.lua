@@ -548,6 +548,7 @@ local DEFAULTS = {
     rankMarks     = true,    -- elite/rare/boss emblems before enemy names (rankmark.lua)
     targetArrow   = false,   -- FFXIV's arrow over the target's nameplate (targetarrow.lua)
     xivPlates     = false,   -- enemy nameplates as FFXIV draws them (nameplates.lua)
+    plateSpace    = true,    -- and wider spacing between them (nameplates.lua sets the CVars)
     infoServer    = false,   -- FFXIV's server info: realm, mail, latency, time (infobars.lua)
     infoGold      = false,   -- the gold you carry, with a coin
     infoBags      = false,   -- a block of dots per bag, used and free slots
@@ -555,6 +556,10 @@ local DEFAULTS = {
     mainMenu      = false,   -- the micro menu as FFXIV's round buttons (mainmenu.lua)
     ahScan        = true,    -- scan the auction house when it opens, every 15 min (auction.lua)
     ahStyle       = false,   -- the auction house window in DeckUIForever's look (auctionstyle.lua)
+    restock       = false,   -- buy reagents, food, ammunition up to a count at merchants (restock.lua)
+    mailHelper    = false,   -- your characters in the mail's "To" field, what Open All took (mail.lua)
+    charPanel     = false,   -- item level and missing enchants on the character panel (charpanel.lua)
+    listingWindow = false,   -- the group listing as a window: time listed, roles, group so far (lfglisting.lua)
 }
 
 -- Blizzard's whole-UI scale, set per device at login when enabled

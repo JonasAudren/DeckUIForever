@@ -279,7 +279,7 @@ D.PAGE_FRAMES = {
     Group   = { "Party" },
     Raid    = { "Raid" },
     Cross   = { "Cross Hotbar", "Leave vehicle" },
-    Bars    = { "Bar 1", "Bar 2", "Bar 3", "Bar 4", "Bar 5", "Bar 6", "Bar 7", "Bar 8", "Leave vehicle" },
+    Bars    = { "Bar 1", "Bar 2", "Bar 3", "Bar 4", "Bar 5", "Bar 6", "Bar 7", "Bar 8", "Stance bar", "Pet bar", "Leave vehicle" },
     Spec    = { "Spec bar" },
     Bags    = { "Bags", "Bank" },
     Quests  = { "Quest tracker" },
@@ -289,6 +289,7 @@ D.PAGE_FRAMES = {
     Week    = { "Week", "Week button" },
     Loot    = { "Loot", "Loot list", "Loot rolls" },
     Screen  = { "Server info", "Gold", "Bag overview", "Main menu" },
+    Windows = { "Group listing" },
 }
 
 -- What "Defaults" clears on each page: the SavedVariables table by name,
@@ -297,7 +298,8 @@ D.PAGE_FRAMES = {
 -- what is data, not settings. Positions are never touched - "Reset all
 -- positions" on the Devices page does that. The game reloads right after,
 -- and each module fills what is missing with its defaults as it loads.
-local LOOT_KEYS = { autoSellJunk = true, autoRepair = true, repairGuild = true, fastLoot = true, lootWindow = true, lootRolls = true }
+local LOOT_KEYS = { autoSellJunk = true, autoRepair = true, repairGuild = true, fastLoot = true, lootWindow = true, lootRolls = true,
+                    restock = true, mailHelper = true }
 local function GroupKey(k) return k == "showParty" or k:find("^party") ~= nil end
 local function RaidKey(k) return k == "showRaid" or k:find("^raid") ~= nil end
 local function DotKey(k) return k:find("^dot") ~= nil end
@@ -313,7 +315,7 @@ local function EnemyKey(k) return ENEMY_KEYS[k] == true end
 local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true }
 local TARGET_KEYS = { targetArrow = true, xivPlates = true, plateSpace = true, rankMarks = true,
                       softTargetName = true, softTargetCast = true }
-local WINDOW_KEYS = { styleDamageMeter = true }
+local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow = true }
 D.PAGE_RESET = {
     Orbs    = { db = "DeckUIForeverOrbsDB", match = function(k)
         return not (GroupKey(k) or RaidKey(k) or DotKey(k) or PlayerKey(k) or TargetKey(k) or ToTKey(k)
@@ -330,7 +332,7 @@ D.PAGE_RESET = {
     Debuffs = { db = "DeckUIForeverOrbsDB", match = DotKey },
     Group   = { db = "DeckUIForeverOrbsDB", match = GroupKey },
     Raid    = { db = "DeckUIForeverOrbsDB", match = RaidKey },
-    Cross   = { db = "DeckCrossDB", match = function(k) return k ~= "bars" and k ~= "barScale" and k ~= "barAlpha" end },
+    Cross   = { db = "DeckUIForeverCrossDB" },   -- phase 4: the module does not exist yet, its page is a stand-in
     Bars    = { db = "DeckUIForeverBarsDB" },
     Spec    = { db = "DeckUIForeverSpecDB", keep = { groupSets = true } },
     Bags    = { db = "DeckUIForeverBagsDB", keep = { trackedItems = true } },
@@ -751,10 +753,18 @@ panel:AddTab("Windows", {
     title = "Windows",
     build = function(c)
         local db, f = hubDB, D.Flow(c)
-        f:Hint("Blizzard's windows restyled. Forever has no talking head; the character panel, mail and restock helpers of DeckUI's Mists port are not carried over yet.")
+        f:Hint("Blizzard's windows restyled or helped along. Forever has no talking head.")
         if D.SetDamageMeterStyled then
             f:Checkbox("Damage meter in DeckUIForever's look", db, "styleDamageMeter", D.SetDamageMeterStyled,
                 "Blizzard's damage meter with flat bars and DeckUIForever's font. Its numbers stay Blizzard's.")
+        end
+        if D.ApplyCharPanel then
+            f:Checkbox("Character panel: item level and enchants", db, "charPanel", function() D.ApplyCharPanel() end,
+                "On each slot of the character panel its item level, and a red E where an enchant is missing: head, shoulders, back, chest, wrists, hands, legs, feet, weapons, shield, bow or gun. Below the panel: average item level and the missing enchants.")
+        end
+        if D.ApplyListingWindow then
+            f:Checkbox("Group listing as a window", db, "listingWindow", function() D.ApplyListingWindow() end,
+                "While you are listed in the group finder: a small window with the activity, how long you have been listed, the roles you offered and the group so far - tanks, healers and damage dealers of the activity's size. Right click unlists. Drag it to move it; it shows while frames are unlocked.")
         end
     end,
 })
@@ -798,6 +808,15 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
                 "Replaces Blizzard's loot window. With auto loot a short list shows what you took. Move both with /df unlock.")
             f:Checkbox("DeckUIForever's loot rolls", db, "lootRolls", function() D.ApplyLootRolls() end,
                 "Group loot rolls as one list in DeckUIForever's look: each item with its time left and Need, Greed (or Transmog) and Pass. Greyed when your character cannot pick it; the tooltip says why. Blizzard's roll frames are only faded and keep working underneath. Move it with the page's Move button.")
+
+            if D.ApplyRestock then
+                f:Checkbox("Restock at merchants", db, "restock", function() D.ApplyRestock() end,
+                    "Beside the merchant a small list of things to keep in your bags - arrows, reagents, water, food: drop an item from your bags on it, set how many with - and +. Each merchant visit buys what is missing, as far as the merchant sells it for gold and your gold reaches; a chat line says what was bought. Per character.")
+            end
+            if D.ApplyMail then
+                f:Checkbox("Mail helper", db, "mailHelper", function() D.ApplyMail() end,
+                    "At the mailbox: a button beside the recipient lists your characters on this realm and the last ten people you mailed. After Blizzard's Open All, one chat line says what it took - gold and items.")
+            end
 
             if D.PrintAuction then
                 f:Gap(8)

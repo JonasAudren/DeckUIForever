@@ -26,8 +26,11 @@ D.RegisterModule("Bars", {
         end, "How see-through the bars are, as FFXIV's hotbar setting.")
         f:Checkbox("Bar numbers", db, "barNumbers", ns.ApplyBarNumbers,
             "A small tag with the bar's number at the left end of each bar, as FFXIV marks its hotbars.")
-        f:Checkbox("Hide the keys", db, "hideKeys", ns.ApplyKeys,
-            "No key names in the slots' corners. The keys keep working.")
+        f:Checkbox("Hide the keys", db, "hideKeys", function()
+            ns.ApplyKeys()
+            ns.ApplyStanceBar()
+            ns.ApplyPetBar()
+        end, "No key names in the slots' corners. The keys keep working.")
 
         f:Gap(4)
         f:Label("The bars")
@@ -44,11 +47,23 @@ D.RegisterModule("Bars", {
                        get = function() return ns.BarSettings(n).perRow end,
                        set = function(v) ns.BarSettings(n).perRow = v; apply() end })
         end
+
+        f:Gap(4)
+        f:Label("Other bars")
+        f:Checkbox("Stance bar", db, "stanceBar", ns.ApplyStanceBar,
+            "Forms, stances, auras and stealth as a row of the same slots, in place of Blizzard's stance bar. Shows only while you have forms. Your keys for the stance buttons keep working.")
+        f:Checkbox("Pet bar", db, "petBar", ns.ApplyPetBar,
+            "Your pet's commands as a row of ten slots while you have a pet, in place of Blizzard's pet bar. Right click toggles autocast - the small mark in the corner is gold while it is on. Your keys keep working.")
+        f:Checkbox("Totem bar in the same look", db, "totemBar", function(v)
+            if v then ns.ApplyTotemBar() end
+            D.NeedReload("bars:totemBar", not v)
+        end, "Shamans: Blizzard's totem bar keeps its place and its flyouts, its buttons get the slot look. Switching it off needs a reload.")
     end,
 })
 
 -- the page's Move drags the bars and the leave-vehicle button
-D.PAGE_FRAMES.Bars = { "Bar 1", "Bar 2", "Bar 3", "Bar 4", "Bar 5", "Bar 6", "Bar 7", "Bar 8", "Leave vehicle" }
+D.PAGE_FRAMES.Bars = { "Bar 1", "Bar 2", "Bar 3", "Bar 4", "Bar 5", "Bar 6", "Bar 7", "Bar 8",
+                       "Stance bar", "Pet bar", "Leave vehicle" }
 D.PAGE_RESET.Bars = { db = "DeckUIForeverBarsDB" }
 
 -- /df bars adds our lines after the hub's layout report

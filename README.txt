@@ -11,7 +11,8 @@ disable each module on its own page in /df; what you do not use is never
 loaded.
 
   DeckUIForever          the hub: device detection, settings window, movable
-                       frames, loot, merchant, nameplates, server info,
+                       frames, loot, merchant, restock, mail helper,
+                       character panel enchants, nameplates, server info,
                        main menu, auction prices
   DeckUIForever Orbs     round unit frames or Final Fantasy's bars, party
                        list, raid frames, buff bar, your debuffs

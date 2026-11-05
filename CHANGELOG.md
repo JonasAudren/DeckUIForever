@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0
+
+- Bars: the stance bar (forms, stances, auras, stealth) and the pet bar
+  as rows of the same square slots, in place of Blizzard's; a shaman's
+  totem bar keeps its place and gets the slot look. Each switchable on
+  the Bars page, on by default.
+- Hub: DeckUI's helpers for Classic content are in - restock at merchants
+  (arrows, reagents, water, food up to a count), the mail helper (your
+  characters in the "To" field, what Open All took) and the character
+  panel's item levels with missing enchants marked. All off by default.
+- Hub: the group listing as a small window - the activity, how long you
+  have been listed, your roles and the group so far. Off by default.
+- Orbs: five more Classic debuffs in the per-class lists (Faerie Fire
+  (Feral), Stormstrike, Fire Vulnerability, Winter's Chill, Judgement of
+  the Crusader).
+
 ## 1.0.0
 
 DeckUI, carried over to World of Warcraft: Forever (DECKUIFOREVER_BERICHT.md):

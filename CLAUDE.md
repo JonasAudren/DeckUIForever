@@ -110,6 +110,21 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   form or vehicle and Edit Mode with parked bars not yet seen). When Cross is ported, both modules would park bars 1 and 2 -
   decide then which owns them on the PC. The module is not gated to the PC; what the Deck's gamepad style
   does with a parked `MainActionBar` is part of the postponed Deck run.
+- **Stance, pet and totem bars** (2026-11-05, owner: "complete the bars", for 1.1.0): `stance.lua` is
+  DeckUI Cross's stance.lua as a row of square slots (SecureActionButtons of type "spell" with the form's
+  spell ID; keys stay Blizzard's SHAPESHIFTBUTTONn, which run `StanceBar:Select` whether the bar is
+  visible or not, so no override bindings). `pet.lua` is new: SecureActionButtons of type "pet"
+  (`type1` only, `action` = slot), right click `TogglePetAutocast` in PostClick on the release, the
+  visuals read from `GetPetActionInfo` as Blizzard's PetActionBarMixin does, guarded with `Plain` for
+  secrets; shown by a state driver `[pet,nopetbattle,novehicleui,nooverridebar,nopossessbar]`; keys are
+  BONUSACTIONBUTTONn (Blizzard's hidden buttons, pushed state mirrored). `totem.lua` does not rebuild
+  Blizzard's `MultiCastActionBarFrame` (an Edit Mode system with secure buttons, flyouts and its own
+  anchoring): it fades the ring art and adds the slot look to the 12 action, 4 slot and 2 spell buttons
+  (`Dress`), nothing of Blizzard's is wrapped - taint-safe; undo needs a reload. `ns.StyleSlot`,
+  `ns.ShowPushed`, `ns.KeyText`, `ns.KeyLabel`, `ns.extraRows` in core.lua are what the three share;
+  `stanceBar`, `petBar`, `totemBar` default to on. Blizzard's StanceBar and PetActionBar are parked through
+  `ns.SetBlizzardBarHidden`. **Untested in game** (the owner's priest has no forms, no pet, no totems -
+  a druid, hunter or shaman is needed).
 
 ## What phase 3 changed against DeckUI's modules (2026-11-05; owner's first test the same day: "all good" after the two fixes below)
 
@@ -146,6 +161,10 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   with the Classic spells' base-rank IDs (matched by name, so higher ranks match too) - unverified guesses
   until `/orbs dots` says what the client knows; no poison rows (poisons are weapon enchants in Classic).
   Its spec events are `ACTIVE_TALENT_GROUP_CHANGED`, `PLAYER_TALENT_UPDATE`, `SPELLS_CHANGED`.
+  The lists were read against Classic's spell IDs on 2026-11-05 (all base IDs right) and grew by Faerie
+  Fire (Feral) 16857 (a name of its own), Stormstrike 17364, Fire Vulnerability 22959 (from Scorch 2948),
+  Winter's Chill 12579 (talent 11180), Judgement of the Crusader 20188 (Seal 21082). Still to confirm
+  with `/orbs dots` on a warlock, rogue or mage.
   **Countdown numbers**: Forever writes a Cooldown frame's countdown in a font far too big for a
   22 px status icon ("50m" filled the icon, owner 2026-11-05; retail picks a small one itself), so
   `ns.StyleCountdown(button)` in core.lua gives every aura icon's cooldown a font object of our own
@@ -177,7 +196,9 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   "others" below the list are an aura group of four with `excludeSpellIDs`. Those pieces must be
   descendants of the engine's button and are laid out once at creation, so "Show the names" needs a
   reload; the bars stretch with the width. Nothing of ours reads an aura any more; `/orbs dots` prints
-  the slot IDs. **Tested in game 2026-11-05**: Shadow Word: Pain filled its capsule with the time, in and
+  the slot IDs. **A piece handed to the engine's button is forbidden to us afterwards**: `SetText` on
+  the live name threw "forbidden object" when a row was reassigned (owner 2026-11-05), so the engine
+  names every row (`SetSpellName`), and `Assign` touches only the static layer and the slot filter. **Tested in game 2026-11-05**: Shadow Word: Pain filled its capsule with the time, in and
   out of combat. The window lost its box, edges and tag the same day (owner: like the player frame) -
   only the unit's name in gold over the capsules.
   **The XIV EXP bar fades Blizzard's `Main/SecondaryStatusTrackingBarContainer`, never parks them**
@@ -219,12 +240,40 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   hands out no `Interface` field in Forever (owner's test 2026-11-05).
 - `panel.lua`: the Windows page keeps only the damage meter style; Cross's frames lose the assist
   indicator; the module descriptions name Forever's content.
-- Left out of the toc: `talkinghead.lua`, `questbook.lua`, `meter.lua`, `lfgqueue.lua` (Forever's
-  group finder is `Blizzard_GroupFinder_VanillaStyle`, no queue eye to replace - check in game),
-  `charpanel.lua`, `mail.lua`, `restock.lua` (Mists helpers; enchants and gems matter again in
-  Forever, so these are worth a later look against Camelot's own `PaperDollFrame.lua`).
+- Left out of the toc: `talkinghead.lua`, `questbook.lua`, `meter.lua`, `lfgqueue.lua`. **Forever has no
+  dungeon queue** (checked 2026-11-05): `Blizzard_GroupFinder`'s `PVEFrame.lua` loads for wrath, cata,
+  mists and mainline but not camelot; the LFD micro button opens `Blizzard_GroupFinder_VanillaStyle`
+  (`LFGParentFrame`, a listing browser on `C_LFGList`, Classic Era's tool). `GetLFGQueueStats` exists as
+  an API without a finder behind it, `QueueStatusButton` exists for battleground queues. So DeckUI's
+  queue window has nothing to show. **In its place `lfglisting.lua`** (owner 2026-11-05: "a window with
+  the time and what it has found"): shown while `C_LFGList.HasActiveEntryInfo()`, the activity names
+  (`GetActiveEntryInfo().activityIDs` -> `GetActivityInfoTable`, `maxNumPlayers` as the group's size),
+  a clock of ours from the entry's first appearance (the entry carries no age), the offered roles from
+  `C_LFGListRoles.GetRoles()` and the party's roles from `UnitGroupRolesAssigned` (the tool assigns
+  them, `PLAYER_ROLES_ASSIGNED`). `listingWindow`, Windows page, movable "Group listing"
+  (`PAGE_FRAMES.Windows`). Blizzard's eye stays. Untested in game.
+- **The Mists helpers are in since 2026-11-05 (for 1.1.0)**: `mail.lua` and `restock.lua` unchanged but
+  for the names (Forever's mail frame is retail's `Blizzard_MailFrame` with `OpenAllMail`; the merchant
+  API is retail's). `charpanel.lua` lost Mists' gems and belt buckle (Classic has no sockets) and checks
+  Classic's enchant slots: head, shoulders, back, chest, wrists, hands, legs, feet, main hand, an
+  off-hand weapon or shield (`C_Item.GetItemInfoInstant` class/subclass, a held frill takes none), a bow,
+  crossbow or gun in the ranged slot; rings never. Slot buttons are Camelot's `PaperDollFrame.xml`
+  (`CharacterHeadSlot` ... `CharacterRangedSlot`, `CharacterAmmoSlot` ignored); the summary line sits
+  6 px under `CharacterFrame`, whose tabs are at the side (`ModeTabs`). Options: `charPanel` on the
+  Windows page, `restock` and `mailHelper` on Loot and merchant; all off by default. Untested in game.
 - Kept as they were, with their feature checks: `merchant.lua` (falls back to selling one by one
   without `C_MerchantFrame.SellAllJunkItems`), `reputation.lua`, `lootroll.lua`.
+
+## Audit
+
+A scripted pass over the repo (2026-11-05, script in the session's scratchpad, easy to rewrite): syntax of
+every Lua file, toc entries against the folders and orphans, the toc headers, old names in code, `ns.`/`D.`
+names used but never defined, `D.MODULE_ADDONS` against the folders and `release-common.ps1`,
+`D.MakeMovable` keys against `D.PAGE_FRAMES`, hub options against `DEFAULTS`. What it still lists is
+meant: Cross's placeholders (`DeckUIForever_Cross` folder, "Cross Hotbar" frame, `DeckUIForeverCrossDB`),
+Week's retail fallbacks (`RetailTop`/`RetailRight` and the data they read, only run without
+`ns.DetailsTop`/`ns.DetailsRight`), Quests' guarded `ns.ApplyGuide`/`ns.ShowJourney`, and `ns.oUF`, which
+the embedded oUF sets.
 
 ## Release
 
@@ -265,3 +314,7 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
 6. **Released**: v1.0.0 on 2026-11-05 (tag, Release workflow, CurseForge file id 9452977, game version
    1.60.1 id 17053 / type 88568). Next versions: `bump-version.ps1`, a `## x.y.z` section in CHANGELOG.md,
    commit, tag. Then the Deck test.
+   **v1.1.0 prepared 2026-11-05** (the stance, pet and totem bars, the Classic helpers, the group listing,
+   five debuffs): version raised, `dist\DeckUIForever-1.1.0.zip` built and checked, commit and annotated tag
+   made locally; `git push && git push origin v1.1.0` publishes it. The bars, the helpers and the
+   listing window were not yet seen in game (the priest has no forms, pet or totems).

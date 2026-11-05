@@ -80,13 +80,13 @@ local function Ask(v) if Secret(v) then return nil end return v end
 local LISTS = {
     WARLOCK = { { id = 980 }, { id = 172 }, { id = 348 }, { id = 18265 }, { id = 603 } },  -- Curse of Agony, Corruption, Immolate, Siphon Life, Curse of Doom
     PRIEST  = { { id = 589 }, { id = 2944 } },                                             -- Shadow Word: Pain, Devouring Plague
-    DRUID   = { { id = 8921 }, { id = 5570 }, { id = 1822 }, { id = 1079 }, { id = 770 } }, -- Moonfire, Insect Swarm, Rake, Rip, Faerie Fire
+    DRUID   = { { id = 8921 }, { id = 5570 }, { id = 1822 }, { id = 1079 }, { id = 770 }, { id = 16857, known = 16857 } }, -- Moonfire, Insect Swarm, Rake, Rip, Faerie Fire, Faerie Fire (Feral) - a name of its own, matched by its own ID
     ROGUE   = { { id = 1943 }, { id = 703 }, { id = 8647 }, { id = 16511 } },               -- Rupture, Garrote, Expose Armor, Hemorrhage
     HUNTER  = { { id = 1978 }, { id = 1130 } },                                            -- Serpent Sting, Hunter's Mark
     WARRIOR = { { id = 772 }, { id = 7386 }, { id = 1160 } },                              -- Rend, Sunder Armor, Demoralizing Shout
-    SHAMAN  = { { id = 8050 } },                                                           -- Flame Shock
-    MAGE    = { { id = 11366 }, { id = 12654, known = 12846 } },                           -- Pyroblast, Ignite
-    PALADIN = { { id = 20185, known = 20165 }, { id = 20186, known = 20166 } },            -- Judgement of Light (Seal of Light), of Wisdom (Seal of Wisdom)
+    SHAMAN  = { { id = 8050 }, { id = 17364, known = 17364 } },                            -- Flame Shock, Stormstrike (talent)
+    MAGE    = { { id = 11366 }, { id = 12654, known = 12846 }, { id = 22959, known = 2948 }, { id = 12579, known = 11180 } }, -- Pyroblast, Ignite, Fire Vulnerability (from Scorch), Winter's Chill (talent)
+    PALADIN = { { id = 20185, known = 20165 }, { id = 20186, known = 20166 }, { id = 20188, known = 21082 } }, -- Judgement of Light (Seal of Light), of Wisdom (Seal of Wisdom), of the Crusader (Seal of the Crusader)
 }
 
 local function SpellName(id)
@@ -376,11 +376,11 @@ local function LiveButton(button, r, c, named, anchorButton)
     local L = Layer(button, true)
     button:SetIcon(L.icon)
     button:SetApplicationCount(L.count, {})
-    if named then
-        button:SetSpellName(L.name)
-    else
-        L.name:SetText(r.liveName or "")
-    end
+    -- the engine writes the name, in the list rows too: a piece handed to
+    -- the engine's button is forbidden to us afterwards (SetText on it
+    -- threw "forbidden object" when a row was reassigned, owner
+    -- 2026-11-05), and a list row's slot holds that one spell anyway
+    button:SetSpellName(L.name)
     button:SetDurationBar(L.bar, { direction = Enum.StatusBarTimerDirection and Enum.StatusBarTimerDirection.RemainingTime })
     button:SetDurationText(L.time, {})
     button:AddPandemicRegion(L.late)
@@ -417,7 +417,6 @@ local function Assign(r, e)
     r.liveName = e.name
     r.static.icon:SetTexture(e.icon or 134400)
     r.static.name:SetText(e.name or "")
-    if r.live then r.live.name:SetText(e.name or "") end
     pcall(r.auras.SetAuraSlotCandidateFilters, r.auras, "dot", { includeSpellIDs = e.ids or {} })
 end
 
