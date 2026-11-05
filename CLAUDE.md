@@ -314,7 +314,6 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
 6. **Released**: v1.0.0 on 2026-11-05 (tag, Release workflow, CurseForge file id 9452977, game version
    1.60.1 id 17053 / type 88568). Next versions: `bump-version.ps1`, a `## x.y.z` section in CHANGELOG.md,
    commit, tag. Then the Deck test.
-   **v1.1.0 prepared 2026-11-05** (the stance, pet and totem bars, the Classic helpers, the group listing,
-   five debuffs): version raised, `dist\DeckUIForever-1.1.0.zip` built and checked, commit and annotated tag
-   made locally; `git push && git push origin v1.1.0` publishes it. The bars, the helpers and the
-   listing window were not yet seen in game (the priest has no forms, pet or totems).
+   **Released**: v1.1.0 on 2026-11-05 (the stance, pet and totem bars, the Classic helpers, the group
+   listing, five debuffs; tag push, Release workflow run 42079272178, CurseForge file id 9456774). The bars,
+   the helpers and the listing window were not yet seen in game (the priest has no forms, pet or totems).
