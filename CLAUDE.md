@@ -227,8 +227,9 @@ to `D.MODULE_ADDONS` when it is ported), `package.ps1` builds `dist\DeckForever-
 folders at the top level, `bump-version.ps1 <version> [-Interface 16002]` raises the `.toc` headers,
 `changelog.ps1` takes the `## <version>` section of `CHANGELOG.md`. The workflow
 (`.github/workflows/release.yml`) uploads on a `v*` tag through `upload-curseforge.ps1`; it needs the
-secret `CF_API_TOKEN` and the repository variable `CF_PROJECT_ID` - there is no CurseForge project and no
-GitHub remote yet. The tag's suffix decides the release type (`-beta`, `-alpha`, none = full release).
+secret `CF_API_TOKEN` and the repository variable `CF_PROJECT_ID`. The repository is
+`https://github.com/JonasAudren/DeckForever` (public, made 2026-11-05, `origin`); the CurseForge project
+does not exist yet - the owner makes it, then `## X-Curse-Project-ID` goes into the hub's toc. The tag's suffix decides the release type (`-beta`, `-alpha`, none = full release).
 
 ## Open, in order (DECKFOREVER_BERICHT.md section 7)
 
