@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: DeckForever Spec
+## Notes: DeckForever module: one-click talent group switcher (dual talents)
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckForever\textures\face_a
+## X-Category: Class
+## Dependencies: DeckForever
+## LoadOnDemand: 1
+## SavedVariables: DeckForeverSpecDB
+
+# core.lua is DeckUI's core_mists.lua: talent groups instead of specializations
+core.lua
+config.lua

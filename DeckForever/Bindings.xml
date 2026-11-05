@@ -1,0 +1,6 @@
+<Bindings>
+    <Binding name="DECKFOREVER_NAV_NEXT" header="DECKFOREVER" category="ADDONS">DeckForever.NavStep(1)</Binding>
+    <Binding name="DECKFOREVER_NAV_PREV" category="ADDONS">DeckForever.NavStep(-1)</Binding>
+    <Binding name="DECKFOREVER_LOOT_ALL" category="ADDONS">if DeckForever.LootAll then DeckForever.LootAll() end</Binding>
+    <Binding name="DECKFOREVER_WEEK" category="ADDONS">DeckForever.ToggleWeek()</Binding>
+</Bindings>

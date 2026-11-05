@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: DeckForever Tooltip
+## Notes: DeckForever module: the mouse-over tooltip in DeckForever's style, at a fixed place per device
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckForever\textures\face_a
+## X-Category: Tooltip
+## Dependencies: DeckForever
+## LoadOnDemand: 1
+## SavedVariables: DeckForeverTooltipDB
+
+# repdata.lua is retail's generated table (spell -> faction); it carries the
+# Classic-era reputation spells too, so it serves until Forever's own data
+# can be read from wago.tools.
+core.lua
+lines.lua
+repdata.lua
+extras.lua
+config.lua

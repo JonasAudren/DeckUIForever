@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: DeckForever Nav
+## Notes: DeckForever module: compass bar, navigation target with arrow, quest target switching, /way waypoints
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckForever\textures\face_a
+## X-Category: Map & Minimap
+## Dependencies: DeckForever
+## LoadOnDemand: 1
+## SavedVariables: DeckForeverNavDB
+
+core.lua
+compass.lua
+beacon.lua
+waypoints.lua
+config.lua

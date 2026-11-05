@@ -1,0 +1,20 @@
+## Interface: 16001
+## Title: DeckForever Quests
+## Notes: DeckForever module: a compact objective tracker for quests, timers, scenarios and dungeons
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckForever\textures\face_a
+## X-Category: Quests & Leveling
+## Dependencies: DeckForever
+## LoadOnDemand: 1
+## SavedVariables: DeckForeverQuestsDB
+
+# DeckUI's tracker without delves.lua, hunt.lua and guide.lua (Midnight
+# content); timers.lua draws Forever's classic quest timers.
+core.lua
+quests.lua
+timers.lua
+world.lua
+scenario.lua
+tracking.lua
+config.lua

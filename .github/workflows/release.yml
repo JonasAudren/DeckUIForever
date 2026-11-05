@@ -1,0 +1,123 @@
+name: Release
+
+# Push a tag like v1.0.1 and this builds the zip and uploads it to
+# CurseForge. The tag's suffix decides how the file is published:
+#
+#   v1.0.1-beta    uploaded as a beta   (only users who opted into betas)
+#   v1.0.1-alpha   uploaded as an alpha
+#   v1.0.1         uploaded as a full release, reaching everyone
+#
+# Run it by hand first with dry_run on: that builds and checks everything,
+# talks to the API to resolve the game version, and stops short of
+# uploading.
+#
+# Needs the repository secret CF_API_TOKEN (Settings -> Secrets and variables
+# -> Actions). Create the token in your CurseForge account settings.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, e.g. 1.0.1"
+        required: true
+      release_type:
+        description: "Release type (auto = decide from the version suffix, as a tag does)"
+        default: auto
+        type: choice
+        options: [auto, beta, release, alpha]
+      dry_run:
+        description: "Build and check, but do not upload"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# One run per tag. The push of v2.0.2 started two runs in the same second,
+# and both uploaded - two identical files on CurseForge (2026-10-26). A
+# second run for the same ref now cancels the first, which is still
+# building by then, so only one of them reaches the upload.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The changelog is built from the commits since the previous tag,
+          # and the default shallow clone carries neither tags nor history.
+          fetch-depth: 0
+
+      - name: Work out version and release type
+        id: plan
+        shell: pwsh
+        run: |
+          # The suffix decides, and it stays part of the version: the archive
+          # and the .toc files then say the same as the file page, so a player
+          # can read off what they installed. A tag without a suffix is a full
+          # release and reaches everyone - that is the one to be sure about
+          # before pushing. A hand start with "auto" asks the same question,
+          # which is how a tag can be rehearsed without publishing anything.
+          function Get-ReleaseType([string]$v) {
+            if     ($v -like "*-alpha*") { return "alpha" }
+            elseif ($v -like "*-beta*")  { return "beta" }
+            else                         { return "release" }
+          }
+
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $version     = $env:GITHUB_REF_NAME -replace "^v", ""
+            $releaseType = Get-ReleaseType $version
+            $dryRun      = "false"
+          } else {
+            $version     = "${{ inputs.version }}" -replace "^v", ""
+            $releaseType = "${{ inputs.release_type }}"
+            if ($releaseType -eq "auto") { $releaseType = Get-ReleaseType $version }
+            $dryRun      = "${{ inputs.dry_run }}".ToLower()
+          }
+          if (-not $version) { throw "no version to build" }
+          Add-Content $env:GITHUB_OUTPUT "version=$version"
+          Add-Content $env:GITHUB_OUTPUT "release_type=$releaseType"
+          Add-Content $env:GITHUB_OUTPUT "dry_run=$dryRun"
+          Write-Host "  building $version as $releaseType (dry run: $dryRun)"
+
+      - name: Build the package
+        id: build
+        shell: pwsh
+        run: ./package.ps1 -Version "${{ steps.plan.outputs.version }}"
+
+      - name: Write the changelog
+        shell: pwsh
+        run: |
+          ./changelog.ps1 -Version "${{ steps.plan.outputs.version }}" -Repo "${{ github.repository }}" -OutFile release-notes.md
+          Write-Host "--- release-notes.md ---"
+          Get-Content release-notes.md
+
+      - name: Upload to CurseForge
+        shell: pwsh
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          $params = @{
+            Zip           = "${{ steps.build.outputs.zip }}"
+            # the CurseForge project of DeckForever, once it exists: a repository
+            # variable (Settings -> Secrets and variables -> Actions -> Variables)
+            ProjectId     = "${{ vars.CF_PROJECT_ID }}"
+            ReleaseType   = "${{ steps.plan.outputs.release_type }}"
+            # one game: Forever's interface number from the .toc files
+            Interface     = @("${{ steps.build.outputs.interface }}")
+            Changelog     = (Get-Content release-notes.md -Raw)
+          }
+          if ("${{ steps.plan.outputs.dry_run }}" -eq "true") { $params["DryRun"] = $true }
+          ./upload-curseforge.ps1 @params
+
+      - name: Keep the built zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: DeckForever-${{ steps.plan.outputs.version }}
+          path: ${{ steps.build.outputs.zip }}
+          if-no-files-found: error
