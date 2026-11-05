@@ -1,10 +1,10 @@
-# DeckForever – project notes for Claude Code
+# DeckUIForever – project notes for Claude Code
 
 DeckUI for **World of Warcraft: Forever** (client `C:\Spiele\World of Warcraft\_forever_`, product
 `wowf`, 1.60.1, project `WOW_PROJECT_CAMELOT` = 18, Interface **16001** - the wiki's number for the
 beta, to be confirmed in game with `/df build`). A separate addon package, carried over from
 DeckUI (`..\DeckUI`, retail Midnight 12.1.5 and Mists of Pandaria Classic 5.5.4) one module at a time.
-The plan and the findings are in `DECKFOREVER_BERICHT.md` (02.11.2026, read against the installed
+The plan and the findings are in `DECKUIFOREVER_BERICHT.md` (02.11.2026, read against the installed
 client's exe and Blizzard's `forever` UI source); `FOREVER_BERICHT.md` (26.10.) is the research
 that preceded it. The owner tests everything in game himself; Claude Code cannot run WoW.
 
@@ -15,28 +15,28 @@ talent groups from level 40 instead, `C_SpecializationInfo.GetActiveSpecGroup`, 
 `ACTIVE_TALENT_GROUP_CHANGED`), no one-button assistant, no Great Vault, Mythic+, delves, hunts,
 talking head, housing. New: keyring, the Legacy system in place of achievements, a classic quest
 timer, the totem bar, and **Blizzard's own gamepad UI** (`Blizzard_Gamepad*`, section 3 of the
-report) - whether DeckForever Cross or Blizzard's gamepad style runs on the Deck is **the open
+report) - whether DeckUIForever Cross or Blizzard's gamepad style runs on the Deck is **the open
 decision**, taken with the live client (phase 4).
 
 ## Layout
 
 ```
-DeckForever/        hub (phase 1, 2026-11-05): device detection, settings window (/df), movable frames,
+DeckUIForever/        hub (phase 1, 2026-11-05): device detection, settings window (/df), movable frames,
                     minimap button, loot, merchant, nameplates, info bars, main menu, auction, damage meter style
-DeckForever_Orbs/   phase 2 (2026-11-05): unit frames on oUF (/orbs); classpower_forever.lua before oUF
-DeckForever_Map/    phase 2: square or round minimap, smaller world map (/deckmap)
-DeckForever_Nav/    phase 2: compass, navigation target, waypoints, /way (/decknav)
-DeckForever_Tooltip/ phase 2: the mouse-over tooltip (/decktip)
-DeckForever_Spec/   phase 3 (2026-11-05): talent group switcher (/spec), DeckUI's core_mists.lua
-DeckForever_Bags/   phase 3: bags with the keyring, bank with bag slots behind the tabs (/bags)
-DeckForever_Quests/ phase 3: objective tracker with quest timers (/quests)
-DeckForever_Week/   phase 5 (2026-11-05): the week for every character (/week)
-DeckForever_Bars/   2026-11-05, owner's wish outside the plan: the eight action bars in FFXIV's hotbar look
+DeckUIForever_Orbs/   phase 2 (2026-11-05): unit frames on oUF (/orbs); classpower_forever.lua before oUF
+DeckUIForever_Map/    phase 2: square or round minimap, smaller world map (/deckmap)
+DeckUIForever_Nav/    phase 2: compass, navigation target, waypoints, /way (/decknav)
+DeckUIForever_Tooltip/ phase 2: the mouse-over tooltip (/decktip)
+DeckUIForever_Spec/   phase 3 (2026-11-05): talent group switcher (/spec), DeckUI's core_mists.lua
+DeckUIForever_Bags/   phase 3: bags with the keyring, bank with bag slots behind the tabs (/bags)
+DeckUIForever_Quests/ phase 3: objective tracker with quest timers (/quests)
+DeckUIForever_Week/   phase 5 (2026-11-05): the week for every character (/week)
+DeckUIForever_Bars/   2026-11-05, owner's wish outside the plan: the eight action bars in FFXIV's hotbar look
                     for keyboard and mouse (page "Bars", /df bars); LibActionButton as DeckUI Cross carries it
                     Cross (phase 4) follows; D.MODULE_ADDONS in core.lua names it already, and a module
                     whose folder does not exist shows "Not ported yet"
 ```
-Module SavedVariables are `DeckForever<Module>DB` (`DeckForeverOrbsDB`, `DeckForeverMapDB`, ...), the
+Module SavedVariables are `DeckUIForever<Module>DB` (`DeckUIForeverOrbsDB`, `DeckUIForeverMapDB`, ...), the
 module slash commands stay DeckUI's (`/orbs`, `/deckmap`, `/decknav`, `/decktip`), frame names too
 (`DeckMapMinimap`, which the hub's minimap button asks for). `libs\oUF` is **DeckUI's patched copy,
 unchanged**, so a library update is done once in DeckUI and copied here; its Mists hooks
@@ -45,7 +45,7 @@ In `_forever_\Interface\AddOns\` the folders are directory junctions into this r
 (`New-Item -ItemType Junction` in PowerShell; `cmd /c mklink /J` from Git Bash fails on the quoting).
 A `.lua` change is live after `/reload`; `.toc` changes or new folders/textures need a client restart.
 The client took the `_Camelot.toc` of the probe when `_Forever.toc` lay beside it; a plain `Name.toc`
-loads too, and DeckForever keeps to that. Interface **16001** is confirmed (`/df build`, 2026-11-05).
+loads too, and DeckUIForever keeps to that. Interface **16001** is confirmed (`/df build`, 2026-11-05).
 
 Probe facts the later phases build on (section 8 of the report has them all): the keyring is container
 -1 with 32 slots and `C_Bank.ShouldUsePlayerBagsInBank()` is true (Blizzard shows bank tabs as pages);
@@ -56,10 +56,10 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
 
 ## Naming
 
-- Global table `DeckForever` (`local D = DeckForever`), SavedVariables `DeckForeverDB`, slash command
+- Global table `DeckUIForever` (`local D = DeckUIForever`), SavedVariables `DeckUIForeverDB`, slash command
   **`/df`** (`/df build`, `/df unlock`, `/df bars`, `/df layout`, `/df errors`, `/df <page>`), key
-  bindings `DECKFOREVER_*` in `DeckForever/Bindings.xml`, frame names `DeckForever*`. Module tables and
-  commands get the same treatment when they are ported (`DeckForeverOrbsDB` or alike - decide at phase 2
+  bindings `DECKUIFOREVER_*` in `DeckUIForever/Bindings.xml`, frame names `DeckUIForever*`. Module tables and
+  commands get the same treatment when they are ported (`DeckUIForeverOrbsDB` or alike - decide at phase 2
   and keep to it). Frame keys for `D.MakeMovable` ("Main menu", "Loot") are unchanged, so DeckUI's
   positions could be carried over by hand if ever wanted.
 - Everything in English: code, comments, menu texts, chat messages, README. The reports are German.
@@ -79,7 +79,7 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
 
 ## Bars (2026-11-05, not in the report; owner: "action bars like FFXIV, but for the PC, not the controller")
 
-- A module of its own, `DeckForever_Bars`, built from DeckUI Cross's `bars.lua` (the FFXIV slot look for
+- A module of its own, `DeckUIForever_Bars`, built from DeckUI Cross's `bars.lua` (the FFXIV slot look for
   bars 3-8) and `input.lua` (parking Blizzard's bars, the override bar fade, the leave-vehicle button):
   **all eight bars**, `ns.BARS` in core.lua with Blizzard's numbering (1 = ActionButton, 2 =
   MultiBarBottomLeft, 3 = MultiBarBottomRight, 4 = MultiBarRight, 5 = MultiBarLeft, 6-8 = MultiBar5-7).
@@ -91,15 +91,15 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   true for `WOW_PROJECT_CAMELOT`): Forever has secrets, duration objects, `C_LevelLink` and the
   assisted-combat API, so the retail paths are the right ones; the libs are otherwise DeckUI Cross's copy.
   The hub: `Bars` in `D.MODULE_ADDONS`/`MODULE_ORDER`, its description, `PAGE_FRAMES.Bars` (eight bars
-  and "Leave vehicle"), `PAGE_RESET.Bars` on `DeckForeverBarsDB`, `/df bars` chains `D.PrintModuleBars`.
+  and "Leave vehicle"), `PAGE_RESET.Bars` on `DeckUIForeverBarsDB`, `/df bars` chains `D.PrintModuleBars`.
   **The slot look follows the owner's FFXIV hotbar screenshot** (2026-11-05): an empty slot is nearly
   transparent - a black shade at alpha 0.2 under a 1 px light outline (four WHITE8x8 lines at alpha 0.3)
   - the key sits white on the top-left corner (LAB hotkey at offset 0/+2, 11 px), the icon fills the slot
   behind the rounded mask. The dark edge and the dark fill of DeckUI's bars.lua are gone.
-  The nil `DeckForeverBarsDB` of the first test is fixed (made on ADDON_LOADED, as Week does).
+  The nil `DeckUIForeverBarsDB` of the first test is fixed (made on ADDON_LOADED, as Week does).
   Second LAB patch (owner's test 2026-11-05): `GetFlyoutInfo(id)` returns nothing for an unknown
   flyout in Forever where retail errors, so the two flyout loops skip a nil `numSlots` (marked
-  "DeckForever" in the lib). Both patches must be carried over on a library update.
+  "DeckUIForever" in the lib). Both patches must be carried over on a library update.
   Owner's test the same day after the two LAB patches: "very good" (PC, level 6 priest; paging on a
   form or vehicle and Edit Mode with parked bars not yet seen). When Cross is ported, both modules would park bars 1 and 2 -
   decide then which owns them on the PC. The module is not gated to the PC; what the Deck's gamepad style
@@ -112,7 +112,7 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   group, so a button shows the **class icon with the group's number** (`CLASS_ICON_TCOORDS` on the
   class circle sheet) instead of a spec icon. Page name "Talent groups".
 - **Bags**: `ns.NumSlots(bag)` sizes the **keyring** (container -1) with `GetKeyRingSize`, as Blizzard's bag
-  frame does - `GetContainerNumSlots(-1)` says 32; a "Keys" section in both views (`DeckForeverBagsDB.keyring`,
+  frame does - `GetContainerNumSlots(-1)` says 32; a "Keys" section in both views (`DeckUIForeverBagsDB.keyring`,
   on). No old-expansions filter (one expansion), no Mists item-button path. **The empty-slot background
   is drawn by hand** (file and texture coordinates of `ItemSlotBackgroundCombinedBagsTemplate`): the
   template is in Blizzard's 70532 source but not in the 70790 client (50 errors, owner 2026-11-05); the
@@ -223,15 +223,15 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
 ## Release
 
 `release-common.ps1` lists the addon folders (`$addons` - add a module there and
-to `D.MODULE_ADDONS` when it is ported), `package.ps1` builds `dist\DeckForever-<version>.zip` with the
+to `D.MODULE_ADDONS` when it is ported), `package.ps1` builds `dist\DeckUIForever-<version>.zip` with the
 folders at the top level, `bump-version.ps1 <version> [-Interface 16002]` raises the `.toc` headers,
 `changelog.ps1` takes the `## <version>` section of `CHANGELOG.md`. The workflow
 (`.github/workflows/release.yml`) uploads on a `v*` tag through `upload-curseforge.ps1`; it needs the
 secret `CF_API_TOKEN` and the repository variable `CF_PROJECT_ID`. The repository is
-`https://github.com/JonasAudren/DeckForever` (public, made 2026-11-05, `origin`); the CurseForge project
+`https://github.com/JonasAudren/DeckUIForever` (public, made 2026-11-05, `origin`); the CurseForge project
 does not exist yet - the owner makes it, then `## X-Curse-Project-ID` goes into the hub's toc. The tag's suffix decides the release type (`-beta`, `-alpha`, none = full release).
 
-## Open, in order (DECKFOREVER_BERICHT.md section 7)
+## Open, in order (DECKUIFOREVER_BERICHT.md section 7)
 
 0. The probe ran on 2026-11-05 (build 70790, PC, keyboard style): section 8 of the report has the
    answers, `tools/probe_2026-11-05.json` the raw data. Still open from it: the Deck in the gamepad

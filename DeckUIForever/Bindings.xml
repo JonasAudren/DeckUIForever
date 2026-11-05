@@ -1,0 +1,6 @@
+<Bindings>
+    <Binding name="DECKUIFOREVER_NAV_NEXT" header="DECKUIFOREVER" category="ADDONS">DeckUIForever.NavStep(1)</Binding>
+    <Binding name="DECKUIFOREVER_NAV_PREV" category="ADDONS">DeckUIForever.NavStep(-1)</Binding>
+    <Binding name="DECKUIFOREVER_LOOT_ALL" category="ADDONS">if DeckUIForever.LootAll then DeckUIForever.LootAll() end</Binding>
+    <Binding name="DECKUIFOREVER_WEEK" category="ADDONS">DeckUIForever.ToggleWeek()</Binding>
+</Bindings>

@@ -1,0 +1,21 @@
+## Interface: 16001
+## Title: DeckUIForever Bars
+## Notes: DeckUIForever module: the eight action bars in Final Fantasy XIV's hotbar look, for keyboard and mouse
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Action Bars
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+## SavedVariables: DeckUIForeverBarsDB
+
+# LibActionButton as DeckUI Cross carries it, with two small patches for
+# Forever (marked "DeckUIForever" in LibActionButton-1.0.lua)
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibActionButton-1.0\LibButtonGlow-1.0\LibButtonGlow-1.0.lua
+libs\LibActionButton-1.0\LibActionButton-1.0.lua
+blizzard.lua
+core.lua
+config.lua

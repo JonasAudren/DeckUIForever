@@ -1,36 +1,36 @@
-DeckForever
+DeckUIForever
 ===========
 
 DeckUI for World of Warcraft: Forever - a compact, controller-friendly
 interface for the Steam Deck that also works on the PC with your normal
 key bindings.
 
-DeckForever is a hub with load-on-demand modules, carried over from DeckUI
+DeckUIForever is a hub with load-on-demand modules, carried over from DeckUI
 (the retail and Mists of Pandaria Classic addon) one by one. Enable or
 disable each module on its own page in /df; what you do not use is never
 loaded.
 
-  DeckForever          the hub: device detection, settings window, movable
+  DeckUIForever          the hub: device detection, settings window, movable
                        frames, loot, merchant, nameplates, server info,
                        main menu, auction prices
-  DeckForever Orbs     round unit frames or Final Fantasy's bars, party
+  DeckUIForever Orbs     round unit frames or Final Fantasy's bars, party
                        list, raid frames, buff bar, your debuffs
-  DeckForever Cross    cross hotbar                       (not ported yet)
-  DeckForever Bars     the eight action bars in Final Fantasy XIV's hotbar
+  DeckUIForever Cross    cross hotbar                       (not ported yet)
+  DeckUIForever Bars     the eight action bars in Final Fantasy XIV's hotbar
                        look, for keyboard and mouse
                                                (off until you switch it on)
-  DeckForever Spec     one-click talent group switcher (dual talents)
-  DeckForever Bags     all bags and the keyring in one window, the bank
+  DeckUIForever Spec     one-click talent group switcher (dual talents)
+  DeckUIForever Bags     all bags and the keyring in one window, the bank
                        with its bag slots      (off until you switch it on)
-  DeckForever Quests   a compact objective tracker with quest timers
+  DeckUIForever Quests   a compact objective tracker with quest timers
                                                (off until you switch it on)
-  DeckForever Map      a square or round minimap and a smaller world map
+  DeckUIForever Map      a square or round minimap and a smaller world map
                        (off until you switch it on in /df)
-  DeckForever Tooltip  the mouse-over tooltip in DeckForever's style
+  DeckUIForever Tooltip  the mouse-over tooltip in DeckUIForever's style
                        (off until you switch it on in /df)
-  DeckForever Nav      a compass bar, the navigation target, /way waypoints
+  DeckUIForever Nav      a compass bar, the navigation target, /way waypoints
                        (off until you switch it on in /df)
-  DeckForever Week     the week at a glance: raid lockouts, Legacy and PvP
+  DeckUIForever Week     the week at a glance: raid lockouts, Legacy and PvP
                        renown, dailies, weekly quests, reputation and
                        currencies for every character
                                                (off until you switch it on)
@@ -47,9 +47,9 @@ Installation
 
      World of Warcraft\_forever_\Interface\AddOns\
 
-   so that you end up with AddOns\DeckForever (and, as they are ported,
-   AddOns\DeckForever_Orbs and the others).
-3. Start the game. In the addon list on the character screen, DeckForever
+   so that you end up with AddOns\DeckUIForever (and, as they are ported,
+   AddOns\DeckUIForever_Orbs and the others).
+3. Start the game. In the addon list on the character screen, DeckUIForever
    and its modules must be checked. The modules are marked "load on
    demand" and depend on the hub - if the hub is unchecked, nothing loads.
 4. Log in.

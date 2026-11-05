@@ -3,7 +3,7 @@
 ## 0.1.0
 
 The hub of DeckUI, carried over to World of Warcraft: Forever (phase 1 of
-DECKFOREVER_BERICHT.md). Not released yet.
+DECKUIFOREVER_BERICHT.md). Not released yet.
 
 - Settings window (/df), movable frames per device, Lua error window,
   minimap button, UI scale per device.
@@ -22,7 +22,7 @@ DECKFOREVER_BERICHT.md). Not released yet.
   per bar, Action Bar 1 with its pages; Blizzard's bars parked meanwhile.
 - Map: square or round minimap with Forever's day/night indicator, the
   smaller world map. Nav: compass, navigation target, beacon, waypoints.
-  Tooltip: DeckForever's look, item level of players, quest items,
+  Tooltip: DeckUIForever's look, item level of players, quest items,
   reputation items, auction prices.
 - Spec: the talent group switcher (dual talents from level 40), with an
   equipment set per group. Bags: the keyring as its own section, the bank

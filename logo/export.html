@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>DeckForever logo export</title>
+<title>DeckUIForever logo export</title>
 <!--
-  Saves deckforever-logo.svg as a PNG, offline, without any tooling
+  Saves deckuiforever-logo.svg as a PNG, offline, without any tooling
   installed. Open this file in a browser and click a size.
 
-  deckforever-logo.svg is the source of truth; the markup below is a copy of
+  deckuiforever-logo.svg is the source of truth; the markup below is a copy of
   it, because a file:// page may not read a sibling file (CORS) and drawing
   a file:// image onto a canvas taints it, which blocks the PNG export.
   Keep the two in sync when the logo changes.
@@ -39,11 +39,11 @@
 </head>
 <body>
 
-<h1>DeckForever logo</h1>
+<h1>DeckUIForever logo</h1>
 
 <div class="stage" id="stage">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" id="logo" role="img" aria-label="DeckForever">
-  <title>DeckForever</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" id="logo" role="img" aria-label="DeckUIForever">
+  <title>DeckUIForever</title>
   <defs>
     <radialGradient id="bg" cx="50%" cy="42%" r="70%">
       <stop offset="0%"   stop-color="#1F1F1F"/>
@@ -121,7 +121,7 @@ function download(size) {
     canvas.toBlob(blob => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'deckforever-logo-' + size + '.png';
+      a.download = 'deckuiforever-logo-' + size + '.png';
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }, 'image/png');

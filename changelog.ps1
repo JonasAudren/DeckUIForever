@@ -146,7 +146,7 @@ try {
     }
 
     $body = New-Object System.Collections.Generic.List[string]
-    $body.Add("## DeckForever $newVersion")
+    $body.Add("## DeckUIForever $newVersion")
     $body.Add("")
 
     $section = $null

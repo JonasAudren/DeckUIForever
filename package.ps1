@@ -1,7 +1,7 @@
 <#
-    package.ps1 - build the CurseForge upload zip for DeckForever.
+    package.ps1 - build the CurseForge upload zip for DeckUIForever.
 
-    Writes dist\DeckForever-<version>.zip with the addon folders at the TOP
+    Writes dist\DeckUIForever-<version>.zip with the addon folders at the TOP
     LEVEL of the archive. A wrapping folder would install every addon one
     level too deep, so the archive layout is printed at the end for a look.
 
@@ -32,7 +32,7 @@ $ErrorActionPreference = "Stop"
 
 $root   = $PSScriptRoot
 . (Join-Path $root "release-common.ps1")   # $addons, Get-TocField
-$extras = @("README.txt", "LICENSE.txt", "THIRD-PARTY.txt")   # shipped inside the DeckForever folder
+$extras = @("README.txt", "LICENSE.txt", "THIRD-PARTY.txt")   # shipped inside the DeckUIForever folder
 $dist   = Join-Path $root "dist"
 
 # Developer files that live in the libraries but must not ship.
@@ -41,13 +41,13 @@ $dropFiles = @(".editorconfig", ".gitattributes", ".luacheckrc", ".pkgmeta",
                "Thumbs.db", ".DS_Store")
 
 # Libraries that bundle their own copies of LibStub and CallbackHandler.
-# DeckForever_Bars.toc loads exactly one copy of each, so these never run and
+# DeckUIForever_Bars.toc loads exactly one copy of each, so these never run and
 # only bloat the archive. Listed by path, so nothing goes by accident; a
 # path that is not there prints a note and nothing more.
 $dropPaths = @(
-    "DeckForever_Bars/libs/CallbackHandler-1.0/LibStub",
-    "DeckForever_Bars/libs/LibActionButton-1.0/LibStub",
-    "DeckForever_Bars/libs/LibActionButton-1.0/CallbackHandler-1.0"
+    "DeckUIForever_Bars/libs/CallbackHandler-1.0/LibStub",
+    "DeckUIForever_Bars/libs/LibActionButton-1.0/LibStub",
+    "DeckUIForever_Bars/libs/LibActionButton-1.0/CallbackHandler-1.0"
 )
 
 # --- read the .toc headers --------------------------------------------
@@ -86,13 +86,13 @@ if ($Version) {
 
 # A missing project id is fine before the CurseForge project exists, but it
 # is easy to forget, so say so rather than silently shipping without it.
-$hubToc = Join-Path $root "DeckForever/DeckForever.toc"
+$hubToc = Join-Path $root "DeckUIForever/DeckUIForever.toc"
 if (-not (Get-TocField $hubToc "X-Curse-Project-ID")) {
     Write-Host "  note: X-Curse-Project-ID is not set yet" -ForegroundColor Yellow
 }
 
 # --- stage a clean copy ------------------------------------------------
-$stage = Join-Path ([System.IO.Path]::GetTempPath()) ("deckforever-pkg-" + [guid]::NewGuid().ToString("N"))
+$stage = Join-Path ([System.IO.Path]::GetTempPath()) ("deckuiforever-pkg-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory $stage | Out-Null
 try {
     foreach ($a in $addons) {
@@ -101,7 +101,7 @@ try {
 
     foreach ($e in $extras) {
         $src = Join-Path $root $e
-        if (Test-Path $src) { Copy-Item $src -Destination (Join-Path $stage "DeckForever") }
+        if (Test-Path $src) { Copy-Item $src -Destination (Join-Path $stage "DeckUIForever") }
     }
 
     foreach ($d in $dropDirs) {
@@ -141,7 +141,7 @@ try {
 
     # --- zip it, entry names with forward slashes ---------------------
     if (-not (Test-Path $dist)) { New-Item -ItemType Directory $dist | Out-Null }
-    $zip = Join-Path $dist "DeckForever-$buildVersion.zip"
+    $zip = Join-Path $dist "DeckUIForever-$buildVersion.zip"
     if (Test-Path $zip) { Remove-Item $zip -Force }
 
     # Windows PowerShell needs these loaded; on PowerShell 7 they are already

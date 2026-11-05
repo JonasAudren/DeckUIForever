@@ -12,7 +12,7 @@
     through GET /api/game/versions and matched by name. The name is derived
     from the ## Interface number unless -GameVersion says otherwise.
     One file can serve several games: -Interface takes a list and the file
-    is filed under each. DeckForever has one game, World of Warcraft:
+    is filed under each. DeckUIForever has one game, World of Warcraft:
     Forever (1.60.1). Every name must be found, or nothing is uploaded.
 
     The token is read from the CF_API_TOKEN environment variable and is never
@@ -21,7 +21,7 @@
     Needs PowerShell 7 (pwsh) for Invoke-RestMethod -Form; Windows PowerShell
     5.1 cannot do multipart. GitHub's runners have pwsh preinstalled.
 
-    Usage:  pwsh ./upload-curseforge.ps1 -Zip dist/DeckForever-1.0.0.zip `
+    Usage:  pwsh ./upload-curseforge.ps1 -Zip dist/DeckUIForever-1.0.0.zip `
                 -ProjectId <id> -ReleaseType beta -Interface 16001 -DryRun
 #>
 

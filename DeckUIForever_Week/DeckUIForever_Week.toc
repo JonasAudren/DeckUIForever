@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: DeckUIForever Week
+## Notes: DeckUIForever module: your week at a glance - raid lockouts, Legacy and PvP renown, dailies, weekly quests, reputation, currencies, for every character
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Quests & Leveling
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+## SavedVariables: DeckUIForeverWeekDB
+
+# Forever: data_forever.lua in place of DeckUI's data.lua (no vault,
+# keystone, delves, hunts or knowledge); collect_forever.lua hands core.lua
+# Forever's collectors, view_forever.lua the table's columns before window.lua
+data_forever.lua
+core.lua
+collect_forever.lua
+record.lua
+view_forever.lua
+window.lua
+config.lua

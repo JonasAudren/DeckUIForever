@@ -104,7 +104,7 @@ jobs:
         run: |
           $params = @{
             Zip           = "${{ steps.build.outputs.zip }}"
-            # the CurseForge project of DeckForever, once it exists: a repository
+            # the CurseForge project of DeckUIForever, once it exists: a repository
             # variable (Settings -> Secrets and variables -> Actions -> Variables)
             ProjectId     = "${{ vars.CF_PROJECT_ID }}"
             ReleaseType   = "${{ steps.plan.outputs.release_type }}"
@@ -118,6 +118,6 @@ jobs:
       - name: Keep the built zip
         uses: actions/upload-artifact@v7
         with:
-          name: DeckForever-${{ steps.plan.outputs.version }}
+          name: DeckUIForever-${{ steps.plan.outputs.version }}
           path: ${{ steps.build.outputs.zip }}
           if-no-files-found: error

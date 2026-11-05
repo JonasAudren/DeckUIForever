@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: DeckUIForever Map
+## Notes: DeckUIForever module: a square or round minimap and a smaller world map
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Map & Minimap
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+## SavedVariables: DeckUIForeverMapDB
+
+core.lua
+minimap.lua
+worldmap.lua
+config.lua

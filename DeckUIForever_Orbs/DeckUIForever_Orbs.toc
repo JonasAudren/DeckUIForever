@@ -1,0 +1,26 @@
+## Interface: 16001
+## Title: DeckUIForever Orbs
+## Notes: DeckUIForever module: round unit frames (orbs) or Final Fantasy's bars, party list, raid frames, buff bar
+## Author: Gottlieb
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Unit Frames
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+## SavedVariables: DeckUIForeverOrbsDB
+
+# classpower_forever.lua comes before oUF: its ClassPower element asks it
+# for Forever's rules (combo points on the target, nothing else) - see the
+# lines marked "DeckUI: Mists" in libs\oUF, which is DeckUI's patched copy.
+classpower_forever.lua
+libs\oUF\oUF.xml
+core.lua
+layout.lua
+ffstyle.lua
+party.lua
+raid.lua
+buffs.lua
+enemies.lua
+debuffs.lua
+config.lua

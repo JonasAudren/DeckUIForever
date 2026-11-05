@@ -1,9 +1,9 @@
-Third-party libraries shipped with DeckForever
+Third-party libraries shipped with DeckUIForever
 ==============================================
 
-DeckForever itself is MIT licensed (see LICENSE.txt). It embeds the libraries
+DeckUIForever itself is MIT licensed (see LICENSE.txt). It embeds the libraries
 below unchanged except where a file says "DeckUI: Mists" (small patches of
-DeckUI's, carried over as they are) or "DeckForever" (two lines in
+DeckUI's, carried over as they are) or "DeckUIForever" (two lines in
 LibActionButton-1.0.lua that let it run on World of Warcraft: Forever).
 Each is used under its own licence, all
 of which are permissive and compatible with MIT. The licence names are the
@@ -14,21 +14,21 @@ oUF
   Licence   MIT
   Authors   Trond A Ekseth, Val Voronov, Adrian L Lange, Rainrider
             (listed in the .toc as Haste, lightspark, p3lim, Rainrider)
-  Where     DeckForever_Orbs\libs\oUF\
-  Notice    the full licence text ships as DeckForever_Orbs\libs\oUF\LICENSE.txt
+  Where     DeckUIForever_Orbs\libs\oUF\
+  Notice    the full licence text ships as DeckUIForever_Orbs\libs\oUF\LICENSE.txt
 
 
 LibStub
   Licence   Public Domain
   Credits   Kaelten, Cladhaire, ckknight, Mikk, Ammo, Nevcairiel
-  Where     DeckForever_Bars\libs\LibStub\
+  Where     DeckUIForever_Bars\libs\LibStub\
   Notice    stated in the file header and in LibStub.toc
 
 CallbackHandler-1.0
   Licence   BSD-2.0
   Author    Ace3 Development Team
   Website   http://www.wowace.com/projects/callbackhandler/
-  Where     DeckForever_Bars\libs\CallbackHandler-1.0\
+  Where     DeckUIForever_Bars\libs\CallbackHandler-1.0\
   Notice    stated in CallbackHandler-1.0.toc; the .lua file itself carries
             no header, which is why this file exists
 
@@ -36,7 +36,7 @@ LibActionButton-1.0
   Licence   BSD
   Author    Hendrik "nevcairiel" Leppkes <h.leppkes@gmail.com>
   Copyright (c) 2010-2022 Hendrik Leppkes
-  Where     DeckForever_Bars\libs\LibActionButton-1.0\
+  Where     DeckUIForever_Bars\libs\LibActionButton-1.0\
   Notice    full copyright and conditions in the header of
             LibActionButton-1.0.lua
 
@@ -44,7 +44,7 @@ LibButtonGlow-1.0
   Licence   BSD
   Author    Hendrik "nevcairiel" Leppkes <h.leppkes@gmail.com>
   Copyright (c) 2015-2020 Hendrik Leppkes
-  Where     DeckForever_Bars\libs\LibActionButton-1.0\LibButtonGlow-1.0\
+  Where     DeckUIForever_Bars\libs\LibActionButton-1.0\LibButtonGlow-1.0\
   Notice    full copyright and conditions in the header of
             LibButtonGlow-1.0.lua
 
@@ -55,7 +55,7 @@ this file is not a substitute for them - do not strip the headers when
 updating a library.
 
 Some libraries ship their own nested copies of LibStub and
-CallbackHandler-1.0. DeckForever does not load those; DeckForever_Bars.toc
+CallbackHandler-1.0. DeckUIForever does not load those; DeckUIForever_Bars.toc
 loads one copy of each, in this order: LibStub, CallbackHandler-1.0,
 LibButtonGlow-1.0, LibActionButton-1.0. package.ps1 leaves the unused
 copies out of the release archive.
