@@ -2,7 +2,7 @@
 ## Title: DeckUIForever Bags
 ## Notes: DeckUIForever module: bags and keyring, character bank and warband bank in one grid each
 ## Author: Gottlieb
-## Version: 0.1.0
+## Version: 1.0.0
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Category: Bags & Inventory

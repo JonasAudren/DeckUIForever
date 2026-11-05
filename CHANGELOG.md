@@ -1,9 +1,9 @@
 # Changelog
 
-## 0.1.0
+## 1.0.0
 
-The hub of DeckUI, carried over to World of Warcraft: Forever (phase 1 of
-DECKUIFOREVER_BERICHT.md). Not released yet.
+DeckUI, carried over to World of Warcraft: Forever (DECKUIFOREVER_BERICHT.md):
+the hub and nine modules. First release.
 
 - Settings window (/df), movable frames per device, Lua error window,
   minimap button, UI scale per device.
