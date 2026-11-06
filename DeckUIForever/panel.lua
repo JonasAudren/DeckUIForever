@@ -54,7 +54,7 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -------------------------------------------------------------------
 D.PAGE_GROUPS = {
     { title = "General",   pages = { "General", "Screen", "Targets", "Windows", "Devices" } },
-    { title = "Units",     pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "Debuffs", "BuffBar", "Enemies", "Group", "Raid" } },
+    { title = "Units",     pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "Debuffs", "HoTs", "BuffBar", "Enemies", "Group", "Raid" } },
     { title = "Actions",   pages = { "Cross", "CrossController", "Bars", "Spec" } },
     { title = "World",     pages = { "Quests", "Map", "MapMinimap", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
@@ -64,7 +64,7 @@ D.PAGE_GROUPS = {
 D.PAGE_NAMES = {
     Orbs = "Player and target", Cross = "Cross hotbar", Spec = "Talent groups",
     Nav = "Navigation", Map = "Maps", Week = "Week overview", Bars = "Action bars",
-    Debuffs = "Your debuffs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
+    Debuffs = "Your debuffs", HoTs = "Your HoTs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
     BuffBar = "Buff bar", Enemies = "Enemies and bosses", CrossController = "Controller",
     MapMinimap = "Minimap", MapWorld = "World map", TooltipExtras = "Extras",
 }
@@ -75,7 +75,7 @@ D.PAGE_NAMES = {
 -- module, so a module that is off shows only its stand-in.
 D.PAGE_PARENT = {
     Screen = "General", Targets = "General", Windows = "General",
-    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs",
+    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", HoTs = "Orbs",
     BuffBar = "Orbs", Enemies = "Orbs",
     CrossController = "Cross",
     MapMinimap = "Map", MapWorld = "Map",
@@ -274,6 +274,7 @@ D.PAGE_FRAMES = {
     FramePlayer = { "Player", "Player (FF)" },
     FrameTarget = { "Target", "Target (FF)" },
     Debuffs = { "Debuffs" },
+    HoTs    = { "HoTs" },
     BuffBar = { "Buffs" },
     Enemies = { "Focus", "Focus (FF)", "Boss frames", "Boss frames (FF)", "Enemy list" },
     Group   = { "Party" },
@@ -303,6 +304,7 @@ local LOOT_KEYS = { autoSellJunk = true, autoRepair = true, repairGuild = true, 
 local function GroupKey(k) return k == "showParty" or k:find("^party") ~= nil end
 local function RaidKey(k) return k == "showRaid" or k:find("^raid") ~= nil end
 local function DotKey(k) return k:find("^dot") ~= nil end
+local function HotKey(k) return k:find("^hot") ~= nil end
 local function PlayerKey(k) return k:find("^player") ~= nil end
 local function TargetKey(k) return k:find("^target") ~= nil end
 local function ToTKey(k) return k:find("^tot") ~= nil end
@@ -318,7 +320,7 @@ local TARGET_KEYS = { targetArrow = true, xivPlates = true, plateSpace = true, r
 local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow = true }
 D.PAGE_RESET = {
     Orbs    = { db = "DeckUIForeverOrbsDB", match = function(k)
-        return not (GroupKey(k) or RaidKey(k) or DotKey(k) or PlayerKey(k) or TargetKey(k) or ToTKey(k)
+        return not (GroupKey(k) or RaidKey(k) or HotKey(k) or DotKey(k) or PlayerKey(k) or TargetKey(k) or ToTKey(k)
                     or BuffBarKey(k) or EnemyKey(k))
     end },
     BuffBar = { db = "DeckUIForeverOrbsDB", match = BuffBarKey },
@@ -330,6 +332,7 @@ D.PAGE_RESET = {
     FrameTarget = { db = "DeckUIForeverOrbsDB", match = TargetKey },
     FrameToT    = { db = "DeckUIForeverOrbsDB", match = ToTKey },
     Debuffs = { db = "DeckUIForeverOrbsDB", match = DotKey },
+    HoTs    = { db = "DeckUIForeverOrbsDB", match = HotKey },
     Group   = { db = "DeckUIForeverOrbsDB", match = GroupKey },
     Raid    = { db = "DeckUIForeverOrbsDB", match = RaidKey },
     Cross   = { db = "DeckUIForeverCrossDB" },   -- phase 4: the module does not exist yet, its page is a stand-in

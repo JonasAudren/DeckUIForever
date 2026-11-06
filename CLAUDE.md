@@ -201,6 +201,43 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   names every row (`SetSpellName`), and `Assign` touches only the static layer and the slot filter. **Tested in game 2026-11-05**: Shadow Word: Pain filled its capsule with the time, in and
   out of combat. The window lost its box, edges and tag the same day (owner: like the player frame) -
   only the unit's name in gold over the capsules.
+  **`hots.lua` (2026-11-06, owner: "an overview in the same style for healers and HoTs", for 1.2.0)**: a
+  copy of debuffs.lua's build with `HELPFUL|PLAYER` slots - lists `DRUID` 774 Rejuvenation, 8936
+  Regrowth; `PRIEST` 139 Renew, 17 Power Word: Shield (Classic has no other HoTs; shamans and paladins
+  get no window). The unit is a friend (`UnitCanAssist`), and with none the target column shows the
+  player ("You", `hotSelf`, on; only in the window, not attached). The "others" group carries
+  `maxDuration = 60` so the raid buffs stay out. The list's IDs leave the target frame's buff icons
+  through **`ns.targetBuffs`** (layout.lua registers the orb's buff containers with their `base`
+  filters, ffstyle.lua's `AuraRows` with `registerBuffs`; `Merged` adds our IDs to the base
+  exclusions) - those icons show everyone's buffs, hence the `hotExclude` switch (on). Keys `hot*`
+  (`hotTracker`, `hotSelf`, `hotExclude`, `hotNames`, `hotAttach`, `hotAbove`, device `hotScale`),
+  movable "HoTs", page "HoTs" ("Your HoTs") under Orbs, `/orbs hots`. **Untested in game** - the
+  priest's Renew and shield on himself are the first test.
+  **The unlock preview is an option since 2026-11-06** (owner: "take the HoT and DoT preview out, as an
+  option"): `dotPreview` / `hotPreview` (off) decide whether `ShowPreview` fills the three sample rows;
+  off, the holder shows as an empty box three rows high so the Move overlay has something to drag.
+  **The empty capsules out of combat are an option since 2026-11-06 too** (owner's screenshot: "turn this
+  off, as an option"): `dotIdle` / `hotIdle` (off) - `SetStatic` hides the static layer's pieces out of a
+  fight unless asked for (or forced by the preview), and a column's title (`Title`) shows only when
+  `Running(c)` finds one of the list on the unit by name (`C_UnitAuras.GetAuraDataBySpellName`, out of a
+  fight nothing is secret; pcall, a secret or a throw counts as none). In a fight the red missing
+  capsules always show. **Never put a script on the engine's button, not even a HookScript**: the
+  first build tracked OnShow/OnHide on it, and the engine's `SetShown` with a secret then threw
+  "Cannot be called with secrets due to existing script handlers" inside `AddAuraSlot` for every row
+  (1514 errors, owner 2026-11-06), so no row was ever made and both windows stayed empty. `/orbs dots`
+  and `/orbs hots` print "running by name" and whether the title is shown.
+  **Kept columns (2026-11-06, owner: "keep the DoTs and HoTs on targets when I switch targets")**:
+  `dotKeep` / `hotKeep` (on). A left unit needs a unit token of its own for the containers: debuffs.lua
+  takes `nameplate1-40`, hots.lua `player`, `party1-4`, `raid1-40` (`TOKENS`, `TokenFor(guid)` each
+  tick). `Update` notes the target column's GUID (`lastGUID`) and whether the lookup ever saw one of
+  the list on it (`lastRunning`); on a change `Keep` makes a column (pooled, `allKept`, focus width,
+  newest first, at most `MAX_KEEP` 4) when that or a cast of ours on it (`UNIT_SPELLCAST_SUCCEEDED`
+  for `player`, IDs in `allIDs`, `castOn[guid]`) says it carries one. `UpdateKept` fills each with
+  `FillColumn(column, token)` (debuffs.lua got `SetColumnUnit` for that), drops it without a token,
+  dead, out of a fight with nothing running (the lookup, a second after a cast) or `KEEP` 30 s after
+  the last cast or sighting, and stacks them under the target column (`GAP`); the holder's height is
+  the stack. Window only (`attached` drops them); `SetDotTracker(false)` / `SetHotTracker(false)`
+  drop all. `/orbs dots` and `/orbs hots` list them. **Untested in game.**
   **The XIV EXP bar fades Blizzard's `Main/SecondaryStatusTrackingBarContainer`, never parks them**
   (`FadeStatusBars` in ffstyle.lua): a container asks `GetParent()` for its manager, and under a parent
   of ours Edit Mode failed on entering (`CheckForLayoutChange` nil, owner's first test 2026-11-05). The

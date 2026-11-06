@@ -199,6 +199,15 @@ end
 local target = Column(holder, W, "TARGET", "target")
 local focus = Column(holder, FOCUS_W, "FOCUS", "focus")
 
+-- the columns of the units you left (Keep, below): made as needed, reused;
+-- width, names and the others' filter follow them as they do the two above
+local allKept = {}
+local function Columns()
+    local t = { target, focus }
+    for _, c in ipairs(allKept) do t[#t + 1] = c end
+    return t
+end
+
 -- Two ways to stand (DeckUIForeverOrbsDB.dotAttach): a window of its own, or the
 -- bare rows at the target frame - the FF bar or the orb, whichever this
 -- style spawned - and the focus column at the focus frame, above or below
@@ -211,6 +220,7 @@ local focus = Column(holder, FOCUS_W, "FOCUS", "focus")
 -- rows go under that row. An orb keeps its auras beside it, but its name
 -- or cast text sits on the edge we hang at; a FF focus has its cast below.
 local attached = false
+local Title   -- a column's title, below (after `preview`)
 local top = TITLE   -- where the rows start below a column's top edge
 local GAP = 6
 local TEXT_CLEAR = 22   -- an orb's name or cast text, an FF focus's cast and its text
@@ -345,8 +355,20 @@ local function Layer(parent, live)
 end
 
 -- the static layer's look: red "missing" in a fight, dimmed out of it
-local function SetStatic(r, fighting)
+-- Out of a fight the empty capsules show only when asked for (dotIdle,
+-- off; owner 2026-11-06: "turn this off, as an option") or in the unlock
+-- preview (force). In a fight the red missing ones always show.
+local function Idle() return DeckUIForeverOrbsDB.dotIdle and true or false end
+
+local function SetStatic(r, fighting, force)
     local L = r.static
+    local on = force or fighting or Idle()
+    L.edge:SetShown(on)
+    L.icon:SetShown(on)
+    L.count:SetShown(on)
+    L.name:SetShown(on and Names())
+    L.bar:SetShown(on)
+    L.time:SetShown(on)
     if fighting then
         L.edge:SetColorTexture(MISSING[1], MISSING[2], MISSING[3], 1)
         L.bar.edge:SetVertexColor(MISSING[1], MISSING[2], MISSING[3], 1)
@@ -372,6 +394,10 @@ end
 -- child and follows it - anchoring both ways was a circle (20 errors on
 -- the owner's first look, 2026-11-05)
 local function LiveButton(button, r, c, named, anchorButton)
+    -- no script of ours on the button, not even a hook: the engine shows
+    -- and hides it with a secret, and "SetShown(): Cannot be called with
+    -- secrets due to existing script handlers" killed every row's creation
+    -- (1514 errors, owner 2026-11-06)
     if anchorButton then button:SetAllPoints(r) end
     local L = Layer(button, true)
     button:SetIcon(L.icon)
@@ -449,7 +475,7 @@ end
 
 -- the list's IDs may change (a new rank, a new talent): the others leave them out
 local function UpdateOthersFilter()
-    for _, c in ipairs({ target, focus }) do
+    for _, c in ipairs(Columns()) do
         if c.others then
             pcall(c.others.SetAuraGroupCandidateFilters, c.others, "others", { excludeSpellIDs = allIDs })
         end
@@ -458,7 +484,7 @@ end
 
 function ns.ApplyDotNames()
     local names = Names()
-    for _, c in ipairs({ target, focus }) do
+    for _, c in ipairs(Columns()) do
         for _, r in ipairs(c.rows) do Place(r.static, r, c, names) end
     end
     -- the engine's layer is laid out when its button is made
@@ -473,7 +499,8 @@ local FOCUS_SHARE = FOCUS_W / W
 function ns.ApplyDotWidth()
     local w = math.floor(W * (ns.DeviceDB().dotScale or 100) / 100 + 0.5)
     target.width, focus.width = w, math.floor(w * FOCUS_SHARE)
-    for _, c in ipairs({ target, focus }) do
+    for _, c in ipairs(allKept) do c.width = focus.width end
+    for _, c in ipairs(Columns()) do
         c:SetWidth(c.width)
         for _, r in ipairs(c.rows) do
             r:SetWidth(c.width - 2 * PAD)
@@ -515,11 +542,22 @@ local function Fighting()
     return Ask(UnitAffectingCombat("player")) ~= false
 end
 
+-- a kept column reads a nameplate token that may change hands: every
+-- container of the column is pointed at the new token (as hots.lua does)
+local function SetColumnUnit(c, unit)
+    if c.unit == unit then return end
+    c.unit = unit
+    for _, r in ipairs(c.rows) do pcall(r.auras.SetUnit, r.auras, unit) end
+    if c.others then pcall(c.others.SetUnit, c.others, unit) end
+    RefreshUnit(c)
+end
+
 local function FillColumn(c, unit)
     if not Attackable(unit) then
         c:Hide()
         return false
     end
+    SetColumnUnit(c, unit)
     local fighting = Fighting()
     for i, e in ipairs(entries) do
         local r = Row(c, i)
@@ -527,24 +565,158 @@ local function FillColumn(c, unit)
         SetStatic(r, fighting)
     end
     c.title:SetText(UnitName(unit))
+    Title(c)
     return Finish(c, #entries)
 end
 
 local preview = false
 
+-- Out of a fight nothing is secret, so the one by-name lookup says which
+-- of the list runs on the column's unit (the engine's button cannot be
+-- asked - see LiveButton). The first running name, or nil; a throw or a
+-- secret answer counts as none. In a fight the title shows anyway.
+local function Running(c)
+    if not (C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName) then return nil end
+    for _, r in ipairs(c.rows) do
+        if r.entry and r:IsShown() then
+            local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, c.unit, r.entry.name, "HARMFUL|PLAYER")
+            if ok and data and not Secret(data) then return r.entry.name end
+        end
+    end
+    return nil
+end
+
+-- the column's title: in a fight or with the empty capsules it heads
+-- the rows; otherwise only a running capsule, else nothing hangs there
+function Title(c)
+    if preview then return end
+    local on = Fighting() or Idle() or Running(c) ~= nil
+    c.title:SetShown(on and not attached)
+end
+
+-------------------------------------------------------------------
+-- Units you leave: the one you targeted keeps its column (dotKeep)
+-------------------------------------------------------------------
+-- Owner 2026-11-06: "keep the DoTs and HoTs on targets when I switch
+-- targets - they vanish now". A container follows a unit token, so a left
+-- unit needs one of its own: the nameplate it stands under -
+-- so enemy nameplates must be on; an enemy without one cannot be kept.
+-- TokenFor finds it by GUID each tick. Kept columns stack under the target
+-- column at the focus width, newest first, in the window only (at the
+-- target frame there is nothing to hang them from). A unit is kept when
+-- it is known to carry one of the list - the by-name lookup out of a
+-- fight, or a cast of ours on it (UNIT_SPELLCAST_SUCCEEDED, our IDs) -
+-- not merely for having been looked at. A column goes when the unit has
+-- no token any more, is dead, out of a fight has none of the list
+-- running, or KEEP seconds after the last cast or sighting: in a fight
+-- the lookup may say nothing, and a Classic DoT runs 24 s at most - a long
+-- curse outlives its column.
+local KEEP, MAX_KEEP = 30, 4
+local kept = {}       -- { guid, column, since }, newest first
+local spare = {}      -- columns to reuse
+local castOn = {}     -- guid -> the time of our last cast of the list on it
+
+local function KeepOn() return DeckUIForeverOrbsDB.dotKeep ~= false end
+
+local TOKENS = {}
+for i = 1, 40 do TOKENS[#TOKENS + 1] = "nameplate" .. i end
+
+local function TokenFor(guid)
+    for _, t in ipairs(TOKENS) do
+        if UnitExists(t) and UnitGUID(t) == guid then return t end
+    end
+    return nil
+end
+
+local function KeptColumn()
+    local c = table.remove(spare)
+    if not c then
+        c = Column(holder, focus.width, "KEPT", "player")
+        allKept[#allKept + 1] = c
+    end
+    return c
+end
+
+local function Drop(i)
+    local k = table.remove(kept, i)
+    k.column:Hide()
+    spare[#spare + 1] = k.column
+end
+
+local function DropAll()
+    for i = #kept, 1, -1 do Drop(i) end
+end
+
+local function CastOn(guid)
+    if guid then castOn[guid] = GetTime() end
+end
+
+-- the unit the target column showed, as it goes
+local function Keep(guid, running)
+    if not KeepOn() or attached or not guid then return end
+    for _, k in ipairs(kept) do
+        if k.guid == guid then k.since = GetTime() return end
+    end
+    local now = GetTime()
+    if not (running or (castOn[guid] and now - castOn[guid] < KEEP)) then return end
+    if #kept >= MAX_KEEP then Drop(#kept) end
+    table.insert(kept, 1, { guid = guid, column = KeptColumn(), since = now })
+end
+
+-- fills, prunes and stacks the kept columns; returns the stack's height
+local function UpdateKept(targetGUID, focusGUID, targetShown)
+    local now, fighting = GetTime(), Fighting()
+    for g, t in pairs(castOn) do if now - t > KEEP then castOn[g] = nil end end
+    for i = #kept, 1, -1 do
+        local k = kept[i]
+        local token = (KeepOn() and not attached and k.guid ~= targetGUID and k.guid ~= focusGUID) and TokenFor(k.guid) or nil
+        local shown = token and FillColumn(k.column, token)
+        if shown then
+            local run = Running(k.column)
+            if run or (castOn[k.guid] or 0) > k.since then k.since = now end
+            -- out of a fight the lookup is the truth, a second after a cast
+            if (not fighting and not run and now - (castOn[k.guid] or 0) > 1) or now - k.since > KEEP then shown = false end
+        end
+        if not shown then Drop(i) end
+    end
+    local anchor = targetShown and target or nil
+    local h = 0
+    for _, k in ipairs(kept) do
+        local c = k.column
+        c:ClearAllPoints()
+        if anchor then
+            c:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -GAP)
+        else
+            c:SetPoint("TOPLEFT", holder, "TOPLEFT")
+        end
+        anchor = c
+        h = h + GAP + c:GetHeight()
+    end
+    return h
+end
+
+local lastGUID, lastRunning = nil, false
+
 local function Update()
     if preview then return end
+    local guid = Attackable("target") and UnitGUID("target") or nil
+    if guid ~= lastGUID then
+        Keep(lastGUID, lastRunning)
+        lastGUID, lastRunning = guid, false
+    end
     local any = FillColumn(target, "target")
+    if any and Running(target) then lastRunning = true end
     local focusOn = UnitExists("focus") and Ask(UnitIsUnit("focus", "target")) == false
     if focusOn then
         focusOn = FillColumn(focus, "focus")
     else
         focus:Hide()
     end
-    holder:SetHeight(math.max(target:IsShown() and target:GetHeight() or 0, focus:IsShown() and focus:GetHeight() or 0, 20))
     -- the focus column keeps its place when the target column is empty
     target:SetShown(any)
-    holder:SetShown(any or focusOn)
+    local stack = UpdateKept(guid, UnitExists("focus") and UnitGUID("focus") or nil, any)
+    holder:SetHeight(math.max((any and target:GetHeight() or 0) + stack, focusOn and focus:GetHeight() or 0, 20))
+    holder:SetShown(any or focusOn or #kept > 0)
 end
 
 -- the containers follow their unit token, not the unit behind it: a new
@@ -568,7 +740,12 @@ end
 
 -- a talent group switch or a new talent can change what is known
 local SPEC_EVENTS = { "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_TALENT_UPDATE", "SPELLS_CHANGED" }
-driver:SetScript("OnEvent", function(_, event)
+driver:SetScript("OnEvent", function(_, event, unit, _, spellID)
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        -- one of the list cast by you: on the unit the target column shows
+        if unit == "player" and spellID and allIDs[spellID] then CastOn(lastGUID) end
+        return
+    end
     if event == "PLAYER_TARGET_CHANGED" then
         RefreshUnit(target)
     elseif event == "PLAYER_FOCUS_CHANGED" then
@@ -586,21 +763,33 @@ local function ShowPreview(on)
         if DeckUIForeverOrbsDB.dotTracker then Update() else holder:Hide() end
         return
     end
+    -- the sample rows only when asked for (dotPreview, off; owner 2026-11-06:
+    -- "take the preview out, as an option"): without them the window is
+    -- an empty box the height of three rows, enough to drag by its overlay
+    if not DeckUIForeverOrbsDB.dotPreview then
+        target:Hide()
+        focus:Hide()
+        holder:SetHeight(TITLE + 3 * (ROW_H + ROW_GAP) + PAD)
+        holder:Show()
+        return
+    end
     target:SetShown(true)
     target.title:SetText("Debuffs")
+    target.title:SetShown(not attached)
     local samples = { { 136118, "Drag me" }, { 136139, "A running debuff fills in" }, { 136188, "Missing in a fight" } }
     for i, s in ipairs(samples) do
         local r = Row(target, i)
         r.static.icon:SetTexture(s[1])
         r.static.name:SetText(s[2])
-        SetStatic(r, i == 3)
+        SetStatic(r, i == 3, true)
     end
     Finish(target, 3)
     focus.title:SetText("Focus")
+    focus.title:SetShown(not attached)
     local r = Row(focus, 1)
     r.static.icon:SetTexture(136118)
     r.static.name:SetText("Sample")
-    SetStatic(r, false)
+    SetStatic(r, false, true)
     Finish(focus, 1)
     holder:SetHeight(target:GetHeight())
     holder:Show()
@@ -613,6 +802,7 @@ function ns.SetDotTracker(on)
                              unpack(SPEC_EVENTS) }) do
             if not C_EventUtils or C_EventUtils.IsEventValid(e) then driver:RegisterEvent(e) end
         end
+        pcall(driver.RegisterUnitEvent, driver, "UNIT_SPELLCAST_SUCCEEDED", "player")
         driver:SetScript("OnUpdate", Tick)
         Rebuild()
         UpdateOthersFilter()
@@ -621,6 +811,7 @@ function ns.SetDotTracker(on)
         driver:UnregisterAllEvents()
         driver:SetScript("OnUpdate", nil)
         if not preview then holder:Hide() end
+        DropAll()
         ns.ApplyDotExclusion()   -- the icons come back
     end
 end
@@ -654,8 +845,13 @@ function ns.DotDebug()
         print(("  %d %s: known %s, slot IDs %s"):format(e.id, tostring(name), tostring(Known(e.known or e.id)),
             #ids > 0 and table.concat(ids, " ") or "-"))
     end
-    print(("  target: %s, attackable %s, in combat: %s, rows shown %d"):format(
+    print(("  target: %s, attackable %s, in combat: %s, rows shown %d, running by name: %s, title %s"):format(
         UnitExists("target") and (tostring(UnitName("target")) or "?") or "none",
         tostring(Attackable("target")), tostring(UnitAffectingCombat("player")),
-        target:IsShown() and #entries or 0))
+        target:IsShown() and #entries or 0, tostring(Running(target)), target.title:IsShown() and "shown" or "hidden"))
+    for i, k in ipairs(kept) do
+        local token = TokenFor(k.guid)
+        print(("  kept %d: %s (%s), %.0f s ago, running by name: %s"):format(i, token and tostring(UnitName(token)) or "?",
+            tostring(token), GetTime() - k.since, tostring(Running(k.column))))
+    end
 end

@@ -220,8 +220,9 @@ end
 -- each other (owner 2026-10-28). spec: size, belowY / aboveY (the first
 -- line's offset on each side), order (the kinds, nearest the frame first),
 -- and per kind { pos, max, right, filter, debuff, stealable, filters,
--- style, register }; register puts the container into ns.targetDebuffs
--- (the own-debuffs switch and debuffs.lua's exclusion). Sets self.DeckBelow /
+-- style, register, registerBuffs }; register puts the container into
+-- ns.targetDebuffs (the own-debuffs switch and debuffs.lua's exclusion),
+-- registerBuffs into ns.targetBuffs (hots.lua's exclusion). Sets self.DeckBelow /
 -- DeckAbove = the outermost line on each side, for whatever else wants to
 -- hang there (debuffs.lua).
 local function AuraRows(self, width, spec)
@@ -248,6 +249,7 @@ local function AuraRows(self, width, spec)
                 candidateFilters = e.filters,
             })
             if e.register then table.insert(ns.targetDebuffs, { container = c, key = key }) end
+            if e.registerBuffs then table.insert(ns.targetBuffs, { container = c, key = key, base = e.filters }) end
             -- the outermost line: a kind sharing a line leaves the left-edge one in charge
             if n > lastLine[side] then last[side], lastLine[side] = c, n end
             if right then
@@ -374,7 +376,7 @@ local function TargetAuraRows(self, width)
                     style = StyleTargetAura, register = true },
         buffs = { pos = DeckUIForeverOrbsDB.targetBuffs or "below", max = DeckUIForeverOrbsDB.targetBuffMax or 6,
                   right = DeckUIForeverOrbsDB.targetBuffsRight ~= false, filter = "HELPFUL", stealable = true,
-                  style = StyleTargetAura },
+                  style = StyleTargetAura, registerBuffs = true },
     })
 end
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.0
+
+Your HoTs, and both windows remember the units you leave.
+
+- Orbs: your HoTs as a window in the style of your debuffs - a druid's
+  Rejuvenation and Regrowth, a priest's Renew and Power Word: Shield, one
+  capsule each, filled by the game itself, in combat too. A column for
+  the friend you target, a smaller one for your focus, and your own HoTs
+  on you while you have no friendly target. What runs here as a bar
+  leaves the target frame's buff icons (switchable). Page "Your HoTs"
+  under Player and target, off by default; /orbs hots says what it sees.
+- Orbs: the debuff and HoT windows keep the units you leave. An enemy
+  whose nameplate is on screen, a friend in your group, or you: each
+  keeps a smaller column under the target column while one of your
+  listed debuffs or HoTs runs on it, up to four, newest first. "Keep the
+  enemies you leave" and "Keep the friends you leave" on the two pages,
+  on by default.
+- Orbs: out of a fight both windows show only what is running - no
+  dimmed empty capsules, no name over an empty column. "Empty capsules
+  out of combat" on either page brings them back; in a fight the red
+  missing ones stay.
+- Orbs: no sample rows while the frames are unlocked - an empty box to
+  drag instead. "Sample rows while moving" on either page brings them
+  back.
+
 ## 1.1.0
 
 - Bars: the stance bar (forms, stances, auras, stealth) and the pet bar

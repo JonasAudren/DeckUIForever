@@ -56,6 +56,12 @@ ns.DEFAULTS = {
     dotAttach       = false,       -- those rows bare at the target / focus frame instead of a window
     dotAbove        = false,       -- with dotAttach: above the frame instead of below
     dotNames        = true,        -- the debuff's name beside its icon; off = capsule only
+    dotPreview      = false,       -- three sample rows while the frames are unlocked; off = an empty box
+    hotPreview      = false,       -- the same for the HoT window (hots.lua; its other keys default in there)
+    dotIdle         = false,       -- out of a fight: dimmed empty capsules for what is not running; off = only running ones
+    hotIdle         = false,       -- the same for the HoT window
+    dotKeep         = true,        -- an enemy you leave keeps a column under the target column while a DoT runs (its nameplate)
+    hotKeep         = true,        -- a group member you leave keeps a column while a HoT runs
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
     buffBar         = false,       -- own buff bar in FF style (buffs.lua), replaces Blizzard's; /reload
     -- the buff bar's switches (Buff bar page, 2026-10-30), live but for the two look ones
@@ -137,6 +143,9 @@ local BOSS_SPACING = 16   -- gap between boss orbs (the name sits above, the cas
 -------------------------------------------------------------------
 ns.auraContainers = {}
 ns.targetDebuffs  = {}
+-- the target's and focus's buff icons, with the filters they were made
+-- with, for hots.lua's exclusion (it merges its IDs into `base`)
+ns.targetBuffs    = {}
 
 local function StyleAuraButton(element, button, options)
     local mask = D.RoundMask(button)
@@ -328,12 +337,14 @@ local function BuildOrb(self, unit, s)
     end
 
     if s.buffs then
-        CreateAuras(self, s.buffs, left, offset, "HELPFUL", {
-            candidateFilters = {
-                maxDuration     = DeckUIForeverOrbsDB.buffMaxDuration,
-                excludeSpellIDs = BUFF_EXCLUDE,
-            },
-        })
+        local base = {
+            maxDuration     = DeckUIForeverOrbsDB.buffMaxDuration,
+            excludeSpellIDs = BUFF_EXCLUDE,
+        }
+        local container, key = CreateAuras(self, s.buffs, left, offset, "HELPFUL", { candidateFilters = base })
+        if unit ~= "player" then
+            table.insert(ns.targetBuffs, { container = container, key = key, base = base })
+        end
     end
 end
 
@@ -383,9 +394,9 @@ end
 -- groups side by side are 700 pixels wide, so the Deck starts smaller)
 local DEVICE_DEFAULTS = {
     deck = { partyScale = 1, partyAcross = false, raidScale = 0.85, raidW = 84, raidH = 34, raidRows = false,
-             buffSize = 24, buffPerRow = 10, dotScale = 100 },
+             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100 },
     pc   = { partyScale = 1, partyAcross = false, raidScale = 1,    raidW = 96, raidH = 36, raidRows = false,
-             buffSize = 30, buffPerRow = 12, dotScale = 100 },
+             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100 },
 }
 function ns.DeviceDB() return D.DeviceDB(DeckUIForeverOrbsDB, DEVICE_DEFAULTS) end
 
@@ -759,6 +770,9 @@ SlashCmdList.DECKORBS = function(msg)
     elseif msg == "dots" then
         -- the debuff window's list and what the target carries (debuffs.lua)
         ns.DotDebug()
+    elseif msg == "hots" then
+        -- the HoT window's list and which unit it shows (hots.lua)
+        ns.HotDebug()
     elseif msg == "bosses" then
         -- what the boss frames see: the units, our frames, Blizzard's
         print(("DeckUIForever Orbs bosses: style %s, show %s, frames %d, holder %s"):format(

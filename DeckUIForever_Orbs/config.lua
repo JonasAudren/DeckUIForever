@@ -282,11 +282,51 @@ D.RegisterModule("Debuffs", {
         end, "How wide the rows are: 100% as shipped (240 px), 175% the width of the Final Fantasy XIV target bar. The focus column takes a share of it.")
         f:Checkbox("Show the names", db, "dotNames", function() ns.ApplyDotNames() end,
             "The debuff's name between icon and capsule. Off, the capsule takes that room and the icon says which debuff it is - hover it for the name. The running capsules follow at the next reload.")
+        f:Checkbox("Empty capsules out of combat", db, "dotIdle", nil,
+            "Out of a fight, a dimmed empty capsule for every debuff of the list that is not running, as the red ones in a fight. Off, out of a fight only a running debuff shows, with the unit's name over it - nothing at all when none runs.")
+        f:Checkbox("Keep the enemies you leave", db, "dotKeep", nil,
+            "An enemy you move your target off keeps a smaller column under the target column while one of the list runs on it - up to four, newest first. It needs the enemy's nameplate on screen. In a fight the game does not tell what runs on an enemy, so a column stays 30 seconds after your last cast on it. In the window only.")
         f:Label("Place")
         f:Checkbox("At the target frame, no window", db, "dotAttach", function() ns.ApplyDotLayout() end,
             "Instead of a window of their own, the rows hang bare at your target frame, and the focus column at your focus frame - clear of the frame's own buffs and debuffs. Otherwise move the window with Move below.")
         f:Checkbox("Above the frame instead of below", db, "dotAbove", function() ns.ApplyDotLayout() end,
             "With the debuffs at the target frame: above it rather than below.")
+        f:Checkbox("Sample rows while moving", db, "dotPreview", nil,
+            "With Move or /df unlock the window shows three sample capsules - a running debuff, a missing one - instead of an empty box of the same size.")
+    end,
+})
+
+-- The healer's counterpart (owner 2026-11-06): your HoTs on the one you
+-- heal, the same rows and the same places. hots.lua.
+D.RegisterModule("HoTs", {
+    title = "HoTs",
+    build = function(c)
+        local f = D.Flow(c)
+        f:Hint("The heals your class keeps running - a druid's Rejuvenation and Regrowth, a priest's Renew and shield - one capsule each, for your target and your focus. /orbs hots shows what it sees.")
+        f:Label("Your HoTs")
+        f:Checkbox("Show your HoTs (and the shield)", db, "hotTracker", ns.SetHotTracker,
+            "One capsule per heal over time: a column for the friend you target, a smaller one for your focus. The game fills the capsules itself, in combat too. A missing one is an empty capsule with a red edge while you fight; the bar gets a gold wash in its last 30%, where refreshing loses nothing. Your other short buffs on them follow below. Only druids and priests have HoTs in Classic.")
+        f:Checkbox("You, when you have no friendly target", db, "hotSelf", function() ns.SetHotTracker(DeckUIForeverOrbsDB.hotTracker) end,
+            "Without a friendly target the first column shows your own HoTs on you, titled You. Only in the window: at the target frame there is nothing to hang from without a target.")
+        f:Checkbox("Leave the target frame's buff icons", db, "hotExclude", function() ns.ApplyHotExclusion() end,
+            "What runs here as a bar leaves the target frame's buff icons, as the debuffs do. Those icons show everyone's buffs, so another druid's Rejuvenation goes from them too - switch this off to keep every icon.")
+        f:Slider("Width (this device)", 50, 175, 5, pct, ns.DeviceDB, "hotScale", function(v)
+            ns.DeviceDB().hotScale = v
+            ns.ApplyHotWidth()
+        end, "How wide the rows are: 100% as shipped (240 px), 175% the width of the Final Fantasy XIV target bar. The focus column takes a share of it.")
+        f:Checkbox("Show the names", db, "hotNames", function() ns.ApplyHotNames() end,
+            "The heal's name between icon and capsule. Off, the capsule takes that room and the icon says which heal it is - hover it for the name. The running capsules follow at the next reload.")
+        f:Checkbox("Empty capsules out of combat", db, "hotIdle", nil,
+            "Out of a fight, a dimmed empty capsule for every heal of the list that is not running, as the red ones in a fight. Off, out of a fight only a running heal shows, with the unit's name over it - nothing at all when none runs.")
+        f:Checkbox("Keep the friends you leave", db, "hotKeep", nil,
+            "A friend you move your target off keeps a smaller column under the target column while one of the list runs on them - up to four, newest first. They must be you or in your group; a stranger has no unit the game can name. If the game does not tell what runs in a fight, a column stays 30 seconds after your last cast on them. In the window only.")
+        f:Label("Place")
+        f:Checkbox("At the target frame, no window", db, "hotAttach", function() ns.ApplyHotLayout() end,
+            "Instead of a window of their own, the rows hang bare at your target frame, and the focus column at your focus frame - clear of the frame's own buffs and debuffs. Otherwise move the window with Move below.")
+        f:Checkbox("Above the frame instead of below", db, "hotAbove", function() ns.ApplyHotLayout() end,
+            "With the HoTs at the target frame: above it rather than below.")
+        f:Checkbox("Sample rows while moving", db, "hotPreview", nil,
+            "With Move or /df unlock the window shows three sample capsules - a running HoT, a missing one - instead of an empty box of the same size.")
     end,
 })
 

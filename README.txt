@@ -15,7 +15,7 @@ loaded.
                        character panel enchants, nameplates, server info,
                        main menu, auction prices
   DeckUIForever Orbs     round unit frames or Final Fantasy's bars, party
-                       list, raid frames, buff bar, your debuffs
+                       list, raid frames, buff bar, your debuffs and HoTs
   DeckUIForever Cross    cross hotbar                       (not ported yet)
   DeckUIForever Bars     the eight action bars in Final Fantasy XIV's hotbar
                        look, for keyboard and mouse
