@@ -354,3 +354,7 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    **Released**: v1.1.0 on 2026-11-05 (the stance, pet and totem bars, the Classic helpers, the group
    listing, five debuffs; tag push, Release workflow run 42079272178, CurseForge file id 9456774). The bars,
    the helpers and the listing window were not yet seen in game (the priest has no forms, pet or totems).
+   **Released**: v1.2.0 on 2026-11-06 (your HoTs, the kept columns, the idle and preview switches; tag
+   push, Release workflow run 42253563550, CurseForge file id 9477126). The HoT window, the idle switch
+   and the "forbidden hook" fix were seen in game by the owner that day ("seems to all work"); the kept
+   columns were not yet.
