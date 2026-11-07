@@ -249,6 +249,7 @@ win:SetScript("OnUpdate", function(self, dt)
     sinceCheck = 0
     if not lootOpen and not D.IsUnlocked("Loot") then self:Hide() end
 end)
+D.GamepadWindow(win, { close = close })
 
 -------------------------------------------------------------------
 -- Blizzard's window on or off

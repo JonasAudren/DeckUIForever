@@ -7,7 +7,9 @@ local db  = function() return DeckUIForeverOrbsDB end
 
 -- Moved to D.Flow 2026-10-02: explanations as tooltips, the two settings
 -- that need a reload report to the panel's reload bar, and the boss frames
--- got their test button here (it was only /orbs boss).
+-- got their test button here (it was only /orbs boss). Every text
+-- shortened in the menu review of 2026-11-07; the page is "Unit frames"
+-- in the sidebar since then.
 local loaded = {}   -- settings that need a reload, as this session loaded them
 
 local function Refreshing(button, label)
@@ -21,6 +23,8 @@ D.RegisterModule("Orbs", {
         loaded.style = loaded.style or DeckUIForeverOrbsDB.style or "orbs"
         loaded.buff = loaded.buff or DeckUIForeverOrbsDB.buffMaxDuration
         if loaded.xivCast == nil then loaded.xivCast = DeckUIForeverOrbsDB.xivCastCenter and true or false end
+        if loaded.dotIcons == nil then loaded.dotIcons = DeckUIForeverOrbsDB.dotIcons and true or false end
+        if loaded.hotHealer == nil then loaded.hotHealer = DeckUIForeverOrbsDB.hotHealer and true or false end
         local f = D.Flow(c)
         c.widgets = c.widgets or {}
 
@@ -35,10 +39,10 @@ D.RegisterModule("Orbs", {
         local function HpLabel() return "Health: " .. ns.HP_TEXT_NAMES[DeckUIForeverOrbsDB.hpText or "percent"] end
         local function StyleLabel() return "Style: " .. STYLE_NAMES[DeckUIForeverOrbsDB.style or "orbs"] end
         local hpBtn, styleBtn = f:Pair(
-            { text = "Health", title = "Health text", tip = "Percent, the full number, short (1.2M) or short with percent.",
+            { text = "Health", title = "Health text", tip = "Percent, the full number, or short like 1.2M.",
               onClick = function(b) ns.CycleHpText(); b:SetText(HpLabel()) end },
             { text = "Style", title = "Style of player and target",
-              tip = "Round orbs; Final Fantasy's parameter bar and wide target bar on dark panels; or Final Fantasy XIV, closer to the game: capsule bars without a box, large numbers, class, level and EXP. Needs a reload.",
+              tip = "Round orbs, Final Fantasy's bars on dark panels, or Final Fantasy XIV's capsule bars without a box. Needs a reload.",
               onClick = function(b)
                   DeckUIForeverOrbsDB.style = STYLE_NEXT[DeckUIForeverOrbsDB.style or "orbs"] or "orbs"
                   b:SetText(StyleLabel())
@@ -48,7 +52,7 @@ D.RegisterModule("Orbs", {
         table.insert(c.widgets, Refreshing(styleBtn, StyleLabel))
         f:Checkbox("Final Fantasy XIV: your cast in the middle", db, "xivCastCenter", function(v)
             D.NeedReload("orbs:xivCast", (v and true or false) ~= loaded.xivCast)
-        end, "In the Final Fantasy XIV style your cast shows in the middle of the screen - icon, spell name and the time left - instead of under your bar. Movable as \"Cast bar\". Needs a reload.")
+        end, "In the Final Fantasy XIV style your cast shows in the middle of the screen instead of under your bar. Needs a reload.")
 
         f:Gap(4)
         f:Label("On the frames")
@@ -56,19 +60,19 @@ D.RegisterModule("Orbs", {
         f:Checkbox("Buffs and debuffs", db, "showAuras", ns.SetAurasShown)
         f:Checkbox("Only your own debuffs on the target", db, "ownDebuffsOnly", ns.SetOwnDebuffsOnly)
         f:Checkbox("Class resource dots on the player", db, "showClassPower", ns.SetClassPowerShown,
-            "Combo points, holy power, runes and the like as dots on your orb or bar.")
+            "Combo points and the like as dots on your frame.")
         f:Checkbox("Announce a new target (big name)", db, "announceTarget", ns.SetAnnounceTarget)
         f:Slider("Buffs up to this duration", 60, 900, 60, min, db, "buffMaxDuration", function(v)
             ns.SetBuffMaxDuration(v)
             D.NeedReload("orbs:buffDuration", v ~= loaded.buff)
-        end, "Longer buffs (food, flasks, raid buffs) stay off your frame. Needs a reload.")
+        end, "Longer buffs, like food and flasks, stay off your frame. Needs a reload.")
 
-        f:Hint("Your frames, the enemies and the bosses, the buff bar and your debuffs have pages of their own below.")
+        f:Hint("Player, target, the buff bar, enemies, your debuffs and your HoTs have pages of their own below.")
     end,
 })
 
--- The buff bar, and the enemies with the bosses: sub-pages of "Player and
--- target" since the menu review (2026-10-28), which found that page at
+-- The buff bar, and the enemies with the bosses: sub-pages of the unit
+-- frames since the menu review (2026-10-28), which found that page at
 -- ten checkboxes and six sliders.
 D.RegisterModule("BuffBar", {
     title = "Buff bar",
@@ -96,7 +100,7 @@ D.RegisterModule("BuffBar", {
             return v .. " s"
         end
         f:Checkbox("Own buff bar in Final Fantasy style", db, "buffBar", Rebuild("buffBar"),
-            "Replaces Blizzard's buffs (top right) with a status bar like Final Fantasy's: buffs from the right edge, debuffs on the left, the time below each icon. Right click cancels a buff. Your player frame then shows no auras of its own. Needs a reload; move it with Move below.")
+            "Replaces Blizzard's buffs at the top right: buffs from the right, debuffs from the left, the time under each icon. Right click cancels a buff. Needs a reload; move it with Move below.")
         f:Slider("Icon size (this device)", 18, 40, 1, px, ns.DeviceDB, "buffSize", function(v)
             ns.DeviceDB().buffSize = v
             D.NeedReload("orbs:buffSize", v ~= loaded.buffSize)
@@ -104,34 +108,33 @@ D.RegisterModule("BuffBar", {
         f:Slider("Icons per row (this device)", 6, 20, 1, count, ns.DeviceDB, "buffPerRow", function(v)
             ns.DeviceDB().buffPerRow = v
             D.NeedReload("orbs:buffPerRow", v ~= loaded.buffPerRow)
-        end, "Buffs per row; the rows below. Needs a reload.")
+        end, "Needs a reload.")
 
         f:Gap(4)
         f:Label("What shows")
-        f:Checkbox("Buffs", db, "buffBarBuffs", live,
-            "Your buffs, from the right edge. The weapon enchants go with them.")
+        f:Checkbox("Buffs", db, "buffBarBuffs", live, "Your buffs, from the right edge.")
         f:Checkbox("Debuffs", db, "buffBarDebuffs", live, "Your debuffs, from the left edge.")
         f:Checkbox("Weapon enchants", db, "buffBarEnchants", live,
-            "Temporary weapon enchants - imbues, oils, sharpening stones - at the right end, before the buffs, with their time left.")
+            "Oils, stones and imbues, with their time left, before the buffs.")
         f:Checkbox("Keep the bar in combat", db, "buffBarCombatKeep", live,
-            "In combat the bar stays exactly as it is out of it: every buff keeps showing, and the limit and the hiding below are ignored while this is on.")
+            "In combat the bar stays as it is out of combat; the two limits below are ignored.")
         f:Slider("In combat: buffs up to", 0, 600, 10, seconds, db, "buffBarCombatMax", Live("buffBarCombatMax"),
-            "In combat only buffs this short show - procs and cooldowns, not food and flasks. With any limit, permanent buffs stay off too. 0 shows every buff in combat.")
+            "In combat only buffs this short show, such as procs. 0 shows every buff.")
         f:Checkbox("Hide buffs in combat", db, "buffBarCombatHide", live,
-            "In combat the buffs leave the bar altogether, whatever the limit above says; your debuffs and the weapon enchants stay. They come back when the fight ends.")
+            "In combat the buffs leave the bar; debuffs and weapon enchants stay.")
         f:Checkbox("Out of combat: every buff", db, "buffBarAllOut", live,
-            "Out of combat the limit above is lifted and every buff shows, permanent ones included. Off, the limit holds at all times.")
+            "Out of combat the limit above is lifted and every buff shows.")
         f:Slider("Buff rows", 1, 3, 1, count, db, "buffRows", Live("buffRows"),
-            "How many rows the buffs may fill, with the icons per row from above.")
+            "How many rows the buffs may fill.")
         f:Slider("Debuffs at most", 0, 16, 1, count, db, "buffDebuffMax", Live("buffDebuffMax"),
-            "How many debuffs the left block shows; 0 for none.")
+            "0 for none.")
 
         f:Gap(4)
         f:Label("Look")
         f:Checkbox("Time below the icons", db, "buffBarTime", Rebuild("buffBarTime"),
-            "The time left under each icon. Off, the rows close up. Needs a reload.")
+            "The time left under each icon. Needs a reload.")
         f:Checkbox("Dispel colour above debuffs", db, "buffBarDispel", Rebuild("buffBarDispel"),
-            "A short strip in the dispel colour above a debuff - Final Fantasy's mark for what Esuna removes. Needs a reload.")
+            "A short strip in the dispel colour above a debuff. Needs a reload.")
     end,
 })
 
@@ -142,7 +145,7 @@ D.RegisterModule("Enemies", {
         c.widgets = c.widgets or {}
         f:Label("Enemy list")
         f:Checkbox("Enemy list", db, "enemyList", ns.SetEnemyList,
-            "Final Fantasy XIV's list of the enemies fighting you or your group: a square that turns red while one targets you, its marker, name and health; your target lit. For reading - a click does not target. Built from the nameplates, so enemy nameplates must be on. Move it with Move below; /orbs enemies shows what it sees.")
+            "Final Fantasy XIV's list of the enemies fighting you: name, health, a red square while one targets you. Needs enemy nameplates on. Move it with Move below.")
 
         f:Label("Focus and bosses")
         f:Checkbox("Focus frame", db, "showFocus", ns.SetFocusShown)
@@ -150,7 +153,7 @@ D.RegisterModule("Enemies", {
         loaded.bossStyle = loaded.bossStyle or DeckUIForeverOrbsDB.bossStyle or "auto"
         f:Cycles({ label = "Boss look", values = { "auto", "orbs", "ff", "xiv" },
             names = { auto = "Follows the style", orbs = "Orbs", ff = "Final Fantasy", xiv = "Final Fantasy XIV" },
-            tip = "The bosses apart from your own style: orbs, or Final Fantasy XIV's enemy list - on dark panels, or as capsule bars without a box. Needs a reload.",
+            tip = "Orbs, dark panels or Final Fantasy XIV's capsules for the bosses. Needs a reload.",
             get = function() return DeckUIForeverOrbsDB.bossStyle or "auto" end,
             set = function(v)
                 DeckUIForeverOrbsDB.bossStyle = v
@@ -159,16 +162,16 @@ D.RegisterModule("Enemies", {
         local bossBtn = f:Button("Test boss frames", function(b)
             ns.SetBossTest(not ns.bossTestOn)
             C_Timer.After(0, function() b:Refresh() end)
-        end, "Five boss frames showing your target, to see size and place without a boss. Switches out of combat; also /orbs boss.")
+        end, "Five boss frames showing your target, to see size and place. Also /orbs boss.")
         table.insert(c.widgets, Refreshing(bossBtn, function()
             return ns.bossTestOn and "End boss test" or "Test boss frames"
         end))
     end,
 })
 
--- Player, Target and Target of target: a page each under "Player and
--- target" (owner's wish 2026-10-28) for the Final Fantasy frames' width,
--- bar height and where their buffs and debuffs go. oUF builds a frame once,
+-- Player, Target and Target of target: a page each under the unit frames
+-- (owner's wish 2026-10-28) for the Final Fantasy frames' width, bar
+-- height and where their buffs and debuffs go. oUF builds a frame once,
 -- so every change here reports to the reload bar; `loaded` keeps what this
 -- session was built with, so a value put back clears the request.
 local function Snap(k, get) if loaded[k] == nil then loaded[k] = get() end end
@@ -202,7 +205,7 @@ local function SizeSliders(f, prefix)
     f:Slider("Bar height", 50, 250, 10, pct, sz, prefix .. "Bar", function(v)
         sz()[prefix .. "Bar"] = v
         Need(prefix .. "Bar", v)
-    end, "The health bar's thickness, 100% as shipped; the frame grows with it. Needs a reload.")
+    end, "The health bar's thickness. Needs a reload.")
 end
 
 D.RegisterModule("FramePlayer", {
@@ -213,21 +216,20 @@ D.RegisterModule("FramePlayer", {
                              "playerAuraSize", "playerBuffMax", "playerDebuffMax" }) do
             Snap(k, function() return DeckUIForeverOrbsDB[k] end)
         end
-        f:Hint("Your parameter bar in the Final Fantasy styles; the orbs keep their size slider on Player and target. Everything here needs a reload.")
+        f:Hint("Your bar in the Final Fantasy styles. Everything here needs a reload.")
         SizeSliders(f, "player")
         f:Label("Buffs and debuffs")
         f:Cycles(
             Side("Buffs", "playerBuffs",
-                "Your buffs in a line above the bar, below its cast, or not at the bar at all. The buff bar replaces them while it is on."),
+                "Your buffs above the bar, below the cast, or off. The buff bar replaces them while it is on."),
             Side("Debuffs", "playerDebuffs",
-                "Your debuffs above the bar - over the buffs when both sit there - below its cast, or off."))
+                "Your debuffs above the bar, below the cast, or off."))
         f:Checkbox("Buffs from the right edge", db, "playerBuffsRight", function(v) Need("playerBuffsRight", v) end,
-            "The buffs start at the bar's right edge and grow left, so they share a line with the debuffs without meeting them. Off, each kind has a line of its own from the left. Needs a reload.")
+            "The buffs start at the right edge and grow left, so they share a line with the debuffs. Needs a reload.")
         f:Checkbox("Final Fantasy XIV shapes", db, "playerAuraShapes", function(v) Need("playerAuraShapes", v) end,
-            "The icons in the shapes of the target's: a buff's top rises to a roof, a debuff's bottom falls to a point, the dispel colour as a strip above. Off, plain squares. Needs a reload.")
+            "Buff icons with a roof, debuff icons with a point, as on the target. Needs a reload.")
         f:Slider("Icon size", 14, 32, 1, px, db, "playerAuraSize", Plain("playerAuraSize"), "Needs a reload.")
-        f:Slider("Buffs at most", 0, 20, 1, count, db, "playerBuffMax", Plain("playerBuffMax"),
-            "In one line - as many as the width holds. Needs a reload.")
+        f:Slider("Buffs at most", 0, 20, 1, count, db, "playerBuffMax", Plain("playerBuffMax"), "Needs a reload.")
         f:Slider("Debuffs at most", 0, 20, 1, count, db, "playerDebuffMax", Plain("playerDebuffMax"), "Needs a reload.")
     end,
 })
@@ -243,10 +245,10 @@ D.RegisterModule("FrameTarget", {
         SizeSliders(f, "target")
         f:Label("Buffs and debuffs")
         f:Cycles(
-            Side("Debuffs", "targetDebuffs", "Its debuffs - yours, or all of them (Player and target) - below the cast, above the bar, or off."),
+            Side("Debuffs", "targetDebuffs", "Its debuffs below the cast, above the bar, or off."),
             Side("Buffs", "targetBuffs", "Its buffs below the cast, above the bar, or off."))
         f:Checkbox("Buffs from the right edge", db, "targetBuffsRight", function(v) Need("targetBuffsRight", v) end,
-            "The buffs start at the bar's right edge and grow left, so they share a line with the debuffs without meeting them. Off, they take a line of their own from the left. Needs a reload.")
+            "The buffs start at the right edge and grow left, so they share a line with the debuffs. Needs a reload.")
         f:Slider("Icon size", 14, 32, 1, px, db, "targetAuraSize", Plain("targetAuraSize"), "Needs a reload.")
         f:Slider("Debuffs at most", 0, 16, 1, count, db, "targetDebuffMax", Plain("targetDebuffMax"), "Needs a reload.")
         f:Slider("Buffs at most", 0, 16, 1, count, db, "targetBuffMax", Plain("targetBuffMax"), "Needs a reload.")
@@ -258,75 +260,80 @@ D.RegisterModule("FrameToT", {
     build = function(c)
         local f = D.Flow(c)
         Snap("totDebuffs", function() return DeckUIForeverOrbsDB.totDebuffs end)
-        f:Hint("The small bar beside the target in the Final Fantasy styles. It sits at the target bar, so it has no place of its own. Everything here needs a reload.")
+        f:Hint("The small bar beside the target in the Final Fantasy styles. Everything here needs a reload.")
         SizeSliders(f, "tot")
         f:Label("Debuffs")
         f:Checkbox("Your debuffs under it", db, "totDebuffs", function(v) Need("totDebuffs", v) end,
-            "A line of your debuffs on the target's target, up to six. Needs a reload.")
+            "Up to six. Needs a reload.")
     end,
 })
 
--- Your debuffs have a page of their own under "Player and target" (owner's
+-- Your debuffs have a page of their own under the unit frames (owner's
 -- wish 2026-10-28, easier to find; D.PAGE_PARENT indents it there).
 D.RegisterModule("Debuffs", {
     title = "Debuffs",
     build = function(c)
         local f = D.Flow(c)
-        f:Hint("The debuffs your class keeps up - DoTs, bleeds, curses - one capsule each, for your target and your focus. /orbs dots shows what it sees.")
-        f:Label("Your debuffs")
-        f:Checkbox("Show your debuffs (DoTs, bleeds, curses)", db, "dotTracker", ns.SetDotTracker,
-            "One capsule per debuff: a column for your target, a smaller one for your focus. The game fills the capsules itself, in combat too. A missing one is an empty capsule with a red edge while you fight; the bar gets a gold wash in its last 30%, where refreshing loses nothing. Your other debuffs follow below. What runs here as a bar leaves the target frame's debuff icons.")
-        f:Slider("Width (this device)", 50, 175, 5, pct, ns.DeviceDB, "dotScale", function(v)
+        f:Hint("The debuffs your class keeps on enemies - DoTs, bleeds, curses - for your target and your focus. /orbs dots prints what the window sees.")
+        f:Label("Window")
+        f:Checkbox("Show the debuff window", db, "dotTracker", ns.SetDotTracker,
+            "A column for your target and a smaller one for your focus. One capsule per debuff, filled by the game while it runs. A debuff you have not cast is an empty capsule with a red edge in combat. Gold means the last third: refresh now and nothing is lost. Your other debuffs on the target follow below.")
+        f:Checkbox("Round icons instead of capsules", db, "dotIcons", function(v)
+            D.NeedReload("orbs:dotIcons", (v and true or false) ~= loaded.dotIcons)
+        end, "The look of the HoT window: the name, then one round icon per debuff with a clock that closes as it runs out, then your other debuffs as icons. Needs a reload.")
+        f:Slider("Width, or icon size (this device)", 50, 175, 5, pct, ns.DeviceDB, "dotScale", function(v)
             ns.DeviceDB().dotScale = v
             ns.ApplyDotWidth()
-        end, "How wide the rows are: 100% as shipped (240 px), 175% the width of the Final Fantasy XIV target bar. The focus column takes a share of it.")
+        end, "Capsules: how wide the rows are, 100% is 240 pixels. Round icons: how big they are, 100% is 22 pixels.")
         f:Checkbox("Show the names", db, "dotNames", function() ns.ApplyDotNames() end,
-            "The debuff's name between icon and capsule. Off, the capsule takes that room and the icon says which debuff it is - hover it for the name. The running capsules follow at the next reload.")
+            "Capsules only: the debuff's name between icon and capsule. Off, the capsule gets that room. Running capsules follow after a reload.")
         f:Checkbox("Empty capsules out of combat", db, "dotIdle", nil,
-            "Out of a fight, a dimmed empty capsule for every debuff of the list that is not running, as the red ones in a fight. Off, out of a fight only a running debuff shows, with the unit's name over it - nothing at all when none runs.")
-        f:Checkbox("Keep the enemies you leave", db, "dotKeep", nil,
-            "An enemy you move your target off keeps a smaller column under the target column while one of the list runs on it - up to four, newest first. It needs the enemy's nameplate on screen. In a fight the game does not tell what runs on an enemy, so a column stays 30 seconds after your last cast on it. In the window only.")
+            "Out of combat, a dimmed empty capsule (or icon) for every debuff you have not cast. Off, only running debuffs show - nothing at all when none runs.")
+        f:Checkbox("Keep enemies you switch away from", db, "dotKeep", nil,
+            "An enemy you stop targeting keeps a small column while your debuffs run on it, up to four. Needs its nameplate on screen. Window only.")
         f:Label("Place")
-        f:Checkbox("At the target frame, no window", db, "dotAttach", function() ns.ApplyDotLayout() end,
-            "Instead of a window of their own, the rows hang bare at your target frame, and the focus column at your focus frame - clear of the frame's own buffs and debuffs. Otherwise move the window with Move below.")
+        f:Checkbox("At the target frame instead of a window", db, "dotAttach", function() ns.ApplyDotLayout() end,
+            "The rows hang at your target frame, the focus column at your focus frame. Off, the debuffs have a window of their own - move it with Move below.")
         f:Checkbox("Above the frame instead of below", db, "dotAbove", function() ns.ApplyDotLayout() end,
-            "With the debuffs at the target frame: above it rather than below.")
+            "With the rows at the target frame: above it rather than below.")
         f:Checkbox("Sample rows while moving", db, "dotPreview", nil,
-            "With Move or /df unlock the window shows three sample capsules - a running debuff, a missing one - instead of an empty box of the same size.")
+            "With Move or /df unlock the window shows three example rows instead of an empty box.")
     end,
 })
 
--- The healer's counterpart (owner 2026-11-06): your HoTs on the one you
--- heal, the same rows and the same places. hots.lua.
+-- The healer's counterpart (owner 2026-11-06), rebuilt around the party
+-- on 2026-11-07: a line per party member - name, a round icon per heal
+-- with a closing clock, the buffs on them - a stranger only while
+-- targeted. hots.lua.
 D.RegisterModule("HoTs", {
     title = "HoTs",
     build = function(c)
         local f = D.Flow(c)
-        f:Hint("The heals your class keeps running - a druid's Rejuvenation and Regrowth, a priest's Renew and shield - one capsule each, for your target and your focus. /orbs hots shows what it sees.")
-        f:Label("Your HoTs")
-        f:Checkbox("Show your HoTs (and the shield)", db, "hotTracker", ns.SetHotTracker,
-            "One capsule per heal over time: a column for the friend you target, a smaller one for your focus. The game fills the capsules itself, in combat too. A missing one is an empty capsule with a red edge while you fight; the bar gets a gold wash in its last 30%, where refreshing loses nothing. Your other short buffs on them follow below. Only druids and priests have HoTs in Classic.")
-        f:Checkbox("You, when you have no friendly target", db, "hotSelf", function() ns.SetHotTracker(DeckUIForeverOrbsDB.hotTracker) end,
-            "Without a friendly target the first column shows your own HoTs on you, titled You. Only in the window: at the target frame there is nothing to hang from without a target.")
-        f:Checkbox("Leave the target frame's buff icons", db, "hotExclude", function() ns.ApplyHotExclusion() end,
-            "What runs here as a bar leaves the target frame's buff icons, as the debuffs do. Those icons show everyone's buffs, so another druid's Rejuvenation goes from them too - switch this off to keep every icon.")
-        f:Slider("Width (this device)", 50, 175, 5, pct, ns.DeviceDB, "hotScale", function(v)
+        f:Hint("Your party in one window: who has your HoTs, and which buffs. Druids and priests have HoTs in Classic; the other classes see only the buffs. /orbs hots prints what the window sees.")
+        f:Label("Window")
+        f:Checkbox("Show the HoT window", db, "hotTracker", ns.SetHotTracker,
+            "One line per party member, you first; solo it is just you. Each line: the name, one round icon per HoT - the dark clock closes as it runs out - then the buffs on them. A HoT you have not cast is a dimmed icon with a red rim in combat. Gold means the last third: refresh now and nothing is lost. A friendly target outside your party gets its own line while you target it.")
+        f:Checkbox("Click to cast (healer mode)", db, "hotHealer", function(v)
+            D.NeedReload("orbs:hotHealer", (v and true or false) ~= loaded.hotHealer)
+        end, "Click a HoT icon to cast it on that member; click the name to target them. Works in combat. In this mode the window stays frozen during a fight and sorts itself again when the fight ends. Needs a reload.")
+        f:Checkbox("Controller keys at the names (Steam Deck)", db, "hotPadHints", function() ns.ApplyHotHints() end,
+            "Shows which controller key targets each member while you hold the target modifier: the D-pad for party members 1 to 4, the bottom face button for you. Only in the gamepad style, not in a raid.")
+        f:Label("Buffs")
+        f:Checkbox("Show every buff, not only yours", db, "hotAllBuffs", function() ns.ApplyHotBuffs() end,
+            "On: every buff on the member, long ones too, up to ten. Off: only your own buffs of a minute or less, up to six.")
+        f:Checkbox("Hide your HoTs from the target frame", db, "hotExclude", function() ns.ApplyHotExclusion() end,
+            "Your HoTs show here, so they leave the buff icons on the target frame. Off, the target frame keeps all its icons.")
+        f:Checkbox("Dimmed icons out of combat", db, "hotIdle", nil,
+            "Out of combat, a HoT you have not cast shows as a dimmed icon. Off, its spot stays empty until the HoT runs.")
+        f:Label("Layout (this device)")
+        f:Checkbox("Side by side", ns.DeviceDB, "hotAcross", function() ns.ApplyHotLayout() end,
+            "The lines next to each other instead of one below the other.")
+        f:Slider("Icon size", 50, 175, 5, pct, ns.DeviceDB, "hotScale", function(v)
             ns.DeviceDB().hotScale = v
-            ns.ApplyHotWidth()
-        end, "How wide the rows are: 100% as shipped (240 px), 175% the width of the Final Fantasy XIV target bar. The focus column takes a share of it.")
-        f:Checkbox("Show the names", db, "hotNames", function() ns.ApplyHotNames() end,
-            "The heal's name between icon and capsule. Off, the capsule takes that room and the icon says which heal it is - hover it for the name. The running capsules follow at the next reload.")
-        f:Checkbox("Empty capsules out of combat", db, "hotIdle", nil,
-            "Out of a fight, a dimmed empty capsule for every heal of the list that is not running, as the red ones in a fight. Off, out of a fight only a running heal shows, with the unit's name over it - nothing at all when none runs.")
-        f:Checkbox("Keep the friends you leave", db, "hotKeep", nil,
-            "A friend you move your target off keeps a smaller column under the target column while one of the list runs on them - up to four, newest first. They must be you or in your group; a stranger has no unit the game can name. If the game does not tell what runs in a fight, a column stays 30 seconds after your last cast on them. In the window only.")
-        f:Label("Place")
-        f:Checkbox("At the target frame, no window", db, "hotAttach", function() ns.ApplyHotLayout() end,
-            "Instead of a window of their own, the rows hang bare at your target frame, and the focus column at your focus frame - clear of the frame's own buffs and debuffs. Otherwise move the window with Move below.")
-        f:Checkbox("Above the frame instead of below", db, "hotAbove", function() ns.ApplyHotLayout() end,
-            "With the HoTs at the target frame: above it rather than below.")
-        f:Checkbox("Sample rows while moving", db, "hotPreview", nil,
-            "With Move or /df unlock the window shows three sample capsules - a running HoT, a missing one - instead of an empty box of the same size.")
+            ns.ApplyHotSize()
+        end, "100% is 22 pixels. The HoT icons change at once, the buff icons after a reload.")
+        f:Checkbox("Sample lines while moving", db, "hotPreview", nil,
+            "With Move or /df unlock the window shows two example lines instead of an empty box.")
     end,
 })
 
@@ -348,7 +355,7 @@ end
 local function GroupLook()
     return { label = "Look", values = { "panel", "xiv" },
              names = { panel = "Dark panels", xiv = "Final Fantasy XIV" },
-             tip = "Dark panels with bars, or Final Fantasy XIV's look like the XIV player frame: capsule bars without a box, the health number large, pink mana. For the party list and the raid frames alike. Needs a reload.",
+             tip = "Dark panels with bars, or Final Fantasy XIV's capsules without a box. For the party list and the raid frames alike. Needs a reload.",
              get = function() return DeckUIForeverOrbsDB.groupStyle or "panel" end,
              set = function(v)
                  DeckUIForeverOrbsDB.groupStyle = v
@@ -368,18 +375,18 @@ D.RegisterModule("Group", {
         f:Label("Party list")
         f:Checkbox("Show the party list (hides Blizzard's)", db, "showParty", function(v)
             D.NeedReload("orbs:showParty", v ~= loaded.showParty)
-        end, "Final Fantasy style rows: tanks, healers, damage, each with class icon, health and auras. Party only - in a raid the raid frames take over. Needs a reload.")
+        end, "Rows like Final Fantasy XIV: class icon, name, health and auras, tanks first. Party only; in a raid the raid frames take over. Needs a reload.")
         TestButton(f, c, function(on) return on and "End party test" or "Test: five rows of you" end,
             function() return ns.partyTest end, function() ns.SetPartyTest(not ns.partyTest) end,
-            "Shows the list with five copies of you, to see size and place. Switches out of combat; also /orbs test.")
+            "Five rows of you, to see size and place. Also /orbs test.")
 
         f:Cycles(GroupLook())
 
         f:Gap(4)
         f:Label("Layout (this device)")
-        f:Checkbox("Side by side instead of stacked", ns.DeviceDB, "partyAcross", function()
+        f:Checkbox("Side by side", ns.DeviceDB, "partyAcross", function()
             ns.ApplyPartyLayout()
-        end)
+        end, "The rows next to each other instead of one below the other.")
         f:Slider("Size", 0.6, 1.6, 0.05, pct, ns.DeviceDB, "partyScale", function(v)
             ns.DeviceDB().partyScale = v
             ns.ApplyPartyScale()
@@ -425,10 +432,10 @@ D.RegisterModule("Raid", {
 
         f:Label("Raid frames")
         f:Checkbox("Show the raid frames (hides Blizzard's)", db, "showRaid", ReloadAfter("showRaid"),
-            "Each member a small parameter bar like the Final Fantasy player frame. Blizzard's raid tools on the left stay. Needs a reload.")
+            "A small tile per member. Blizzard's raid tools on the left stay. Needs a reload.")
         TestButton(f, c, function(on) return on and "End raid test" or "Test: a raid of you" end,
             function() return ns.raidTest end, function() ns.SetRaidTest(not ns.raidTest) end,
-            "Forty tiles of you, to see size and place. Switches out of combat; also /orbs raid.")
+            "Forty tiles of you, to see size and place. Also /orbs raid.")
 
         f:Gap(4)
         f:Label("Size and arrangement (this device)")
@@ -446,12 +453,12 @@ D.RegisterModule("Raid", {
         end)
         f:Cycles(
             { label = "Groups", values = { false, true }, names = { [false] = "Columns", [true] = "Rows" },
-              tip = "One column per raid group, or one row per group.",
+              tip = "Each raid group as a column, or as a row.",
               get = function() return ns.DeviceDB().raidRows and true or false end,
               set = function(v) ns.DeviceDB().raidRows = v; layout() end },
             RaidSetting("Sort", "raidSort", { "group", "role", "class" },
                 { group = "Group", role = "Role", class = "Class" }, layout,
-                "By group keeps the groups the raid leader set; by role or class fills the grid from the whole raid."))
+                "By group as the raid leader set them, or by role or class."))
 
         f:Gap(4)
         f:Label("Look")
@@ -466,9 +473,9 @@ D.RegisterModule("Raid", {
         f:Cycles(
             RaidSetting("Background", "raidBgAlpha", bgs, bgNames, look),
             RaidSetting("Out of range", "raidRangeAlpha", ranges, rangeNames, look,
-                "How see-through a member out of your range is."))
+                "How faded a member out of your range is."))
         f:Checkbox("Frame the tile in the dispel colour", db, "raidDispelGlow", look,
-            "Shown only for debuffs you can dispel, in the colour of their type.")
+            "Only for debuffs you can dispel.")
         f:Checkbox("Red edge while a member has aggro", db, "raidAggro", look)
         f:Checkbox("Mana bar for healers", db, "raidMana", look)
         f:Checkbox("Role icons for tanks and healers", db, "raidRoles", look)
@@ -478,9 +485,9 @@ D.RegisterModule("Raid", {
         local counts, countNames = Counts()
         f:Cycles(
             RaidSetting("Debuffs", "raidDebuffs", counts, countNames, ReloadAfter("raidDebuffs"),
-                "Top right on the tile."),
+                "Top right of the tile."),
             RaidSetting("Own buffs", "raidBuffs", counts, countNames, ReloadAfter("raidBuffs"),
-                "Bottom right: your heals over time and shields, up to two minutes long."))
+                "Bottom right: your HoTs and shields."))
         f:Checkbox("Only debuffs you can dispel", db, "raidDispelOnly", ReloadAfter("raidDispelOnly"))
     end,
 })

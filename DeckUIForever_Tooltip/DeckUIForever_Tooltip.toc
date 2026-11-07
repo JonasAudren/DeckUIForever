@@ -2,7 +2,7 @@
 ## Title: DeckUIForever Tooltip
 ## Notes: DeckUIForever module: the mouse-over tooltip in DeckUIForever's style, at a fixed place per device
 ## Author: Gottlieb
-## Version: 1.2.0
+## Version: 1.3.0
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Category: Tooltip

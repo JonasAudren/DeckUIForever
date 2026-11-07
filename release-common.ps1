@@ -11,7 +11,7 @@ must not ship just because it exists.
 # The modules join this list as they are ported from DeckUI
 # (DECKUIFOREVER_BERICHT.md, phases 2-5); D.MODULE_ADDONS in DeckUIForever/core.lua
 # names them already.
-$addons = @("DeckUIForever", "DeckUIForever_Orbs", "DeckUIForever_Bars", "DeckUIForever_Spec", "DeckUIForever_Bags", "DeckUIForever_Quests", "DeckUIForever_Map", "DeckUIForever_Tooltip", "DeckUIForever_Nav", "DeckUIForever_Week")
+$addons = @("DeckUIForever", "DeckUIForever_Orbs", "DeckUIForever_Bars", "DeckUIForever_Pad", "DeckUIForever_Spec", "DeckUIForever_Bags", "DeckUIForever_Quests", "DeckUIForever_Map", "DeckUIForever_Tooltip", "DeckUIForever_Nav", "DeckUIForever_Week")
 
 function Get-TocField($path, $field) {
     foreach ($line in Get-Content $path) {

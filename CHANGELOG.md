@@ -1,5 +1,76 @@
 # Changelog
 
+## 1.3.0
+
+The controller bar in our look, the D-pad in our windows, and your
+party's HoTs and buffs in one window.
+
+- Hub: on the Steam Deck (Blizzard's gamepad interface style) the bags,
+  the bank, the loot window, the week overview, the /df window and its
+  dialogs join Blizzard's window navigation, the way the game's own
+  windows do: the D-pad moves the cursor between buttons, A clicks, B
+  closes the window, LT and RT jump between the open windows, the right
+  stick scrolls. The window that holds the cursor gets a gold outline,
+  the windows left and right of it Blizzard's LT and RT glyphs. Out of
+  combat; in combat the trackpad serves as before. Nothing of the input
+  is ours - the windows only announce themselves to Blizzard's window
+  manager. Devices page, "D-pad in DeckUIForever's windows", on by
+  default; /df gamepad says who takes part.
+- Pad: a new module for the Steam Deck. Blizzard's controller action bar
+  (the gamepad interface style: LT, RT, the D-pad and face buttons, four
+  bars and their pages) keeps all of its controls and gets the hotbar look
+  of the Bars module - square slots with a thin outline on both groups,
+  the icon behind rounded corners, the button glyph small in the top-left
+  corner of every slot, a flat dark panel behind the bar you hold. Blizzard's
+  borders, drop shadows and glows go; its pushed shrink, cast fill,
+  cooldowns, targeting bars, stance and vehicle bars and the class action
+  buttons wear the same slot. Nothing of the input, the bindings, the
+  positions or Edit Mode is touched. Page "Controller bar" under Actions,
+  off by default; /df pad says what it dressed.
+- Orbs: the HoT window is your party's, and compact. A line per member,
+  you first - solo, you alone - with the heals you keep up on them as
+  round icons whose clock closes as the heal runs out, in the same place
+  on every line, and the buffs on them after; every member is listed as
+  long as you are in the party. A friendly target outside the party (a
+  stranger, an NPC, a raid member of another group) gets a line at the
+  end while you target it and loses it with the next target. New on the
+  page: "Show every buff, not only yours" (off: your own buffs up to a
+  minute, as before), "Side by side" and the icon size, per device. Gone
+  with the table: the capsules and their names,
+  the focus column, "You, when you have no friendly target", "Keep the
+  friends you leave" and the rows at the target frame - a party member
+  never leaves the window, and a table has no frame to hang from. The
+  debuff window keeps its capsules and kept columns.
+- Orbs: the debuff window can wear the same look - "Round icons instead
+  of capsules" on its page, off by default, needs a reload. Each column is then one line: the unit's name, a round icon
+  per listed debuff with the clock and the time, your other debuffs as
+  icons after them; the focus column, the kept columns and the place at
+  the target frame stay as they are. The width slider sizes the icons
+  in that look.
+- Orbs: the HoT window's healer mode - "Click to cast" on its page, off
+  by default, needs a reload. A click on a heal's icon casts it on that
+  member, missing or running; a click on the name targets them. In
+  combat too, the way a key press works. In this mode the window stands
+  still in a fight: the game shows and hides the lines itself, a member
+  who joins mid-fight takes the next free row, and the layout catches
+  up when the fight ends. The empty icons always show, so there is
+  something to click.
+- Orbs: on the Steam Deck the HoT window shows, before each name, the
+  key that targets that member in Blizzard's own gamepad targeting - the
+  D-pad for party members 1 to 4, the bottom face button for you - dim
+  until you hold the friendly target modifier. "Controller keys at the
+  names" on the page, on by default; nothing in the gamepad style's
+  controls changes, the window only shows the keys where your HoTs are.
+- The settings window, simpler. Screen, Targets and Windows are pages of
+  their own in the General group (they were hidden under the Overview);
+  the Overview is "Modules", the Units group is "Frames", and the Orbs
+  page is "Unit frames". The minimap's settings sit on the Maps page,
+  the tooltip's extra lines on the Tooltip page. Every label is shorter
+  and every explanation is two or three plain sentences. The sidebar
+  has a scrollbar.
+- Fixed: the debuff window's kept columns threw an error as soon as a
+  kept enemy's nameplate changed hands (since 1.2.0).
+
 ## 1.2.0
 
 Your HoTs, and both windows remember the units you leave.

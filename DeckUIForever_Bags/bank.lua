@@ -445,6 +445,12 @@ window:SetScript("OnHide", function(self)
     if atBank then C_Bank.CloseBankFrame() end
 end)
 
+-- the D-pad on the Steam Deck (hub, gamepad.lua); the parked BankFrame is
+-- still a UI panel and would be an empty second stop for LT and RT
+if D.GamepadWindow then
+    D.GamepadWindow(window, { close = window.close, evict = { BankFrame } })
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
 ev:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")

@@ -52,34 +52,39 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -------------------------------------------------------------------
 -- Groups and names of the pages
 -------------------------------------------------------------------
+-- The second menu review (owner 2026-11-07, "simpler"): the hub's own
+-- pages (Screen, Targets, Windows) stand in the General group for
+-- everyone to see - as sub-pages of the Overview they were listed only
+-- while the Overview was on show; the minimap settings moved onto the
+-- Maps page and the tooltip's extra lines onto the Tooltip page (two
+-- pages of a hint and six checkboxes each); the Orbs page is "Unit
+-- frames", the Overview "Modules", the Units group "Frames".
 D.PAGE_GROUPS = {
-    { title = "General",   pages = { "General", "Screen", "Targets", "Windows", "Devices" } },
-    { title = "Units",     pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "Debuffs", "HoTs", "BuffBar", "Enemies", "Group", "Raid" } },
-    { title = "Actions",   pages = { "Cross", "CrossController", "Bars", "Spec" } },
-    { title = "World",     pages = { "Quests", "Map", "MapMinimap", "MapWorld", "Nav" } },
+    { title = "General",   pages = { "General", "Devices", "Screen", "Targets", "Windows" } },
+    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "Group", "Raid" } },
+    { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
+    { title = "World",     pages = { "Quests", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
-    { title = "Info",      pages = { "Tooltip", "TooltipExtras", "Week" } },
+    { title = "Info",      pages = { "Tooltip", "Week" } },
 }
 -- the sidebar's name where the module's title is too short to say it
 D.PAGE_NAMES = {
-    Orbs = "Player and target", Cross = "Cross hotbar", Spec = "Talent groups",
-    Nav = "Navigation", Map = "Maps", Week = "Week overview", Bars = "Action bars",
+    Orbs = "Unit frames", Cross = "Cross hotbar", Spec = "Talent groups",
+    Nav = "Navigation", Map = "Maps", Week = "Week overview", Bars = "Action bars", Pad = "Controller bar",
     Debuffs = "Your debuffs", HoTs = "Your HoTs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
     BuffBar = "Buff bar", Enemies = "Enemies and bosses", CrossController = "Controller",
-    MapMinimap = "Minimap", MapWorld = "World map", TooltipExtras = "Extras",
+    MapWorld = "World map",
 }
 -- A page shown indented under another, as part of it, and listed only
 -- while that parent or a sibling is on show (owner's wish 2026-10-28, the
--- menu review: the Overview had eighteen checkboxes, Player and target
--- as many plus six sliders). A sub-page of a module registers with the
--- module, so a module that is off shows only its stand-in.
+-- first menu review: the Overview had eighteen checkboxes, Player and
+-- target as many plus six sliders). A sub-page of a module registers with
+-- the module, so a module that is off shows only its stand-in.
 D.PAGE_PARENT = {
-    Screen = "General", Targets = "General", Windows = "General",
     FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", HoTs = "Orbs",
     BuffBar = "Orbs", Enemies = "Orbs",
     CrossController = "Cross",
-    MapMinimap = "Map", MapWorld = "Map",
-    TooltipExtras = "Tooltip",
+    MapWorld = "Map",
 }
 
 -------------------------------------------------------------------
@@ -99,12 +104,80 @@ local sideScroll = CreateFrame("ScrollFrame", nil, sideBox)
 sideScroll:SetPoint("TOPLEFT", 0, -2)
 sideScroll:SetPoint("BOTTOMRIGHT", 0, 2)
 local side = CreateFrame("Frame", nil, sideScroll)
-side:SetSize(SIDE_W, 10)
+side:SetSize(SIDE_W - 10, 10)
 sideScroll:SetScrollChild(side)
 sideScroll:EnableMouseWheel(true)
 sideScroll:SetScript("OnMouseWheel", function(self, delta)
     local max = math.max(0, side:GetHeight() - self:GetHeight())
     self:SetVerticalScroll(math.max(0, math.min(max, self:GetVerticalScroll() - delta * 42)))
+end)
+
+-- A thin scrollbar at the box's right edge (owner 2026-11-07: "the left
+-- box still lacks a scrollbar"): a faint track and a gold thumb the size
+-- of the part in view. Drag the thumb, click the track for a page, or
+-- wheel the list; it hides while everything fits.
+local track = CreateFrame("Frame", nil, sideBox)
+track:SetPoint("TOPRIGHT", -3, -4)
+track:SetPoint("BOTTOMRIGHT", -3, 4)
+track:SetWidth(4)
+track:EnableMouse(true)
+local trackBg = track:CreateTexture(nil, "BACKGROUND")
+trackBg:SetAllPoints()
+trackBg:SetColorTexture(1, 1, 1, 0.08)
+local thumb = CreateFrame("Button", nil, track)
+thumb:SetWidth(4)
+thumb:SetPoint("TOP", 0, 0)
+local thumbTex = thumb:CreateTexture(nil, "ARTWORK")
+thumbTex:SetAllPoints()
+thumbTex:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.7)
+track:Hide()
+
+local function SideRange()
+    local seen, total = sideScroll:GetHeight() or 0, side:GetHeight() or 0
+    return seen, math.max(0, total - seen)
+end
+
+local function UpdateSideBar()
+    local seen, max = SideRange()
+    if seen <= 0 or max <= 1 then
+        track:Hide()
+        return
+    end
+    track:Show()
+    local h = track:GetHeight() or 0
+    local th = math.max(16, math.min(h, h * seen / (seen + max)))
+    thumb:SetHeight(th)
+    thumb:SetPoint("TOP", 0, -(h - th) * (sideScroll:GetVerticalScroll() / max))
+end
+sideScroll:SetScript("OnVerticalScroll", UpdateSideBar)
+sideScroll:SetScript("OnScrollRangeChanged", UpdateSideBar)
+sideScroll:SetScript("OnSizeChanged", UpdateSideBar)
+
+local function CursorY(frame)
+    return (select(2, GetCursorPosition())) / frame:GetEffectiveScale()
+end
+
+thumb:RegisterForDrag("LeftButton")
+thumb:SetScript("OnDragStart", function(self)
+    self.fromY, self.fromScroll = CursorY(self), sideScroll:GetVerticalScroll()
+    self:SetScript("OnUpdate", function(b)
+        local seen, max = SideRange()
+        local room = (track:GetHeight() or 0) - (b:GetHeight() or 0)
+        if room <= 0 or max <= 0 then return end
+        local scrolled = b.fromScroll + (b.fromY - CursorY(b)) / room * max
+        sideScroll:SetVerticalScroll(math.max(0, math.min(max, scrolled)))
+    end)
+end)
+thumb:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+track:SetScript("OnMouseDown", function(self)
+    local y = CursorY(self)
+    local seen, max = SideRange()
+    local cur = sideScroll:GetVerticalScroll()
+    if thumb:GetTop() and y > thumb:GetTop() then
+        sideScroll:SetVerticalScroll(math.max(0, cur - seen))
+    elseif thumb:GetBottom() and y < thumb:GetBottom() then
+        sideScroll:SetVerticalScroll(math.min(max, cur + seen))
+    end
 end)
 
 panel.tabs     = {}   -- key -> sidebar entry (the old name, kept for callers)
@@ -130,7 +203,7 @@ end
 
 local function NewEntry(key)
     local b = CreateFrame("Button", nil, side)
-    b:SetSize(SIDE_W - 8, 20)
+    b:SetSize(SIDE_W - 16, 20)   -- the scrollbar's track takes the right edge
     b.text = b:CreateFontString(nil, "OVERLAY")
     b.text:SetFont(D.FONT, 13, "OUTLINE")
     b.text:SetPoint("LEFT", 14, 0)
@@ -231,6 +304,7 @@ local function LayoutSidebar()
             sideScroll:SetVerticalScroll(top)
         end
     end
+    UpdateSideBar()
 end
 
 -------------------------------------------------------------------
@@ -520,6 +594,7 @@ end
 panel:SetScript("OnShow", function(self)
     self:ShowTab(self.current or "General")
 end)
+D.GamepadWindow(panel, { close = close })
 
 function D.ToggleConfig(tabKey)
     if tabKey and panel.contents[tabKey] then panel.current = tabKey end
@@ -540,16 +615,17 @@ end
 -- place in the sidebar (greyed) and says what the module does. Switched
 -- on, the module loads and registers its page, which replaces the stand-in.
 D.MODULE_DESCRIPTIONS = {
-    Orbs    = "Round unit frames for you, your target, focus, pet and bosses - or Final Fantasy's bars - plus the party list and raid frames.",
-    Cross   = "The cross hotbar: Action Bar 1 and 2 as two crosses per side. LT/RT with the D-pad and face buttons on the Steam Deck, your own keys on the PC.",
-    Bars    = "The eight action bars in Final Fantasy XIV's hotbar look, for keyboard and mouse: square slots, your keys in the corner, the bar's number at the left end.",
-    Spec    = "A small bar of your talent groups (dual talents); click one to switch.",
-    Bags    = "One window for all bags and the keyring, sorted into categories, and the bank and warband bank in the same look.",
-    Quests  = "Its own objective tracker in place of Blizzard's: quests and their timers, scenarios, legacy challenges.",
-    Map     = "A square minimap in a DeckUIForever frame and a smaller, cleaner world map.",
-    Tooltip = "The mouse-over tooltip in DeckUIForever's look, with the item level of players and a few extra lines.",
+    Orbs    = "Unit frames for you, your target, focus, pet and bosses - round orbs or Final Fantasy's bars - plus the party list and raid frames.",
+    Cross   = "The cross hotbar: Action Bar 1 and 2 as two crosses per side, for the Steam Deck's triggers and buttons.",
+    Bars    = "The eight action bars in Final Fantasy XIV's hotbar look, for keyboard and mouse.",
+    Pad     = "Blizzard's controller action bar on the Steam Deck in the same hotbar look. The look only; the controls stay Blizzard's.",
+    Spec    = "A small bar of your talent groups; click one to switch.",
+    Bags    = "One window for all bags and the keyring, sorted into categories, and the bank in the same look.",
+    Quests  = "Its own quest tracker in place of Blizzard's: quests, timers, scenarios, legacy challenges.",
+    Map     = "A square or round minimap and a smaller, cleaner world map.",
+    Tooltip = "The mouse-over tooltip in DeckUIForever's look, with a few extra lines.",
     Nav     = "A compass bar, the navigation target with distance and arrival time, and /way waypoints.",
-    Week    = "The week at a glance for all your characters: raid lockouts, legacy, dailies, reputation, weekly quests.",
+    Week    = "The week at a glance for all your characters: lockouts, renown, dailies, reputation, weekly quests.",
 }
 
 local function ModuleLoaded(key)
@@ -618,7 +694,7 @@ local function StubPage(key)
                     and "This module of DeckUI has not been carried over to Forever yet."
                     or state == "Not on this device"
                     and "Switched on, but set to the Steam Deck only."
-                    or "Switch it on with the button at the top right - it loads at once.")
+                    or "Switch it on with the button at the top right. It loads at once.")
             end })
         end,
     }
@@ -627,7 +703,7 @@ end
 -------------------------------------------------------------------
 -- "General": the modules at a glance, and what belongs to no module
 -------------------------------------------------------------------
-D.PAGE_NAMES.General = "Overview"
+D.PAGE_NAMES.General = "Modules"
 
 local function ModuleRow(c, y, key)
     local row = CreateFrame("Button", nil, c)
@@ -664,13 +740,13 @@ panel:AddTab("General", {
             table.insert(c.widgets, f:Add(24, function(parent, y) return ModuleRow(parent, y, key) end))
         end
         f:Gap(4)
-        f:Hint("Click a module for its page; switch it on or off at the top right there.")
+        f:Hint("Click a module to open its page. Switch it on or off with the button at the top right of that page.")
 
         f:Gap(8)
-        f:Label("Interface")
-        f:Checkbox("Show minimap button", db, "showMinimap", function(v) D.SetMinimapShown(v) end,
+        f:Label("Hub")
+        f:Checkbox("Minimap button", db, "showMinimap", function(v) D.SetMinimapShown(v) end,
             "Left click opens these settings, Shift-click the week overview.")
-        f:Hint("Everything else of the hub sits on the pages below: Screen (FFXIV's pieces around the screen), Targets (nameplates, marks, the arrow), Windows.")
+        f:Hint("Screen pieces, nameplates and Blizzard's windows have their own pages in this group.")
 
         f:Gap(8)
         -- the error collector (errors.lua), with how many it holds
@@ -690,11 +766,11 @@ panel:AddTab("Screen", {
     title = "Screen",
     build = function(c)
         local db, f = hubDB, D.Flow(c)
-        f:Hint("Final Fantasy XIV's pieces around the screen. Each is movable with Move below.")
+        f:Hint("Final Fantasy XIV's pieces around the screen. Move each with Move below.")
         if D.ApplyInfoBars then
             f:Label("Server info")
             f:Checkbox("Server info", db, "infoServer", function() D.ApplyInfoBars() end,
-                "Final Fantasy XIV's line at the top right: your realm, a letter when mail waits, your latency and the time. Move it with Move below.")
+                "A line at the top right: your realm, a letter when mail waits, your latency and the time. The two buttons below pick what it shows.")
             -- what the server line shows, each value on its own switch
             local onOff = { [true] = "on", [false] = "off" }
             local function Part(key)
@@ -707,16 +783,16 @@ panel:AddTab("Screen", {
             end
             f:Label("Gold and bags")
             f:Checkbox("Gold", db, "infoGold", function() D.ApplyInfoBars() end,
-                "The gold you carry, with a coin, like FFXIV's gil box. The full amount on mouse-over.")
+                "The gold you carry, with a coin. Hover it for the exact amount.")
             f:Checkbox("Bag overview", db, "infoBags", function() D.ApplyInfoBars() end,
-                "FFXIV's inventory overview: a block of dots per bag, bright for a used slot, dark for a free one, the free slots as a number. A click opens your bags. In combat it appears or goes once the fight ends.")
+                "A block of dots per bag, bright for a used slot, and the number of free slots. Click it to open your bags.")
             f:Checkbox("Hide Blizzard's bag buttons", db, "hideBagBar", function() D.ApplyInfoBars() end,
-                "The backpack and bag slots at the bottom right go out of sight - the bag overview above takes their place. Your bag key still opens the bags, and the bag window's title row keeps a bag slot each to swap bags; untick to have Blizzard's back.")
+                "The backpack and bag slots at the bottom right go away; the bag overview takes their place. Your bag key still opens the bags.")
         end
         if D.ApplyMainMenu then
             f:Label("Main menu")
             f:Checkbox("Main menu as round buttons", db, "mainMenu", function() D.ApplyMainMenu() end,
-                "Final Fantasy XIV's main menu: the game's menu buttons (character, talents, group finder, game menu, ...) as a row of round buttons with a gold ring, which turns bright while a button has news. They open what Blizzard's open; Blizzard's own row goes out of sight. In combat it switches once the fight ends.")
+                "The game's menu buttons as a row of round buttons with a gold ring. Blizzard's own row goes away.")
         end
     end,
 })
@@ -729,25 +805,25 @@ panel:AddTab("Targets", {
         if D.ApplyPlates then
             f:Label("Nameplates")
             f:Checkbox("Enemy nameplates like Final Fantasy XIV", db, "xivPlates", function() D.ApplyPlates() end,
-                "Over each enemy only its level, marker and name and a thin red health bar under the name. Blizzard's plate stays underneath, invisible - clicking it still targets. Where the game keeps a plate to itself, Blizzard's look stays. /df plates shows how many it draws.")
+                "Over each enemy only its level, marker, name and a thin red health bar. Clicking a plate still targets.")
             f:Checkbox("Keep the nameplates apart", db, "plateSpace", function() D.ApplyPlates() end,
-                "With the FFXIV nameplates on: the game stacks plates instead of letting them overlap, with room between them (its nameplateMotion and nameplateOverlapV settings). Your own values come back when this or the nameplates are switched off.")
+                "The game stacks the plates instead of letting them overlap.")
         end
         if D.ApplyRankMarks then
             f:Checkbox("Elite, rare and boss marks", db, "rankMarks", function() D.ApplyRankMarks() end,
-                "A diamond before the name of an elite (gold), a rare (silver with a star), a rare elite (gold with a star) and a boss (red with a crown) - on the Final Fantasy XIV nameplates, the enemy list and the Final Fantasy target and focus bars.")
+                "A diamond before the name: gold for an elite, silver with a star for a rare, red with a crown for a boss. On the nameplates, the enemy list and the target bar.")
         end
         if D.ApplyTargetArrow then
             f:Label("Your target")
             f:Checkbox("Arrow over your target", db, "targetArrow", function() D.ApplyTargetArrow() end,
-                "Final Fantasy XIV's marker: an arrowhead bobbing over your target's nameplate - red for an enemy, green for a friend, gold when the game does not say. It needs the target's nameplate, so it shows only where nameplates do. /df targetarrow shows what it sees.")
+                "An arrowhead bobbing over your target's nameplate: red for an enemy, green for a friend. Needs the target's nameplate.")
         end
         if D.SetSoftTargetName then
             f:Label("Interact target")
             f:Checkbox("Name of the interact target", db, "softTargetName", D.SetSoftTargetName,
-                "With the interact key, the object it would use (chest, ore, herb) gets its name below the game's icon - gold in reach, grey out of it. Needs the interact key on (Options > Gameplay > Controls); switching this on turns on the icon for objects. /df softtarget shows both settings.")
+                "The chest, ore or herb your interact key would use gets its name below the game's icon: gold in reach, grey out of it. Needs the interact key on in the game's controls.")
             f:Checkbox("Ring while casting on it", db, "softTargetCast", function() end,
-                "Fills around the icon while you cast or gather. The game does not say which object a cast is for, so it shows for any cast while a name is up.")
+                "A ring fills around the icon while you cast or gather.")
         end
     end,
 })
@@ -756,18 +832,18 @@ panel:AddTab("Windows", {
     title = "Windows",
     build = function(c)
         local db, f = hubDB, D.Flow(c)
-        f:Hint("Blizzard's windows restyled or helped along. Forever has no talking head.")
+        f:Hint("Blizzard's windows, restyled or helped along.")
         if D.SetDamageMeterStyled then
             f:Checkbox("Damage meter in DeckUIForever's look", db, "styleDamageMeter", D.SetDamageMeterStyled,
-                "Blizzard's damage meter with flat bars and DeckUIForever's font. Its numbers stay Blizzard's.")
+                "Blizzard's damage meter with flat bars and our font.")
         end
         if D.ApplyCharPanel then
             f:Checkbox("Character panel: item level and enchants", db, "charPanel", function() D.ApplyCharPanel() end,
-                "On each slot of the character panel its item level, and a red E where an enchant is missing: head, shoulders, back, chest, wrists, hands, legs, feet, weapons, shield, bow or gun. Below the panel: average item level and the missing enchants.")
+                "The item level on each slot of the character panel, a red E where an enchant is missing, and the average item level below.")
         end
         if D.ApplyListingWindow then
             f:Checkbox("Group listing as a window", db, "listingWindow", function() D.ApplyListingWindow() end,
-                "While you are listed in the group finder: a small window with the activity, how long you have been listed, the roles you offered and the group so far - tanks, healers and damage dealers of the activity's size. Right click unlists. Drag it to move it; it shows while frames are unlocked.")
+                "While you are listed in the group finder: a small window with the activity, your waiting time, your roles and the group so far. Right click unlists.")
         end
     end,
 })
@@ -790,11 +866,11 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
 
             f:Label("At the merchant")
             f:Checkbox("Sell junk", db, "autoSellJunk", nothing,
-                "Grey items are sold as soon as a merchant opens.")
+                "Grey items are sold when a merchant opens.")
             f:Checkbox("Repair", db, "autoRepair", nothing,
-                "Repairs everything when a merchant who can repair opens.")
+                "Everything is repaired when a merchant can repair.")
             f:Checkbox("Repair with guild funds first", db, "repairGuild", nothing,
-                "Uses the guild bank where you are allowed to; your own gold covers the rest.")
+                "Uses the guild bank where you may; your own gold covers the rest.")
 
             f:Gap(8)
             f:Label("Loot")
@@ -806,29 +882,29 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
                     SetCVar("autoLootDefault", "1")
                     print("DeckUIForever: the game's auto loot is on now (Options > Controls).")
                 end
-            end, "Takes everything the moment a corpse opens, without the loot window flickering up. Switches the game's own auto loot on as well; holding the auto loot key (Shift) loots by hand.")
+            end, "Takes everything at once, without the loot window. Turns the game's own auto loot on too; hold Shift to loot by hand.")
             f:Checkbox("DeckUIForever's loot window", db, "lootWindow", function() D.ApplyLootWindow() end,
-                "Replaces Blizzard's loot window. With auto loot a short list shows what you took. Move both with /df unlock.")
+                "Replaces Blizzard's loot window. With auto loot a short list shows what you took. Move it with Move below.")
             f:Checkbox("DeckUIForever's loot rolls", db, "lootRolls", function() D.ApplyLootRolls() end,
-                "Group loot rolls as one list in DeckUIForever's look: each item with its time left and Need, Greed (or Transmog) and Pass. Greyed when your character cannot pick it; the tooltip says why. Blizzard's roll frames are only faded and keep working underneath. Move it with the page's Move button.")
+                "Group rolls as one list: each item with its time left and Need, Greed and Pass. Move it with Move below.")
 
             if D.ApplyRestock then
                 f:Checkbox("Restock at merchants", db, "restock", function() D.ApplyRestock() end,
-                    "Beside the merchant a small list of things to keep in your bags - arrows, reagents, water, food: drop an item from your bags on it, set how many with - and +. Each merchant visit buys what is missing, as far as the merchant sells it for gold and your gold reaches; a chat line says what was bought. Per character.")
+                    "A small list beside the merchant of things to keep stocked - arrows, reagents, water, food. Drop an item on it and set how many; every visit buys what is missing. Per character.")
             end
             if D.ApplyMail then
                 f:Checkbox("Mail helper", db, "mailHelper", function() D.ApplyMail() end,
-                    "At the mailbox: a button beside the recipient lists your characters on this realm and the last ten people you mailed. After Blizzard's Open All, one chat line says what it took - gold and items.")
+                    "At the mailbox a button lists your characters and the last ten people you mailed. After Open All, one chat line says what you got.")
             end
 
             if D.PrintAuction then
                 f:Gap(8)
                 f:Label("Auction house")
                 f:Checkbox("Scan button at the auction house", db, "ahScan", function() end,
-                    "Below the auction house window: \"Scan now\" reads every listing - at most every 15 minutes (the game's limit), in small slices so nothing freezes. The game only allows it on a click. The prices then show in tooltips and the bags anywhere you go - as fresh as your last visit. /df ah shows what is stored.")
+                    "A Scan button below the auction house reads all prices, at most every 15 minutes. Tooltips and the bags then show them.")
                 f:Checkbox("Auction house window in DeckUIForever's look", db, "ahStyle", function(v)
                     D.NeedReload("ahStyle", true)
-                end, "Blizzard's frame art, portrait and parchment give way to DeckUIForever's dark panel, flat buttons and tabs. Only the look changes. Applies when the auction house is next opened after a reload.")
+                end, "Blizzard's auction house in our dark look. Needs a reload.")
             end
         end,
     })
@@ -859,7 +935,7 @@ panel:AddTab("Devices", {
         local devBtn = f:Button("Device", function(b)
             D.CycleDevice()
             b:SetText(D.DeviceText())
-        end, "Auto: Steam Deck when the screen is 1280x800 or a gamepad is active, otherwise PC. Decided once at login. Per-device settings - positions, sizes, the options below - follow this.")
+        end, "Auto: Steam Deck when the screen is 1280x800 or a gamepad is active, otherwise PC. Positions, sizes and every option marked (this device) follow it.")
         devBtn:SetWidth(300)
         devBtn:GetFontString():SetFont(D.FONT, 12, "OUTLINE")
         function devBtn:Refresh() self:SetText(D.DeviceText()) end
@@ -869,17 +945,23 @@ panel:AddTab("Devices", {
         f:Label("UI scale")
         f:Checkbox("Set Blizzard's UI scale per device at login", db, "applyUiScale", function(v)
             if v then D.ApplyUiScale() end
-        end, "One scale for the Deck's small screen, one for the PC. Switched off, the current scale simply stays.")
+        end, "One scale for the Deck's small screen, one for the PC. Off, the scale stays as it is.")
         f:Slider("On the Steam Deck", 0.5, 1.0, 0.01, pct, db, "uiScaleDeck",
             function() if D.IsDeck() then D.ApplyUiScale() end end)
         f:Slider("On the PC", 0.5, 1.0, 0.01, pct, db, "uiScalePC",
             function() if not D.IsDeck() then D.ApplyUiScale() end end)
 
+        f:Gap(4)
+        f:Label("Controller")
+        f:Checkbox("D-pad in DeckUIForever's windows", db, "gamepadNav", function() D.SyncGamepadWindows() end,
+            "On the Steam Deck the bags, the bank, the loot window, the week overview and this window join Blizzard's controller navigation: the D-pad moves, A clicks, B closes, LT and RT switch windows. Out of combat.")
+
+        f:Gap(4)
         f:Label("Positions")
         local unlockBtn = f:Button("Unlock frames", function(b)
             D.SetUnlocked(not D.unlocked)
             b:SetText(D.unlocked and "Lock frames" or "Unlock frames")
-        end, "Shows a labelled overlay on every DeckUIForever frame; drag them where you want them. Each device keeps its own places. Also /df unlock.")
+        end, "Shows a handle on every frame; drag them where you want them. Each device keeps its own places. Also /df unlock.")
         function unlockBtn:Refresh()
             self:SetText(D.unlocked and "Lock frames" or "Unlock frames")
         end
@@ -890,11 +972,11 @@ panel:AddTab("Devices", {
                 accept = "Reset",
                 onAccept = D.ResetPositions,
             })
-        end, "Only this device's places; the other device keeps its own.")
+        end, "Only this device's places.")
 
         f:Gap(4)
         f:Label("Keep on this device")
-        local keepTip = "Blizzard keeps this on its server, so every device loads the same. Tick it on each device: what is set up there when you tick the box becomes that device's, and later changes are remembered."
+        local keepTip = "Blizzard keeps this on its server, so every device gets the same. Tick it on each device to keep that device's own."
         f:Checkbox("Key bindings", function() return D.bindingsCVar end, "localOnly", D.SetLocalBindings, keepTip)
         if D.SetKeepBars then
             f:Checkbox("Action bar layouts", db, "keepBars", D.SetKeepBars, keepTip)
@@ -918,6 +1000,7 @@ end
 local DEBUG_COMMANDS = {
     bars = "PrintBars", layout = "PrintLayout", ah = "PrintAuction", plates = "PlatesDebug",
     targetarrow = "TargetArrowDebug", softtarget = "PrintSoftTarget", rolls = "PrintLootRolls",
+    gamepad = "PrintGamepad",
 }
 
 SLASH_DECKUIFOREVER1 = "/df"
@@ -938,6 +1021,9 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         if fn then fn() else print("DeckUIForever: /df " .. msg .. " is not part of DeckUIForever in this game.") end
         -- the Bars module adds its own lines to /df bars
         if msg == "bars" and D.PrintModuleBars then D.PrintModuleBars() end
+    elseif msg == "pad" then
+        -- the Pad module's report on Blizzard's controller bar
+        if D.PrintPad then D.PrintPad() else print("DeckUIForever: switch on the Pad module (General tab) for /df pad.") end
     elseif msg == "errors" then
         D.ShowErrors()
     elseif msg == "deck" or msg == "pc" or msg == "auto" then

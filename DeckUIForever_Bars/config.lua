@@ -6,13 +6,14 @@ local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
 
 -- The Bars page: which of the eight bars are ours, their rows, the look.
 -- Everything here is live (ns.ApplyBars, out of combat); Move below
--- drags the bars and the leave-vehicle button.
+-- drags the bars and the leave-vehicle button. Texts shortened in the
+-- menu review of 2026-11-07.
 D.RegisterModule("Bars", {
     title = "Bars",
     build = function(c)
         local f = D.Flow(c)
         c.widgets = c.widgets or {}
-        f:Hint("Each bar you tick here replaces Blizzard's: square slots in Final Fantasy's hotbar look, your keys in the corner, the bar's number at its left end. Action Bar 1 pages with stances, forms and vehicles as always. Fill the bars by dragging, bind keys as always - the keys are Blizzard's.")
+        f:Hint("Each bar you tick replaces Blizzard's: square slots in Final Fantasy's hotbar look, your keys in the corner. Fill the bars and bind keys as always.")
 
         local apply = function() ns.ApplyBars() end
         f:Label("Look")
@@ -23,14 +24,14 @@ D.RegisterModule("Bars", {
         f:Slider("Opacity", 0.1, 1, 0.05, pct, db, "barAlpha", function(v)
             DeckUIForeverBarsDB.barAlpha = v
             ns.ApplyBarAlpha()
-        end, "How see-through the bars are, as FFXIV's hotbar setting.")
+        end, "How see-through the bars are.")
         f:Checkbox("Bar numbers", db, "barNumbers", ns.ApplyBarNumbers,
-            "A small tag with the bar's number at the left end of each bar, as FFXIV marks its hotbars.")
+            "A small number at the left end of each bar.")
         f:Checkbox("Hide the keys", db, "hideKeys", function()
             ns.ApplyKeys()
             ns.ApplyStanceBar()
             ns.ApplyPetBar()
-        end, "No key names in the slots' corners. The keys keep working.")
+        end, "No key names in the slots. The keys still work.")
 
         f:Gap(4)
         f:Label("The bars")
@@ -41,8 +42,8 @@ D.RegisterModule("Bars", {
         for n = 1, 8 do
             local bar = function() return ns.BarSettings(n) end
             f:Checkbox("Action Bar " .. n, bar, "shown", apply,
-                n == 1 and "The main bar, with its pages: stances, forms, vehicles, the possess and override bars."
-                or ("Blizzard's Action Bar " .. n .. " in Edit Mode's numbering."))
+                n == 1 and "The main bar with its pages: stances, forms, vehicles."
+                or ("Blizzard's Action Bar " .. n .. ", as Edit Mode numbers it."))
             f:Cycles({ label = "Layout", values = ns.BAR_LAYOUTS, names = names,
                        get = function() return ns.BarSettings(n).perRow end,
                        set = function(v) ns.BarSettings(n).perRow = v; apply() end })
@@ -51,13 +52,13 @@ D.RegisterModule("Bars", {
         f:Gap(4)
         f:Label("Other bars")
         f:Checkbox("Stance bar", db, "stanceBar", ns.ApplyStanceBar,
-            "Forms, stances, auras and stealth as a row of the same slots, in place of Blizzard's stance bar. Shows only while you have forms. Your keys for the stance buttons keep working.")
+            "Forms, stances and stealth as a row of slots in place of Blizzard's stance bar. Shows only while you have forms.")
         f:Checkbox("Pet bar", db, "petBar", ns.ApplyPetBar,
-            "Your pet's commands as a row of ten slots while you have a pet, in place of Blizzard's pet bar. Right click toggles autocast - the small mark in the corner is gold while it is on. Your keys keep working.")
+            "Your pet's commands in place of Blizzard's pet bar. Right click toggles autocast.")
         f:Checkbox("Totem bar in the same look", db, "totemBar", function(v)
             if v then ns.ApplyTotemBar() end
             D.NeedReload("bars:totemBar", not v)
-        end, "Shamans: Blizzard's totem bar keeps its place and its flyouts, its buttons get the slot look. Switching it off needs a reload.")
+        end, "Shamans: Blizzard's totem bar keeps its place and gets the slot look. Switching it off needs a reload.")
     end,
 })
 

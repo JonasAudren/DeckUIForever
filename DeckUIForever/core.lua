@@ -35,6 +35,7 @@ D.MODULE_ADDONS = {
     Orbs  = "DeckUIForever_Orbs",
     Cross = "DeckUIForever_Cross",
     Bars  = "DeckUIForever_Bars",
+    Pad   = "DeckUIForever_Pad",
     Spec  = "DeckUIForever_Spec",
     Bags  = "DeckUIForever_Bags",
     Quests = "DeckUIForever_Quests",
@@ -43,11 +44,12 @@ D.MODULE_ADDONS = {
     Nav   = "DeckUIForever_Nav",
     Week  = "DeckUIForever_Week",
 }
-D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Spec", "Bags", "Quests", "Map", "Tooltip", "Nav", "Week" }
+D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Map", "Tooltip", "Nav", "Week" }
 -- the module checkboxes in the General tab
 D.MODULE_TITLES = {
     Orbs   = "Orbs (unit frames)",
     Cross  = "Cross (action bar)",
+    Pad    = "Pad (controller bar look)",
     Spec   = "Spec (talent group switcher)",
     Bags   = "Bags (bags and banks)",
     Quests = "Quests (objective tracker)",
@@ -60,7 +62,7 @@ D.MODULE_TITLES = {
 -- Modules that start switched off, for new installs and for players who
 -- update into them alike. Replacing the bag window, the quest tracker or
 -- the maps is not something an update should do to anyone unasked.
-D.MODULE_OFF_BY_DEFAULT = { Bags = true, Quests = true, Map = true, Tooltip = true, Nav = true, Week = true }
+D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Map = true, Tooltip = true, Nav = true, Week = true }
 
 -- Forever is its own project, WOW_PROJECT_CAMELOT (18 in build 70707;
 -- Blizzard_ProjectConstants/Camelot). Asked by the named constant, never
@@ -560,6 +562,7 @@ local DEFAULTS = {
     mailHelper    = false,   -- your characters in the mail's "To" field, what Open All took (mail.lua)
     charPanel     = false,   -- item level and missing enchants on the character panel (charpanel.lua)
     listingWindow = false,   -- the group listing as a window: time listed, roles, group so far (lfglisting.lua)
+    gamepadNav    = true,    -- our windows in Blizzard's gamepad window navigation (gamepad.lua)
 }
 
 -- Blizzard's whole-UI scale, set per device at login when enabled

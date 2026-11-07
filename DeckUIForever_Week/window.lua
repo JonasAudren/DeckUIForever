@@ -589,6 +589,8 @@ win:SetScript("OnShow", function()
     ns.Snapshot()
     ns.Refresh()
 end)
+-- the D-pad on the Steam Deck (hub, gamepad.lua)
+if D.GamepadWindow then D.GamepadWindow(win, { close = close }) end
 
 function ns.Toggle()
     win:SetShown(not win:IsShown())

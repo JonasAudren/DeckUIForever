@@ -56,12 +56,15 @@ ns.DEFAULTS = {
     dotAttach       = false,       -- those rows bare at the target / focus frame instead of a window
     dotAbove        = false,       -- with dotAttach: above the frame instead of below
     dotNames        = true,        -- the debuff's name beside its icon; off = capsule only
+    dotIcons        = false,       -- the debuff window as round icons with a closing clock, like the HoT window; /reload
     dotPreview      = false,       -- three sample rows while the frames are unlocked; off = an empty box
     hotPreview      = false,       -- the same for the HoT window (hots.lua; its other keys default in there)
     dotIdle         = false,       -- out of a fight: dimmed empty capsules for what is not running; off = only running ones
     hotIdle         = false,       -- the same for the HoT window
     dotKeep         = true,        -- an enemy you leave keeps a column under the target column while a DoT runs (its nameplate)
-    hotKeep         = true,        -- a group member you leave keeps a column while a HoT runs
+    hotAllBuffs     = false,       -- the HoT window's buff rows: every buff on the member; off = yours up to a minute
+    hotHealer       = false,       -- the HoT window's click to cast: secure buttons on the icons and names; /reload
+    hotPadHints     = true,        -- the HoT window: Blizzard's targeting key before each name, gamepad style only
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
     buffBar         = false,       -- own buff bar in FF style (buffs.lua), replaces Blizzard's; /reload
     -- the buff bar's switches (Buff bar page, 2026-10-30), live but for the two look ones
@@ -394,9 +397,9 @@ end
 -- groups side by side are 700 pixels wide, so the Deck starts smaller)
 local DEVICE_DEFAULTS = {
     deck = { partyScale = 1, partyAcross = false, raidScale = 0.85, raidW = 84, raidH = 34, raidRows = false,
-             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100 },
+             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, hotAcross = false },
     pc   = { partyScale = 1, partyAcross = false, raidScale = 1,    raidW = 96, raidH = 36, raidRows = false,
-             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100 },
+             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, hotAcross = false },
 }
 function ns.DeviceDB() return D.DeviceDB(DeckUIForeverOrbsDB, DEVICE_DEFAULTS) end
 

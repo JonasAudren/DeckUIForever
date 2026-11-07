@@ -238,6 +238,8 @@ local function BuildDialog()
         MoneyInputFrame_ClearFocus(self.money)
         self.opts = nil
     end)
+    -- a popup: the pad's cursor comes back to the window it was in
+    if D.GamepadWindow then D.GamepadWindow(f, { popup = true, close = f.cancel }) end
     return f
 end
 

@@ -14,7 +14,8 @@ local function Store(key)
 end
 
 -- Moved to D.Flow 2026-10-02: explanations as tooltips, and the journey
--- bar got a show button here (it was only /quests journey).
+-- bar got a show button here (it was only /quests journey). Texts
+-- shortened in the menu review of 2026-11-07.
 D.RegisterModule("Quests", {
     title = "Quests",
     build = function(c)
@@ -22,16 +23,16 @@ D.RegisterModule("Quests", {
         local pct = function(v) return math.floor(v * 100 + 0.5) .. "%" end
         local f = D.Flow(c)
 
-        f:Hint("Drag the tracker by its frame to move it. Click a section heading to fold it, the - in the corner folds everything.")
+        f:Hint("Drag the tracker by its edge to move it. Click a heading to fold its section; the - in the corner folds everything.")
 
         f:Checkbox("Final Fantasy XIV's task list", db, "xivLayout", function() ns.RequestRedraw() end,
-            "No box, everything right-aligned against the tracker's right edge, the objectives in light blue with an arrow, a tick after the done ones - like FFXIV's list at the right of the screen. Drag it by its title then.")
+            "No box, everything right-aligned, the objectives in light blue, a tick after the done ones.")
 
-        -- guide.lua, delves.lua and hunt.lua are retail's only (Mists has no
-        -- campaigns, delves or hunts); their options go with them
+        -- guide.lua, delves.lua and hunt.lua are retail's only (Forever has
+        -- no campaigns, delves or hunts); their options go with them
         if ns.ApplyGuide then
             f:Checkbox("Scenario guide: the story at a glance", db, "scenarioGuide", function() ns.ApplyGuide() end,
-                "Final Fantasy XIV's scenario guide: a small banner with the campaign quest you are on - or, when the story waits, the next step and what it needs (a level, a place). Click it to follow the quest or to set a waypoint where the next one starts. Move it with Move below; /quests guide shows what it found.")
+                "A small banner with the story quest you are on, or the next step and what it needs. Click it to follow the quest. Move it with Move below.")
         end
 
         f:Label("Tracker (this device)")
@@ -46,11 +47,11 @@ D.RegisterModule("Quests", {
             f:Checkbox("Take a single power automatically", db, "autoDelvePower", nothing,
                 "A treasure or rare that offers just one power needs no choice: it is taken and named in the chat.")
             f:Checkbox("Show Delver's Journey progress", db, "journeyBar", nothing,
-                "A bar appears for a few seconds whenever the season renown grows. Move it with /df unlock.")
+                "A bar appears for a few seconds whenever the season renown grows. Move it with Move below.")
             f:Button("Show the journey bar now", function() ns.ShowJourney() end,
-                "Shows it with your current progress, to see it and place it. Also /quests journey.")
+                "Shows it with your current progress, to place it. Also /quests journey.")
             f:Checkbox("Star hunt targets an achievement still needs", db, "huntMarks", nothing,
-                "On the hunt table a star marks targets still open, with the lists that miss them (N, H, NM).")
+                "On the hunt table a star marks targets still open.")
             f:Gap(4)
             f:Hint("The Nemesis count and the active hunt show in the tracker by themselves.")
         end

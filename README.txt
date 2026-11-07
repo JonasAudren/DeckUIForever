@@ -13,12 +13,17 @@ loaded.
   DeckUIForever          the hub: device detection, settings window, movable
                        frames, loot, merchant, restock, mail helper,
                        character panel enchants, nameplates, server info,
-                       main menu, auction prices
+                       main menu, auction prices, the D-pad in its windows
+                       on the Steam Deck
   DeckUIForever Orbs     round unit frames or Final Fantasy's bars, party
                        list, raid frames, buff bar, your debuffs and HoTs
   DeckUIForever Cross    cross hotbar                       (not ported yet)
   DeckUIForever Bars     the eight action bars in Final Fantasy XIV's hotbar
                        look, for keyboard and mouse
+                                               (off until you switch it on)
+  DeckUIForever Pad      Blizzard's controller action bar (the gamepad style
+                       on the Steam Deck) in the same hotbar look - the look
+                       only, the controls stay Blizzard's
                                                (off until you switch it on)
   DeckUIForever Spec     one-click talent group switcher (dual talents)
   DeckUIForever Bags     all bags and the keyring in one window, the bank

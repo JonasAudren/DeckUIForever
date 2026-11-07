@@ -49,13 +49,28 @@ local oUF = ns.oUF
 -- engine's button and are laid out once, when the button is made - the
 -- name's width follows the "Show the names" setting at the next reload
 -- (the bar itself is anchored between name and time and follows a width
--- change at once). Not yet tested in game.
+-- change at once). Tested in game 2026-11-05.
+--
+-- Icon mode (dotIcons, off; owner 2026-11-07, after the HoT window went
+-- to round icons: "the same for the DoTs, but optional, I want to keep
+-- the bars too"): a column is one line - the unit's name, then a round
+-- icon per listed debuff in a fixed place with a clock that closes over
+-- it (a Cooldown frame of ours, driven by the engine through
+-- SetDurationCooldown, the time in the middle), then your other debuffs
+-- as round icons in a row. The same pieces the HoT window uses
+-- (ns.AuraIconButton, ns.RoundIcon, ns.IconRim, defined here since this
+-- file loads first). The engine's pieces are made once with the button,
+-- so the switch needs a reload; the columns, the focus, the kept
+-- columns and the place at the target frame stay as they are.
 -------------------------------------------------------------------
 -- one line per debuff, close together (owner, 2026-10-28): icon, name,
 -- capsule, and the time after it
 local W, FOCUS_W, ROW_H, TITLE, PAD, ICON = 240, 170, 16, 20, 5, 14
 local ROW_GAP, TIME_W, BAR_H = 2, 30, 6
 local MAX_OTHER = 4
+-- icon mode: the icon as shipped (dotScale scales it), the name's width,
+-- the gap between the icons, how many other debuffs follow the list
+local ICON_SIZE, NAME_W, SPACING, MAX_ICONS = 22, 64, 2, 8
 local PANDEMIC = 0.3
 local POLL = 0.25
 local GOLD = { 1, 0.82, 0.3 }
@@ -66,6 +81,74 @@ local WHITE = "Interface\\Buttons\\WHITE8x8"
 
 local function Secret(v) return issecretvalue and issecretvalue(v) end
 local function Ask(v) if Secret(v) then return nil end return v end
+
+-------------------------------------------------------------------
+-- Round aura icons (icon mode here, the HoT window always)
+-------------------------------------------------------------------
+-- a round icon: the texture behind the portrait mask, as the orbs
+function ns.RoundIcon(tex)
+    local mask = tex:GetParent():CreateMaskTexture()
+    mask:SetTexture(D.MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetAllPoints(tex)
+    tex:AddMaskTexture(mask)
+    return tex
+end
+
+-- a disc a little larger than the parent, behind the icon: shows as a rim
+function ns.IconRim(parent, r, g, b, a)
+    local tex = parent:CreateTexture(nil, "BORDER")
+    tex:SetTexture(WHITE)
+    tex:SetVertexColor(r, g, b, a or 1)
+    tex:SetPoint("TOPLEFT", -2, 2)
+    tex:SetPoint("BOTTOMRIGHT", 2, -2)
+    return ns.RoundIcon(tex)
+end
+
+-- The engine's button as a round icon, made once and handed every piece
+-- it fills: the icon, the cooldown (its swipe is the round mask, so the
+-- clock closes as a circle, reversed as Blizzard's buff frame runs it -
+-- the dark part grows as the aura runs out - with the time in the
+-- middle), the stack count and the gold rim of the pandemic window.
+-- Every piece is anchored to the button before it is handed over, so it
+-- follows the button's size; afterwards it is the engine's ("forbidden
+-- object" on a touch). No script of ours on the button, not even a hook
+-- (see LiveButton below).
+function ns.AuraIconButton(button, size)
+    local late = ns.IconRim(button, GOLD[1], GOLD[2], GOLD[3], 1)
+    late:Hide()
+    local icon = ns.RoundIcon(button:CreateTexture(nil, "ARTWORK"))
+    icon:SetAllPoints(button)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    cd:SetAllPoints(button)
+    cd:SetSwipeTexture(D.MASK)
+    cd:SetSwipeColor(0, 0, 0, 0.75)
+    cd:SetDrawEdge(false)
+    cd:SetDrawBling(false)
+    cd:SetReverse(true)
+    cd:SetHideCountdownNumbers(false)
+    if cd.SetCountdownFont then cd:SetCountdownFont(ns.CountdownFont(size)) end
+    -- the count above the swipe: on the cooldown frame, the topmost piece
+    local count = cd:CreateFontString(nil, "OVERLAY")
+    count:SetFont(ns.FONT, math.max(7, math.floor(size * 0.4)), "OUTLINE")
+    count:SetJustifyH("RIGHT")
+    count:SetPoint("BOTTOMRIGHT", 1, -1)
+    button:SetIcon(icon)
+    button:SetDurationCooldown(cd)
+    button:SetApplicationCount(count, {})
+    button:AddPandemicRegion(late)
+    -- the tooltip is the engine's own aura tooltip (AuraButton's OnEnter)
+    return button
+end
+
+-- icon mode is read once, at the factory: the engine's pieces cannot
+-- change afterwards, so a switch waits for the reload
+local icons = false
+local loadedSize, loadedNames   -- what this session loaded: a change back clears the reload flag
+local function Size()
+    return math.max(10, math.floor(ICON_SIZE * (ns.DeviceDB().dotScale or 100) / 100 + 0.5))
+end
+local function SlotW() return Size() + SPACING end
 
 -------------------------------------------------------------------
 -- What each class keeps up
@@ -360,7 +443,25 @@ end
 -- preview (force). In a fight the red missing ones always show.
 local function Idle() return DeckUIForeverOrbsDB.dotIdle and true or false end
 
+-- icon mode: the dimmed icon with a red rim in a fight, a grey one out of it
+local function SetStaticIcon(r, fighting, force)
+    local L = r.static
+    local on = force or fighting or Idle()
+    L.icon:SetShown(on)
+    L.rim:SetShown(on)
+    L.icon:SetDesaturated(true)
+    if fighting then
+        L.rim:SetVertexColor(MISSING[1], MISSING[2], MISSING[3], 1)
+        L.icon:SetAlpha(0.7)
+    else
+        L.rim:SetVertexColor(0.35, 0.33, 0.3, 1)
+        L.icon:SetAlpha(0.4)
+    end
+    r:SetAlpha(1)
+end
+
 local function SetStatic(r, fighting, force)
+    if icons then return SetStaticIcon(r, fighting, force) end
     local L = r.static
     local on = force or fighting or Idle()
     L.edge:SetShown(on)
@@ -416,9 +517,34 @@ local function LiveButton(button, r, c, named, anchorButton)
     return button
 end
 
+-- icon mode: a slot - our static icon with a rim under the engine's
+-- one-slot container
+local function IconRow(c, i)
+    local size = Size()
+    local r = CreateFrame("Frame", nil, c)
+    r:SetSize(size, size)
+    r.static = { rim = ns.IconRim(r, 0.35, 0.33, 0.3, 1), icon = ns.RoundIcon(r:CreateTexture(nil, "ARTWORK")) }
+    r.static.icon:SetAllPoints(r)
+    r.static.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local auras = CreateFrame("AuraContainer", nil, r, "CustomAuraContainerTemplate")
+    auras:SetAllPoints(r)
+    auras:SetUnit(c.unit)
+    auras:AddAuraSlot("dot", "HARMFUL|PLAYER", {
+        candidateFilters = { includeSpellIDs = {} },
+        initializeFrame = function(button)
+            button:SetAllPoints(r)
+            ns.AuraIconButton(button, size)
+        end,
+    })
+    r.auras = auras
+    c.rows[i] = r
+    return r
+end
+
 local function Row(c, i)
     local r = c.rows[i]
     if r then return r end
+    if icons then return IconRow(c, i) end
     r = CreateFrame("Frame", nil, c)
     r:SetSize(c.width - 2 * PAD, ROW_H)
     r.static = Layer(r, false)
@@ -442,14 +568,38 @@ local function Assign(r, e)
     r.entry = e
     r.liveName = e.name
     r.static.icon:SetTexture(e.icon or 134400)
-    r.static.name:SetText(e.name or "")
+    if r.static.name then r.static.name:SetText(e.name or "") end
     pcall(r.auras.SetAuraSlotCandidateFilters, r.auras, "dot", { includeSpellIDs = e.ids or {} })
 end
 
 -- the rest of your debuffs on the unit, below the list: an aura group of
 -- the engine's, up to MAX_OTHER rows, their names from the engine
+-- icon mode: one row of round icons after the list, never wrapped
+local function IconOthers(c)
+    local size = Size()
+    local auras = CreateFrame("AuraContainer", nil, c, "CustomAuraContainerTemplate")
+    auras:SetSize(MAX_ICONS * SlotW(), size)
+    auras:SetUnit(c.unit)
+    auras:SetFlowLayoutAnchorPoint("LEFT")
+    auras:SetFlowLayoutAxis(ns.FLOW.Horizontal)
+    auras:SetFlowLayoutMaximumLineSize(MAX_ICONS * SlotW())
+    auras:SetFlowLayoutGrowthDirection(1, -1)
+    auras:AddAuraGroup("others", "HARMFUL|PLAYER", {
+        maxFrameCount = MAX_ICONS,
+        candidateFilters = { excludeSpellIDs = allIDs },
+        layout = { elementSpacing = SPACING },
+        initializeFrame = function(button)
+            button:SetSize(size, size)
+            ns.AuraIconButton(button, size)
+        end,
+    })
+    c.others = auras
+    return auras
+end
+
 local function Others(c)
     if c.others then return c.others end
+    if icons then return IconOthers(c) end
     local auras = CreateFrame("AuraContainer", nil, c, "CustomAuraContainerTemplate")
     auras:SetSize(c.width - 2 * PAD, MAX_OTHER * (ROW_H + ROW_GAP))
     auras:SetUnit(c.unit)
@@ -483,20 +633,33 @@ local function UpdateOthersFilter()
 end
 
 function ns.ApplyDotNames()
+    if icons then return end   -- no names beside the icons
     local names = Names()
     for _, c in ipairs(Columns()) do
         for _, r in ipairs(c.rows) do Place(r.static, r, c, names) end
     end
     -- the engine's layer is laid out when its button is made
-    D.NeedReload("dotNames")
+    D.NeedReload("dotNames", names ~= loadedNames)
 end
 
 -- The columns' width, per device (ns.DeviceDB().dotScale, a percentage of
 -- W on the Debuffs page, 175% = the widest target bar - owner 2026-10-28);
 -- the focus column keeps its share of it. Rows already made follow at
 -- once; the engine's bars are anchored between name and time and stretch.
+-- In icon mode the same percentage is the icon size: the slots follow at
+-- once (the engine's pieces hang on the button, the button on the slot),
+-- the icons of the other debuffs were sized when the engine made them and
+-- follow at the next reload.
 local FOCUS_SHARE = FOCUS_W / W
 function ns.ApplyDotWidth()
+    if icons then
+        local size = Size()
+        for _, c in ipairs(Columns()) do
+            for _, r in ipairs(c.rows) do r:SetSize(size, size) end
+        end
+        D.NeedReload("dotScale", size ~= loadedSize)
+        return
+    end
     local w = math.floor(W * (ns.DeviceDB().dotScale or 100) / 100 + 0.5)
     target.width, focus.width = w, math.floor(w * FOCUS_SHARE)
     for _, c in ipairs(allKept) do c.width = focus.width end
@@ -511,8 +674,37 @@ function ns.ApplyDotWidth()
     holder:SetWidth(w)
 end
 
+-- icon mode: the name, the slots after it in a fixed place, the other
+-- debuffs after them; at the target frame (attached) the name is gone
+-- and the icons start at the edge
+local function FinishIcons(c, shown)
+    local size, slot = Size(), SlotW()
+    c.title:ClearAllPoints()
+    c.title:SetPoint("LEFT", PAD, 0)
+    c.title:SetWidth(NAME_W)
+    local x = attached and PAD or PAD + NAME_W + 4
+    for i, r in ipairs(c.rows) do
+        if i <= shown then
+            r:ClearAllPoints()
+            r:SetPoint("LEFT", c, "LEFT", x, 0)
+            r:Show()
+            x = x + slot
+        else
+            r:Hide()
+        end
+    end
+    local others = Others(c)
+    others:ClearAllPoints()
+    others:SetPoint("LEFT", c, "LEFT", x, 0)
+    c.width = x + MAX_ICONS * slot + PAD
+    c:SetSize(c.width, size)
+    c:SetShown(shown > 0)
+    return shown > 0
+end
+
 -- lays the shown rows out and sizes the column; false when it has none
 local function Finish(c, shown)
+    if icons then return FinishIcons(c, shown) end
     local y = -top - 3
     for i = 1, shown do
         local r = c.rows[i]
@@ -544,6 +736,7 @@ end
 
 -- a kept column reads a nameplate token that may change hands: every
 -- container of the column is pointed at the new token (as hots.lua does)
+local RefreshUnit   -- defined below; a local named only later was nil here (owner 2026-11-07, two errors)
 local function SetColumnUnit(c, unit)
     if c.unit == unit then return end
     c.unit = unit
@@ -716,12 +909,13 @@ local function Update()
     target:SetShown(any)
     local stack = UpdateKept(guid, UnitExists("focus") and UnitGUID("focus") or nil, any)
     holder:SetHeight(math.max((any and target:GetHeight() or 0) + stack, focusOn and focus:GetHeight() or 0, 20))
+    if icons then holder:SetWidth(math.max(any and target.width or 0, focusOn and focus.width or 0, 20)) end
     holder:SetShown(any or focusOn or #kept > 0)
 end
 
 -- the containers follow their unit token, not the unit behind it: a new
 -- target or focus is read in afresh
-local function RefreshUnit(c)
+function RefreshUnit(c)
     for _, r in ipairs(c.rows) do pcall(r.auras.UpdateAllAuras, r.auras) end
     if c.others then pcall(c.others.UpdateAllAuras, c.others) end
 end
@@ -769,7 +963,11 @@ local function ShowPreview(on)
     if not DeckUIForeverOrbsDB.dotPreview then
         target:Hide()
         focus:Hide()
-        holder:SetHeight(TITLE + 3 * (ROW_H + ROW_GAP) + PAD)
+        if icons then
+            holder:SetSize(PAD + NAME_W + 4 + (3 + MAX_ICONS) * SlotW() + PAD, Size())
+        else
+            holder:SetHeight(TITLE + 3 * (ROW_H + ROW_GAP) + PAD)
+        end
         holder:Show()
         return
     end
@@ -780,7 +978,8 @@ local function ShowPreview(on)
     for i, s in ipairs(samples) do
         local r = Row(target, i)
         r.static.icon:SetTexture(s[1])
-        r.static.name:SetText(s[2])
+        if r.static.name then r.static.name:SetText(s[2]) end
+        r.entry = nil   -- the next real fill assigns the row again
         SetStatic(r, i == 3, true)
     end
     Finish(target, 3)
@@ -788,9 +987,11 @@ local function ShowPreview(on)
     focus.title:SetShown(not attached)
     local r = Row(focus, 1)
     r.static.icon:SetTexture(136118)
-    r.static.name:SetText("Sample")
+    if r.static.name then r.static.name:SetText("Sample") end
+    r.entry = nil
     SetStatic(r, false, true)
     Finish(focus, 1)
+    if icons then holder:SetWidth(math.max(target.width, focus.width)) end
     holder:SetHeight(target:GetHeight())
     holder:Show()
 end
@@ -818,6 +1019,8 @@ end
 
 oUF:Factory(function()
     D.MakeMovable(holder, "Debuffs", DeckUIForeverOrbsDB)
+    icons = DeckUIForeverOrbsDB.dotIcons and true or false
+    loadedSize, loadedNames = Size(), Names()
     ns.ApplyDotWidth()
     -- after the unit frames: this factory runs after layout.lua's
     ns.ApplyDotLayout()
@@ -831,8 +1034,9 @@ end)
 -- /orbs dots: the class, its list, what you know and which IDs each row's
 -- slot takes. What is on the target the engine keeps to itself in a fight.
 function ns.DotDebug()
-    print(("DeckUIForever debuffs: %s, class %s, %d rows."):format(
-        DeckUIForeverOrbsDB.dotTracker and "on" or "off", tostring(ListKey()), #entries))
+    print(("DeckUIForever debuffs: %s, class %s, %d rows, %s."):format(
+        DeckUIForeverOrbsDB.dotTracker and "on" or "off", tostring(ListKey()), #entries,
+        icons and ("round icons, " .. Size() .. " px") or "capsules"))
     for _, e in ipairs(LISTS[ListKey()] or {}) do
         local name = SpellName(e.id)
         local ids, n = {}, 0

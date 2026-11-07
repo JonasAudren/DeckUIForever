@@ -314,6 +314,12 @@ window:SetScript("OnHide", function(self)
     self.search:ClearFocus()
 end)
 
+-- the D-pad on the Steam Deck (hub, gamepad.lua); Blizzard's combined bag,
+-- parked unseen above, would be an empty second stop for LT and RT
+if D.GamepadWindow then
+    D.GamepadWindow(window, { close = window.close, evict = { ContainerFrameCombinedBags } })
+end
+
 -------------------------------------------------------------------
 -- Startup
 -------------------------------------------------------------------

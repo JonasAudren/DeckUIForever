@@ -126,6 +126,73 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   `ns.SetBlizzardBarHidden`. **Untested in game** (the owner's priest has no forms, no pet, no totems -
   a druid, hunter or shaman is needed).
 
+## Pad (2026-11-07, owner's wish after the first Steam Deck run: "all square, like FFXIV")
+
+- The Deck run happened on 2026-11-07: everything ran, and the owner switched some modules off because
+  Blizzard's native controller support serves better there - so the Deck keeps **Blizzard's gamepad
+  style** (option B of the report's section 3.5), and Cross stays a keyboard-style thing. Which
+  modules the owner switched off is not recorded yet.
+- `DeckUIForever_Pad` dresses Blizzard's `GamepadMainActionBarFrame` in the Bars module's slot look
+  and changes nothing of the input. Read against the `forever` branch of Gethe/wow-ui-source
+  (`Blizzard_GamepadActionBars`: ActionBarButton.xml/.lua, ActionBarStyles.lua, ActionBarTemplates.xml,
+  PageUnit.lua, MainActionBarFrame.xml): every button is a `GamepadActionBarButtonTemplate`
+  (ActionBarButtonTemplate plus circle/square masks, shadows, focus glows, a `SlotArt` glyph as the
+  empty slot, a `ButtonIcon` glyph frame), and Blizzard calls `SetShapeToSquare` (D-pad group) or
+  `SetShapeToCircle` (face group) on **every** expand, collapse and press through
+  `GamepadActionBarStyleUtil.ApplyExtraButtonStyles`, which also sizes and anchors the protected
+  button. **Never write into `GamepadActionBarStyleUtil.circleStyleParams` or any field Blizzard's
+  style path reads**: that path runs `SetSize`/`SetPoint` on secure buttons in combat and would be
+  blocked when tainted. The module only post-hooks (`hooksecurefunc`) the buttons' own
+  `SetShapeToCircle`/`SetShapeToSquare` (hide both masks, our rounded mask on the icon, cooldown swipe,
+  glyph to the top-left), `SetCircleCastingTextures` (square cast atlases), `SetButtonState`
+  (our gold pushed glow; a pad press is no mouse press) and `SetChecked`; the bar's `HideButtonIcons`
+  (glyphs on every bar); the textures' `SetTexture`/`SetAtlas` keep the faded art faded. The focus
+  shadows' alpha is animated by Blizzard, so their texture is removed, not faded. `BackgroundFocus`
+  becomes a flat black panel anchored to the bar with a 1 px outline that follows its Show/Hide.
+  Bars dressed: the page unit's `actionBars` (top, left, right, bottom, possess, stance, the two
+  targeting bars, shortcuts) and the two class action buttons; the radial flyouts, the page tracker,
+  the shoulder badges and the input legend are untouched. `DeckUIForeverPadDB`: `glyphs`, `emptyGlyph`
+  (reload), `focusPanel`, `slotAlpha`. Hub: `Pad` in `MODULE_ADDONS`/`MODULE_ORDER`/`OFF_BY_DEFAULT`,
+  page "Controller bar" under Actions, `/df pad`, `release-common.ps1`. The slot mask is a copy of
+  the Bars module's `slot_rounded.tga`. **Untested in game** (needs the Deck in the gamepad style).
+
+## Gamepad windows (2026-11-07, the owner's pick from the Deck-support ideas: "Steuerkreuz in Fenstern")
+
+- `DeckUIForever/gamepad.lua` hands our windows to Blizzard's window navigation in the gamepad style.
+  Read in the `forever` branch of Gethe/wow-ui-source: `Blizzard_GamepadSharedUtility/FrameControlsManager.lua`
+  ("A frame can subscribe to this by ... manually calling FrameShown on their OnShow event"),
+  `Blizzard_GamepadSmartNavigation/SmartNavigation.lua`, `Utility.lua` (`Utility.FindButtons` takes every
+  Button, CheckButton, EditBox or frame with an OnMouseUp/OnMouseDown script under the panel, scroll
+  frames as groups of their own; Sliders are not buttons) and `SecureHelper.lua` (`WrapFunction`:
+  an insecure caller is run through a SetAttribute "invoke" round trip, allowed by
+  `IsSecureOrOutOfCombatRestriction`, refused with "interface action blocked" in combat).
+- `D.GamepadWindow(frame, { close = button-or-function, popup = true, evict = { BlizzardFrame } })`
+  hooks OnShow/OnHide: `GamepadMode.FrameControlsManager:FrameShown(frame)` / `FrameHidden(frame)`
+  (`HandlePopupShown`/`HandlePopupHide` for a popup, so the cursor returns to the window it came
+  from), only when `InputUtil.IsGamepadUIEnabled()`, the option `DeckUIForeverDB.gamepadNav` is on and
+  neither `InCombatLockdown()` nor `C_RestrictedActions.IsAddOnRestrictionActive(Combat)`; what
+  happened in combat is synced on PLAYER_REGEN_ENABLED, the style switch
+  (INPUT_DEVICE_INTERFACE_TRANSITION) clears our `registered` set and syncs a frame later.
+  `evict` withdraws Blizzard's own frame behind ours (the Bags module parks `ContainerFrameCombinedBags`
+  and `BankFrame` under hidden parents; the manager still lists them from its OpenBag callback and
+  ShowUIPanel, an empty second stop for LT/RT). **Call it after the file's own SetScript("OnShow"/
+  "OnHide")**: SetScript drops hooks.
+- The optional callbacks the manager looks up with `securecallfunction` are set on the frame:
+  `FocusGamepad`/`UnfocusGamepad` (a gold 1 px outline, `frame.DeckPadFocus`), `Show/HideLeft/Right/
+  FocusJumpHint` (`frame.DeckPadHints`: Blizzard's glyph frames, `InputIconTextureFrameTemplate` with
+  `SetInputKey(GAMEPAD_TRIGGER_LEFT/RIGHT/GAMEPAD_MENU_LEFT)`, hanging above the top edge; our text
+  badge if the template were missing) and `SmartNavigationCloseHandler` (B: the window's own close
+  button is clicked, so each window closes as it always has - the bags through CloseAllBags, the
+  loot window through CloseLoot; returns true). All frames are made at registration, never inside a
+  manager callback.
+- Registered: `DeckUIForeverPanel` (panel.lua), `DeckUIForeverDialog` as popup (widgets.lua),
+  `DeckUIForeverLootWindow` (loot.lua), `DeckBagsWindow` and `DeckBankWindow` (Bags), `DeckWeekWindow`
+  (Week). Hub: `gamepadNav` in DEFAULTS, checkbox "D-pad in DeckUIForever's windows" under Controller
+  on the Devices page (`D.SyncGamepadWindows` applies it live), `/df gamepad` (`D.PrintGamepad`).
+  **Untested in game** (needs the Deck in the gamepad style); the sliders of the /df window stay the
+  trackpad's, and the Quests module's tracker is not Blizzard's `ObjectiveTrackerFrame`, so the HUD
+  mode's first stop is missing with Quests on - both open.
+
 ## What phase 3 changed against DeckUI's modules (2026-11-05; owner's first test the same day: "all good" after the two fixes below)
 
 - **Spec**: `core.lua` is DeckUI's `core_mists.lua` (one button per talent group,
@@ -201,18 +268,85 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   names every row (`SetSpellName`), and `Assign` touches only the static layer and the slot filter. **Tested in game 2026-11-05**: Shadow Word: Pain filled its capsule with the time, in and
   out of combat. The window lost its box, edges and tag the same day (owner: like the player frame) -
   only the unit's name in gold over the capsules.
-  **`hots.lua` (2026-11-06, owner: "an overview in the same style for healers and HoTs", for 1.2.0)**: a
-  copy of debuffs.lua's build with `HELPFUL|PLAYER` slots - lists `DRUID` 774 Rejuvenation, 8936
-  Regrowth; `PRIEST` 139 Renew, 17 Power Word: Shield (Classic has no other HoTs; shamans and paladins
-  get no window). The unit is a friend (`UnitCanAssist`), and with none the target column shows the
-  player ("You", `hotSelf`, on; only in the window, not attached). The "others" group carries
-  `maxDuration = 60` so the raid buffs stay out. The list's IDs leave the target frame's buff icons
-  through **`ns.targetBuffs`** (layout.lua registers the orb's buff containers with their `base`
-  filters, ffstyle.lua's `AuraRows` with `registerBuffs`; `Merged` adds our IDs to the base
-  exclusions) - those icons show everyone's buffs, hence the `hotExclude` switch (on). Keys `hot*`
-  (`hotTracker`, `hotSelf`, `hotExclude`, `hotNames`, `hotAttach`, `hotAbove`, device `hotScale`),
-  movable "HoTs", page "HoTs" ("Your HoTs") under Orbs, `/orbs hots`. **Untested in game** - the
-  priest's Renew and shield on himself are the first test.
+  **`hots.lua` (2026-11-06, owner: "an overview in the same style for healers and HoTs", for 1.2.0; rebuilt
+  around the party on 2026-11-07 for 1.3.0, owner: "Ziele nicht in unserer Party nur im Target, aber für alle
+  Party-Ziele, auch mich, alle Daten in einem Fenster - welche HoTs und Buffs drauf sind", and made compact
+  the same evening, owner: "viel kompakter, keine Balken sondern Kreise die sich schließen")**: debuffs.lua's
+  container build with `HELPFUL|PLAYER` slots, but **a line per unit with round icons, no capsules** - lists
+  `DRUID` 774 Rejuvenation, 8936 Regrowth; `PRIEST` 139 Renew, 17 Power Word: Shield (Classic has no other
+  HoTs; the other classes get the buff icons alone). **One line per party token** (`PARTY` = player, party1-4,
+  made once on that token, `members`, you first) shown while the token exists, and a **`stranger` line on
+  `target`** shown while the target is friendly (`Friendly`) and its GUID matches none of the five (`InTable`;
+  GUIDs, not `UnitIsUnit`, which may be secret in a fight). A line: the name (`NAME_W` 64, "You" for the
+  player), one `SlotFrame` per list entry in a fixed place (so the heals line up across the members), the
+  buff group after them. **A slot's engine button gets a Cooldown frame of ours** (`LiveButton`:
+  `SetDurationCooldown`, the engine runs `SetCooldownFromDurationObject`; swipe texture `D.MASK` so the clock
+  is a circle, `SetReverse(true)` as Blizzard's buff frame, countdown font `ns.CountdownFont`), the round
+  icon (`Round`: a portrait-mask MaskTexture on the texture), the count on the cooldown frame and a gold
+  disc behind the icon as the pandemic rim (`Rim`, `AddPandemicRegion`); every piece is anchored to the
+  button before the hand-over, so the slots follow a size change live. Under it our static icon with a
+  grey or red rim (`SetStatic`: red in a fight, dimmed with `hotIdle`, else hidden - the slot stays empty).
+  Lines stack or go side by side (device `hotAcross`, `Stack`), the icon size is device `hotScale` as a
+  percentage of `ICON` 22 (`Size`, `ns.ApplyHotSize`; the buff icons were sized by the engine at creation and
+  follow at the next reload, `D.NeedReload`). `Update` runs every 0.25 s and on PLAYER_TARGET_CHANGED
+  (`RefreshUnit(stranger)`), GROUP_ROSTER_UPDATE and PLAYER_ENTERING_WORLD (every member's containers
+  re-read their token). The buff icons (`Others`, group "others", one unwrapped horizontal line sized for
+  `MAX_ALL`) are `HELPFUL|PLAYER` with `maxDuration = 60` and 6 icons, or with `hotAllBuffs` `HELPFUL`, no cap,
+  10 icons (`SetAuraGroupFilterString`/`SetAuraGroupMaxFrameCount`/`SetAuraGroupCandidateFilters` live,
+  `ns.ApplyHotBuffs`); the list's IDs are excluded either way. The list's IDs leave the target frame's buff
+  icons through **`ns.targetBuffs`** (layout.lua registers the orb's buff containers with their `base`
+  filters, ffstyle.lua's `AuraRows` with `registerBuffs`; `Merged` adds our IDs to the base exclusions) -
+  those icons show everyone's buffs, hence the `hotExclude` switch (on). Keys `hot*` (`hotTracker`,
+  `hotAllBuffs`, `hotExclude`, `hotIdle`, `hotPreview`, device `hotScale`, `hotAcross`), movable "HoTs", page
+  "HoTs" ("Your HoTs") under Orbs, `/orbs hots` prints every line. **Gone in 1.3.0**: `hotSelf`, `hotKeep`,
+  `hotAttach`, `hotAbove`, `hotNames` (the focus column, the kept columns, the rows at the target frame, the
+  capsules' names; old saved values are ignored). The 1.2.0 window (capsules; target, focus, "You" fallback)
+  was seen in game on 2026-11-06; **the party lines were seen in game the same evening, 2026-11-07** (owner:
+  "viel besser"; the first table with capsules and gaps had been "gefällt mir gar nicht").
+  **The debuff window's icon mode (2026-11-07, owner: "das selbe mit den DoTs, aber optional, ich will die
+  Balken auch behalten")**: `dotIcons` (off, `/reload`; config.lua compares against `loaded.dotIcons`). The
+  round-icon pieces live in debuffs.lua since it loads before hots.lua: `ns.RoundIcon(tex)`, `ns.IconRim(parent,
+  r, g, b, a)`, `ns.AuraIconButton(button, size)` (the engine button's icon, Cooldown, count and pandemic rim);
+  hots.lua calls them. debuffs.lua reads the mode once in its factory (`icons`) and branches in `Row`
+  (`IconRow`: a slot of `Size()` = `ICON_SIZE` 22 scaled by device `dotScale`), `SetStatic` (`SetStaticIcon`),
+  `Others` (`IconOthers`: one unwrapped horizontal line of `MAX_ICONS` 8), `Finish` (`FinishIcons`: the name
+  at the left, `NAME_W` 64, the slots after it, `attached` drops the name; the column is one line high and
+  sets `c.width` itself), `ApplyDotWidth` (icon mode resizes the slots and flags a reload for the others' icons),
+  `ApplyDotNames` (nothing), `Update` (the holder's width follows the lines) and the preview. Columns, focus,
+  kept columns, attach, idle, keep: unchanged. **Untested in game.**
+  **The HoT window's click to cast (2026-11-07, owner: "Healer-Modus, aber mit An und Aus")**: `hotHealer`
+  (off, `/reload`, `loaded.hotHealer` in config.lua), read once in the factory (`healer`) before `MakeLines()`
+  makes the six lines (they are no longer made at file load). With it every slot gets a
+  `SecureActionButtonTemplate` over the engine's button (`SecureButton`: type spell, `unit` = the line's
+  token, `spell` = the entry's name set in `Assign` out of combat, `pendingSpell` until then; `AnyDown` +
+  `AnyUp`, the template picks one; our OnEnter shows `GameTooltip:SetSpellByID`), the name a target button
+  (`c.target`), and each line a state driver (`[@partyN,exists] show; hide`, the stranger
+  `[@target,help,nodead,noparty] show; hide` - solo, targeting yourself shows you twice; the restricted
+  environment cannot compare units). **A secure child protects its parents**: slot, line and holder may not
+  be moved, sized, shown or hidden by us in combat, so `Locked()` (`healer and InCombatLockdown()`) returns
+  early from `Finish`, `Stack`, `SlotFrame` (no new slot in a fight; `FillLine` breaks) and the holder's
+  Show; `ApplyHotSize` and the tracker's Hide go through `ns.OutOfCombat`; `FillLine`/`Update` never call
+  Show/Hide on a line in this mode, and `ShowPreview` only shows the holder. `Stack(count, extra)` now gives
+  every member a fixed row (party tokens are contiguous) and the stranger row `count`, in both modes. The
+  static layer always shows in this mode (`SetStatic`). PLAYER_REGEN_ENABLED runs `Update`, which lays out
+  what the fight left. **Untested in game.**
+  **Controller glyphs (2026-11-07, owner: "in die native Controller-Steuerung einbinden, als Option")**: read in
+  the `forever` source - `Blizzard_GamepadTargeting` (GroupTargeting.lua: `GroupTargeting:StartTargeting(container)`
+  runs SmartNavigation over frames with a `.unit` and clicks the chosen one; RaidTargetDPAD.lua starts it on
+  `CompactPartyFrame`/`CompactRaidFrameContainer`), `Blizzard_GamepadActionBars/TargetActionBars/
+  FriendlyTargetingActionBar.lua` (friendly target modifier held: D-pad top/right/bottom/left = `party1-4` as
+  secure target buttons when CVar `GamepadUsePartyTargeting`, else SmartNavigation over the raid frames; face
+  bottom = player, left = pet, right = targettarget, top = raid marker), `Blizzard_Gamepad/Utility/Bindings/
+  HoldBindings.lua` (`GamepadMode.RegisterTargetModifierStateChanged(cb, owner)`, `GamepadMode.IsTargetingModifierDown
+  (GamepadTargetingState.FRIENDLY)`), SmartNavigation.lua/SecureHelper.lua (addon frames only out of combat, and
+  a registered window counts as open - `RaidTargetingFreeSelection:CanUseFocusButton` needs
+  `GetShownFrameCount() == 0`). **So the HoT window never registers with the window manager**; `hotPadHints`
+  (on) only draws Blizzard's key pictures (`InputIconTextureFrameTemplate`, `SetInputKey`; keys from the
+  legend's globals `GAMEPAD_DPAD_TOP` etc., fallback binding names) before the names (`Glyph`, `PlaceTitle`
+  shifts the title), alpha 0.4, 1 while the modifier is held (`UpdateHints`, every Update and from the modifier
+  callback), 0 outside the gamepad style, in a raid or with the CVar off (`HintsOn`). Alpha only, never
+  Show/Hide: the lines may be protected (healer mode). Event INPUT_DEVICE_INTERFACE_TRANSITION is registered
+  for the style switch. **Untested in game** (needs the Deck in the gamepad style).
   **The unlock preview is an option since 2026-11-06** (owner: "take the HoT and DoT preview out, as an
   option"): `dotPreview` / `hotPreview` (off) decide whether `ShowPreview` fills the three sample rows;
   off, the holder shows as an empty box three rows high so the Move overlay has something to drag.
@@ -227,17 +361,17 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   (1514 errors, owner 2026-11-06), so no row was ever made and both windows stayed empty. `/orbs dots`
   and `/orbs hots` print "running by name" and whether the title is shown.
   **Kept columns (2026-11-06, owner: "keep the DoTs and HoTs on targets when I switch targets")**:
-  `dotKeep` / `hotKeep` (on). A left unit needs a unit token of its own for the containers: debuffs.lua
-  takes `nameplate1-40`, hots.lua `player`, `party1-4`, `raid1-40` (`TOKENS`, `TokenFor(guid)` each
-  tick). `Update` notes the target column's GUID (`lastGUID`) and whether the lookup ever saw one of
+  `dotKeep` (on; hots.lua had `hotKeep` until the party table of 1.3.0 made it moot). A left unit needs a
+  unit token of its own for the containers: debuffs.lua takes `nameplate1-40` (`TOKENS`, `TokenFor(guid)`
+  each tick). `Update` notes the target column's GUID (`lastGUID`) and whether the lookup ever saw one of
   the list on it (`lastRunning`); on a change `Keep` makes a column (pooled, `allKept`, focus width,
   newest first, at most `MAX_KEEP` 4) when that or a cast of ours on it (`UNIT_SPELLCAST_SUCCEEDED`
   for `player`, IDs in `allIDs`, `castOn[guid]`) says it carries one. `UpdateKept` fills each with
-  `FillColumn(column, token)` (debuffs.lua got `SetColumnUnit` for that), drops it without a token,
+  `FillColumn(column, token)` (`SetColumnUnit`), drops it without a token,
   dead, out of a fight with nothing running (the lookup, a second after a cast) or `KEEP` 30 s after
   the last cast or sighting, and stacks them under the target column (`GAP`); the holder's height is
-  the stack. Window only (`attached` drops them); `SetDotTracker(false)` / `SetHotTracker(false)`
-  drop all. `/orbs dots` and `/orbs hots` list them. **Untested in game.**
+  the stack. Window only (`attached` drops them); `SetDotTracker(false)` drops all. `/orbs dots` lists
+  them. **Untested in game.**
   **The XIV EXP bar fades Blizzard's `Main/SecondaryStatusTrackingBarContainer`, never parks them**
   (`FadeStatusBars` in ffstyle.lua): a container asks `GetParent()` for its manager, and under a parent
   of ours Edit Mode failed on entering (`CheckForLayoutChange` nil, owner's first test 2026-11-05). The
@@ -300,6 +434,20 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   Windows page, `restock` and `mailHelper` on Loot and merchant; all off by default. Untested in game.
 - Kept as they were, with their feature checks: `merchant.lua` (falls back to selling one by one
   without `C_MerchantFrame.SellAllJunkItems`), `reputation.lua`, `lootroll.lua`.
+
+## The settings window (menu review 2026-11-07, owner: "das komplette Menü, Aufbau und Texte einfacher")
+
+- `D.PAGE_GROUPS` in panel.lua: General (Modules = key `General`, Devices, Screen, Targets, Windows - the
+  three hub pages are top-level now, no `PAGE_PARENT`; as sub-pages of the Overview they were listed only
+  while it was on show), Frames (Orbs = "Unit frames" with its sub-pages Player, Target, Target of target,
+  Buff bar, Enemies and bosses, Your debuffs, Your HoTs; Group; Raid), Actions (Bars, Pad, Spec, Cross),
+  World (Quests, Map = "Maps" with the minimap's settings on it and World map as its sub-page), Inventory
+  (Bags, Loot), Info (Tooltip with the extra lines on it, Week). The pages `MapMinimap` and `TooltipExtras`
+  are gone (their keys reset with the parent: `PAGE_RESET.Map` matches everything but the world map's keys,
+  `PAGE_RESET.Tooltip` the whole DB); `/df overview` is `/df modules`.
+- Texts: a label is a few words, an explanation two or three plain sentences about what the player sees;
+  "Needs a reload." closes it where it does; no engine words (secure, state driver, CVar, taint) and no
+  Final Fantasy lore beyond what names the look. Keep that style for new options.
 
 ## Audit
 
