@@ -506,3 +506,8 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    push, Release workflow run 42253563550, CurseForge file id 9477126). The HoT window, the idle switch
    and the "forbidden hook" fix were seen in game by the owner that day ("seems to all work"); the kept
    columns were not yet.
+   **Released**: v1.3.0 on 2026-11-07 (the Pad module, the D-pad in our windows, the party HoT window with
+   round icons, click to cast, the controller glyphs, the debuff icon mode, the simpler settings window; tag
+   push, Release workflow run 42391059063, CurseForge file id 9495157). Seen in game before the release: only
+   the HoT window's round icons ("viel besser"); Pad, the D-pad windows, the healer mode, the glyphs, the
+   debuff icon mode and the new menu were not.
