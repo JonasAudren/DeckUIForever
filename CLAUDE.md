@@ -717,10 +717,10 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    push, Release workflow run 42391059063, CurseForge file id 9495157). Seen in game before the release: only
    the HoT window's round icons ("viel besser"); Pad, the D-pad windows, the healer mode, the glyphs, the
    debuff icon mode and the new menu were not.
-   **Prepared 2026-11-08: v1.4.0** (the Questing module with the compendium, own quest data, the scanner and
+   **Released**: v1.4.0 on 2026-11-08 (the Questing module with the compendium, own quest data, the scanner and
    the Questie import, the dock, the map level ranges, the HoT window's raid order and the stranger switch,
    the fixes for the kept columns, the parchment ink beside the map and the healer mode's self-target line;
-   `bump-version.ps1 1.4.0`, `package.ps1` built 517 KB / 12 folders, commit, tag v1.4.0). Seen in game before:
+   tag push, Release workflow run 42503430872, CurseForge file id 9513060, game version id 17053). Seen in game before:
    Questie's start with the module on, the import, the compendium with and without Questie, the light quest
    details, the transparent self-target line. Not seen: the guided import's dialogs, the NPC dialog autopilot,
    the reward marks, zone tracking, the quest item key, the dock, the map level range.
