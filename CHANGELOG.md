@@ -1,5 +1,83 @@
 # Changelog
 
+## 1.4.0
+
+Questing made easier: a compendium of every quest, the NPC dialog on
+autopilot, a mark on the reward worth taking, a key for the quest item,
+and the level range at zone names.
+
+- Questing: a new module (page "Questing" under World, off by default,
+  /questing). At an NPC it takes the quests offered, hands in the finished
+  ones, takes the reward when there is nothing to choose, and skips a
+  single line of small talk; a party member's shared quest or escort is
+  accepted too, and new quests can be shared with the party. Held Shift
+  (the left trigger on the Steam Deck) pauses it, /questing pause stops it
+  for good, /questing ignore at an NPC leaves that NPC alone. It stands
+  down when Questie's own autopilot, QuickQuest or Immersion is on.
+- Questing: with a choice of rewards, a coin marks the item that sells for
+  the most and a green arrow one that would be an upgrade for your slot
+  and your class's armour kind; the vendor price stands in the corner.
+  Optional: take the most valuable when nothing is an upgrade.
+- Questing: the compendium (/compendium, a key under Keybindings): every
+  quest by zone and continent, dungeon, your class, profession,
+  battleground and event, and the quest chains - epic and long ones apart
+  - each with its state for this character (in your log, available,
+  something missing, done, not available), where it starts with a
+  waypoint button, where it ends, what it needs first, what it leads to,
+  the whole chain with your place in it, and its objectives. A search box
+  and two filters (hide done, only my class and race). The knowledge is
+  Questie's database, read when Questie is installed; without Questie the
+  window shows the game's quest lines of the map and your finished
+  quests, and says so.
+- Questing: the tracker can follow the zone (track the quests of the zone
+  you enter, stop tracking the others; the navigation target stays), and
+  the Quests module's tracker can show "[12+] Title" in the quest log's
+  colours.
+- Questing: a quest item button with the item that matters now (the
+  navigation target's, else the nearest tracked quest's), with count,
+  cooldown and its key; "Quest item: use it" under Keybindings > AddOns.
+- Questing: the compendium keeps its own quest data, shared by all your
+  characters and independent of Questie: it records every quest an NPC
+  offers or takes back, the giver and its place, the objectives and
+  which quest follows which; it reads the game's quest lines of each
+  map; and a scan ("Start the scan" on the page, /questing scan) asks
+  the server for every quest's name, id by id, pausing in combat and
+  carrying on next session. With Questie installed its database comes
+  on top - or once and for good: "Import Questie's data" on the page
+  (/questing import) copies every quest, giver, chain, class and race
+  restriction and zone from Questie into your own record, so the
+  compendium has it all afterwards without Questie; "Forget the
+  import" takes it out again. Questie installed but switched off? The
+  button switches it on for one login, imports, and offers to switch it
+  off again. What the owner records ships with the module in later
+  versions.
+- Hub: the dock - a small flat panel with round buttons for the settings
+  (right click unlocks the frames), the week overview and the quest
+  compendium, each as its module is on. Drag it by any button. The week
+  button on screen moved into it, with its vault badge; "Button in the
+  dock" on the Week page keeps it out. Screen page, on by default.
+- Map: the level range after the zone name on the minimap and after the
+  last breadcrumb of the world map, coloured by your level like quest
+  levels ("Level range at zone names", on). The world map's hover label
+  over a zone shows the range already, Blizzard's own.
+- Orbs: the HoT window lists your group in the order of the game's own
+  group frames: in a raid your raid group in raid order, you at your
+  place in it instead of always on top; in a party you first, as before.
+  /orbs hots prints the order and each line's row.
+- Orbs: "A line for a target outside the group" on the HoTs page (on, as
+  before): off, the HoT window shows your group alone, no line for a
+  targeted NPC or a raid member of another group.
+- Fixed: Map: the quest details beside the world map were written in
+  parchment ink on the dark panel, barely readable (since 1.0.0); the
+  text is light now, a finished objective's grey and other colours stay.
+- Fixed: Orbs: with "Click to cast" on, the HoT window kept the line of
+  your last friendly target when you targeted yourself while solo (the
+  game's own show rule cannot tell you from a stranger there); the line
+  is transparent for you or a party member now, in a fight too.
+- Orbs: no more errors from the debuff window's kept columns in a fight,
+  where the game hides an enemy's identity: such a unit is not kept and
+  not matched to a nameplate, instead of throwing on every target change.
+
 ## 1.3.0
 
 The controller bar in our look, the D-pad in our windows, and your

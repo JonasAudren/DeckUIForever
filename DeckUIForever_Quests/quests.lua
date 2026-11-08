@@ -158,9 +158,12 @@ local function QuestEntry(questID, logIndex, info)
     else
         lines = ns.QuestLines(questID, logIndex)
     end
+    -- the Questing module may put the level in front of the title
+    local title = info.title
+    if D.DecorateQuestTitle then title = D.DecorateQuestTitle(questID, title) or title end
     return {
         key = "quest" .. questID,
-        title = info.title,
+        title = title,
         color = TitleColor(questID, complete, failed),
         lines = lines,
         OnClick = QuestClick(questID, info, complete),

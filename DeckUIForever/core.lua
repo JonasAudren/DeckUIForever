@@ -39,12 +39,13 @@ D.MODULE_ADDONS = {
     Spec  = "DeckUIForever_Spec",
     Bags  = "DeckUIForever_Bags",
     Quests = "DeckUIForever_Quests",
+    Questing = "DeckUIForever_Questing",
     Map   = "DeckUIForever_Map",
     Tooltip = "DeckUIForever_Tooltip",
     Nav   = "DeckUIForever_Nav",
     Week  = "DeckUIForever_Week",
 }
-D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Map", "Tooltip", "Nav", "Week" }
+D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Questing", "Map", "Tooltip", "Nav", "Week" }
 -- the module checkboxes in the General tab
 D.MODULE_TITLES = {
     Orbs   = "Orbs (unit frames)",
@@ -53,6 +54,7 @@ D.MODULE_TITLES = {
     Spec   = "Spec (talent group switcher)",
     Bags   = "Bags (bags and banks)",
     Quests = "Quests (objective tracker)",
+    Questing = "Questing (quest helper and compendium)",
     Map    = "Map (minimap and world map)",
     Tooltip = "Tooltip (mouse-over window)",
     Nav    = "Nav (compass and waypoints)",
@@ -62,7 +64,7 @@ D.MODULE_TITLES = {
 -- Modules that start switched off, for new installs and for players who
 -- update into them alike. Replacing the bag window, the quest tracker or
 -- the maps is not something an update should do to anyone unasked.
-D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Map = true, Tooltip = true, Nav = true, Week = true }
+D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Questing = true, Map = true, Tooltip = true, Nav = true, Week = true }
 
 -- Forever is its own project, WOW_PROJECT_CAMELOT (18 in build 70707;
 -- Blizzard_ProjectConstants/Camelot). Asked by the named constant, never
@@ -79,6 +81,16 @@ BINDING_NAME_DECKUIFOREVER_NAV_NEXT = "Navigation: next tracked quest"
 BINDING_NAME_DECKUIFOREVER_NAV_PREV = "Navigation: previous tracked quest"
 BINDING_NAME_DECKUIFOREVER_LOOT_ALL = "Loot window: take all"
 BINDING_NAME_DECKUIFOREVER_WEEK = "Week overview: open / close"
+BINDING_NAME_DECKUIFOREVER_COMPENDIUM = "Quest compendium: open / close"
+-- a click binding: the key clicks the Questing module's secure quest item button
+_G["BINDING_NAME_CLICK DeckQuestingItem:LeftButton"] = "Quest item: use it"
+function D.ToggleCompendium()
+    if D.compendiumToggle then
+        D.compendiumToggle()
+    else
+        print("DeckUIForever: switch on the Questing module (General tab) for the quest compendium.")
+    end
+end
 function D.ToggleWeek()
     if D.weekToggle then
         D.weekToggle()
@@ -556,6 +568,7 @@ local DEFAULTS = {
     infoBags      = false,   -- a block of dots per bag, used and free slots
     hideBagBar    = false,   -- Blizzard's bag buttons out of sight (infobars.lua)
     mainMenu      = false,   -- the micro menu as FFXIV's round buttons (mainmenu.lua)
+    dock          = true,    -- the dock: settings, week and compendium buttons in a row (dock.lua)
     ahScan        = true,    -- scan the auction house when it opens, every 15 min (auction.lua)
     ahStyle       = false,   -- the auction house window in DeckUIForever's look (auctionstyle.lua)
     restock       = false,   -- buy reagents, food, ammunition up to a count at merchants (restock.lua)

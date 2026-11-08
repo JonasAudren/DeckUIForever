@@ -32,6 +32,8 @@ D.RegisterModule("Map", {
         f:Checkbox("Round, like Final Fantasy XIV", db, "round", ns.ApplyShape,
             "A round map in a gold ring with N, E, S and W on it. The zone name above, clock and coordinates below.")
         f:Checkbox("Zone name", db, "zoneText", ns.ApplyTexts)
+        f:Checkbox("Level range at zone names", db, "zoneLevels", ns.ApplyZoneLevels,
+            "On the minimap and after the last breadcrumb of the world map. Grey for a zone below you, green, yellow, orange and red as it climbs, like quest levels. Blank where the game names no range.")
         f:Checkbox("Clock", db, "clock", ns.ApplyTexts, "Click it for the alarm and the stopwatch.")
         f:Checkbox("Your coordinates", db, "coordinates", ns.ApplyTexts,
             "Blank where the game gives no position.")

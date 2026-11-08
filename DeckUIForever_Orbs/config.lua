@@ -312,7 +312,9 @@ D.RegisterModule("HoTs", {
         f:Hint("Your party in one window: who has your HoTs, and which buffs. Druids and priests have HoTs in Classic; the other classes see only the buffs. /orbs hots prints what the window sees.")
         f:Label("Window")
         f:Checkbox("Show the HoT window", db, "hotTracker", ns.SetHotTracker,
-            "One line per party member, you first; solo it is just you. Each line: the name, one round icon per HoT - the dark clock closes as it runs out - then the buffs on them. A HoT you have not cast is a dimmed icon with a red rim in combat. Gold means the last third: refresh now and nothing is lost. A friendly target outside your party gets its own line while you target it.")
+            "One line per party member in the order of the game's group frames: in a raid your raid group with you at your place in it, in a party you first; solo it is just you. Each line: the name, one round icon per HoT - the dark clock closes as it runs out - then the buffs on them. A HoT you have not cast is a dimmed icon with a red rim in combat. Gold means the last third: refresh now and nothing is lost. A friendly target outside your party gets its own line while you target it.")
+        f:Checkbox("A line for a target outside the group", db, "hotStranger", function() ns.ApplyHotStranger() end,
+            "A friendly target that is not in your group - an NPC, a raid member of another group - gets a line of its own at the end while you target it, however far away it is. Off, the window shows your group alone.")
         f:Checkbox("Click to cast (healer mode)", db, "hotHealer", function(v)
             D.NeedReload("orbs:hotHealer", (v and true or false) ~= loaded.hotHealer)
         end, "Click a HoT icon to cast it on that member; click the name to target them. Works in combat. In this mode the window stays frozen during a fight and sorts itself again when the fight ends. Needs a reload.")

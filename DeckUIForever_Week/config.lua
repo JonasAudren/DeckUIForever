@@ -13,9 +13,9 @@ D.RegisterModule("Week", {
         f:Label("This week")
         f:Button("Open the week overview", function() ns.Toggle() end,
             "Also /week, a key binding, or Shift-click on the minimap button.")
-        f:Checkbox("Button on screen", function() return DeckUIForeverWeekDB end, "showButton",
+        f:Checkbox("Button in the dock", function() return DeckUIForeverWeekDB end, "showButton",
             function() ns.UpdateButton() end,
-            "A small round button that opens the overview. Drag it to move it.")
+            "A round button in DeckUIForever's dock that opens the overview, with the week's unlocked vault slots in its corner. The dock itself is on the Screen page.")
         f:Gap(4)
         f:Hint("Each character saves its week while you play it. Right click a weekly quest to hide it, a character to forget it.")
     end,

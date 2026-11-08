@@ -12,8 +12,11 @@ local oUF = ns.oUF
 -- window - which HoTs and buffs are on them") and, the same evening,
 -- made compact (owner, after the first look at the table: "I don't like
 -- the look at all, much more compact, maybe no bars but circles that
--- close"). One line per party member, you first, always listed while
--- you are in a party (solo: you alone): the name, then one round icon
+-- close"). One line per party member, always listed while you are in a
+-- party (solo: you alone), in the game's own group order - in a raid the
+-- five of your raid group in raid order, you at your place in it (owner
+-- 2026-11-08: "ich bin an erster Stelle, ich will in meiner Gruppenstelle
+-- sein"), in a party you first, then party1-4: the name, then one round icon
 -- per heal you keep up on them - a druid's Rejuvenation and Regrowth, a
 -- priest's Renew and the shield - with a clock that closes over it as
 -- the heal runs out, then the buffs on them as round icons. A friendly
@@ -70,7 +73,8 @@ local oUF = ns.oUF
 -- that same row until the fight ends), the game shows and hides the
 -- lines itself through state drivers ([@party2,exists] and
 -- [@target,help,nodead,noparty]: a friendly target outside the party -
--- solo, targeting yourself shows you twice, the game cannot tell), and
+-- solo, that shows you twice when you target yourself, so the line
+-- goes transparent for you or a member, alpha being free in a fight), and
 -- a spell learnt in a fight reaches its button after it. The empty
 -- icons always show in this mode, so there is something to click. The
 -- tooltip is then the spell's, not the aura's.
@@ -241,6 +245,11 @@ local function SecureButton(parent, kind, unit)
     return b
 end
 
+-- the healer mode's driver for the target line: a living friend that is
+-- not in the party (solo, targeting yourself shows you twice: the
+-- restricted environment cannot compare units)
+local STRANGER_SHOWN = "[@target,help,nodead,noparty] show; hide"
+
 local function Line(parent, unit)
     local c = CreateFrame("Frame", nil, parent)
     c.unit = unit
@@ -256,7 +265,7 @@ local function Line(parent, unit)
         b:SetSize(PAD + NAME_W + 2, Size())
         c.target = b
         if unit == "target" then
-            RegisterStateDriver(c, "visibility", "[@target,help,nodead,noparty] show; hide")
+            if DeckUIForeverOrbsDB.hotStranger ~= false then RegisterStateDriver(c, "visibility", STRANGER_SHOWN) end
         else
             RegisterStateDriver(c, "visibility", ("[@%s,exists] show; hide"):format(unit))
         end
@@ -577,15 +586,50 @@ local function FillLine(c)
     if not healer then c:Show() end
 end
 
--- Every member's line has its row - the party tokens are contiguous, so
--- `count` members fill rows 0 to count-1 and the stranger takes row
--- `count` (in the healer mode a member who joins mid-fight lands there
--- too, until the fight ends). Under one another or side by side
--- (hotAcross, per device); the holder is sized to the rows in use.
+-- Which row each member takes: the order of the game's own group frames.
+-- In a raid the five of your raid group stand in raid order - the
+-- GetRaidRosterInfo order the raid frames (CompactRaidGroup_UpdateUnits)
+-- and the raid window use - so you sit at your place in the group, not
+-- always on top (owner 2026-11-08: "ich bin an erster Stelle, ich will in
+-- meiner Gruppenstelle sein"); UnitInRaid gives each token's raid index.
+-- In a party you first, then party1-4, as Blizzard's compact party frames
+-- sort them (CRFSort_Group). The present members fill rows 0 to count-1;
+-- the ones that are gone line up behind them, from row `count` on - the
+-- stranger's row (in the healer mode a member who joins mid-fight lands
+-- there too, until the fight ends). UnitInRaid may hand back a secret in
+-- a fight: then the last order stands.
+local lastRows = {}
+local function Rows()
+    local present, gone, raid = {}, {}, IsInRaid()
+    for i, c in ipairs(members) do
+        if UnitExists(c.unit) then
+            local key = i
+            if raid then
+                local id = UnitInRaid(c.unit)
+                if Secret(id) then return lastRows end
+                key = id or (40 + i)
+            end
+            present[#present + 1] = { c = c, key = key }
+        else
+            gone[#gone + 1] = c
+        end
+    end
+    table.sort(present, function(a, b) return a.key < b.key end)
+    local rows = {}
+    for row, p in ipairs(present) do rows[p.c] = row - 1 end
+    for j, c in ipairs(gone) do rows[c] = #present + j - 1 end
+    lastRows = rows
+    return rows
+end
+
+-- Every line to its row (Rows; the stranger takes row `count`), under one
+-- another or side by side (hotAcross, per device); the holder is sized to
+-- the rows in use.
 local function Stack(count, extra)
     if Locked() then return end
     local across, size, w = Across(), Size(), LineWidth(#entries)
     local function Put(c, row)
+        c.row = row
         c:ClearAllPoints()
         if across then
             c:SetPoint("TOPLEFT", holder, "TOPLEFT", row * (w + GAP), 0)
@@ -593,30 +637,51 @@ local function Stack(count, extra)
             c:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -row * (size + GAP))
         end
     end
-    for i, c in ipairs(members) do Put(c, i - 1) end
+    local rows = Rows()
+    for i, c in ipairs(members) do Put(c, rows[c] or (i - 1)) end
     Put(stranger, count)
-    local rows = math.max(count + (extra and 1 or 0), 1)
+    local used = math.max(count + (extra and 1 or 0), 1)
     if across then
-        holder:SetSize(rows * (w + GAP) - GAP, size)
+        holder:SetSize(used * (w + GAP) - GAP, size)
     else
-        holder:SetSize(w, rows * (size + GAP) - GAP)
+        holder:SetSize(w, used * (size + GAP) - GAP)
     end
 end
 
+-- a unit's GUID, or nil while the game keeps it secret (debuffs.lua saw
+-- an enemy target's GUID secret in a fight on 2026-11-08; a secret as a
+-- key or in a comparison throws)
+local function GUID(unit)
+    if not UnitExists(unit) then return nil end
+    return Ask(UnitGUID(unit))
+end
+
 -- the target stands in the table already (you or a party member): the
--- GUIDs say so without a secret, where UnitIsUnit may hand one back in a fight
+-- GUIDs say so, where UnitIsUnit may hand back a secret in a fight
 local function InTable(guid)
     for _, unit in ipairs(PARTY) do
-        if UnitExists(unit) and UnitGUID(unit) == guid then return true end
+        if GUID(unit) == guid then return true end
     end
     return false
 end
 
 -- a friendly target outside the party gets the last line while it lasts
+-- (hotStranger, on; owner 2026-11-08, with an NPC targeted far away:
+-- "always a sixth one in the group" - off, the window is the group alone);
+-- a target whose GUID is secret cannot be told from the party and gets none
+local function StrangerWanted() return DeckUIForeverOrbsDB.hotStranger ~= false end
+
 local function StrangerOn()
-    if not Friendly("target") then return false end
-    local guid = UnitGUID("target")
+    if not StrangerWanted() or not Friendly("target") then return false end
+    local guid = GUID("target")
     return guid ~= nil and not InTable(guid)
+end
+
+-- the target is you or a party member, known for sure (a secret GUID is
+-- not a member: the healer mode's line stays visible for it)
+local function TargetInTable()
+    local guid = GUID("target")
+    return guid ~= nil and InTable(guid)
 end
 
 function Update()
@@ -636,6 +701,15 @@ function Update()
     elseif not healer then
         stranger:Hide()
     end
+    if healer then
+        -- the state driver shows the line for a friendly target outside
+        -- the party, and solo it cannot tell you from a stranger (owner
+        -- 2026-11-08: "You" and the innkeeper, after targeting himself):
+        -- for you or a member the line goes transparent instead. Alpha
+        -- is not protected, so this holds in a fight too; the driver's
+        -- own show and hide stay untouched.
+        stranger:SetAlpha(TargetInTable() and 0 or 1)
+    end
     Stack(count, extra)
     if not holder:IsShown() and not Locked() then holder:Show() end
     UpdateHints()
@@ -643,6 +717,22 @@ end
 
 function ns.ApplyHotLayout()
     if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end
+end
+
+-- the switch for the target line: the healer mode's driver comes or goes
+-- with it, out of a fight (the line is protected); Update does the rest
+function ns.ApplyHotStranger()
+    ns.OutOfCombat("hotStranger", function()
+        if healer and stranger then
+            if StrangerWanted() then
+                RegisterStateDriver(stranger, "visibility", STRANGER_SHOWN)
+            else
+                UnregisterStateDriver(stranger, "visibility")
+                stranger:Hide()
+            end
+        end
+        if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end
+    end)
 end
 
 -------------------------------------------------------------------
@@ -661,6 +751,7 @@ local SPEC_EVENTS = { "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_TALENT_UPDATE", "SP
 driver:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_TARGET_CHANGED" then
         RefreshUnit(stranger)
+        if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end   -- the line's name and alpha at once
     elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" then
         -- party1 may be someone else now
         for _, c in ipairs(members) do RefreshUnit(c) end
@@ -758,9 +849,10 @@ end)
 -- /orbs hots: the class, its list, what you know and which IDs each
 -- slot takes, and what every line shows
 function ns.HotDebug()
-    print(("DeckUIForever HoTs: %s, class %s, %d slots, buffs: %s, %s, icon %d px, click to cast %s, in combat: %s%s."):format(
+    print(("DeckUIForever HoTs: %s, class %s, %d slots, buffs: %s, %s, order: %s, target line %s, icon %d px, click to cast %s, in combat: %s%s."):format(
         DeckUIForeverOrbsDB.hotTracker and "on" or "off", tostring(ListKey()), #entries,
         AllBuffs() and "every buff" or "yours up to a minute", Across() and "side by side" or "stacked",
+        IsInRaid() and "raid group" or "you first", StrangerWanted() and "on" or "off",
         Size(), healer and "on" or "off", tostring(UnitAffectingCombat("player")),
         Locked() and " (window locked until it ends)" or ""))
     print(("  controller glyphs: option %s, gamepad style %s, party targeting %s, friendly modifier held %s"):format(
@@ -781,10 +873,11 @@ function ns.HotDebug()
     for _, c in ipairs(lines) do
         local slots = 0
         for _, s in ipairs(c.slots) do if s:IsShown() then slots = slots + 1 end end
-        print(("  %s: %s, %s, slots %d%s"):format(c.unit,
+        print(("  %s: %s, %s, row %s, raid index %s, slots %d%s"):format(c.unit,
             UnitExists(c.unit) and (tostring(UnitName(c.unit)) or "?") or "none",
-            c:IsShown() and "shown" or "hidden", slots,
+            c:IsShown() and "shown" or "hidden", tostring(c.row),
+            IsInRaid() and UnitExists(c.unit) and tostring(Ask(UnitInRaid(c.unit)) or "secret") or "-", slots,
             c == stranger and (", friendly " .. tostring(Friendly("target")) .. ", in the table " ..
-                tostring(UnitExists("target") and InTable(UnitGUID("target")))) or ""))
+                tostring(GUID("target") ~= nil and InTable(GUID("target")))) or ""))
     end
 end

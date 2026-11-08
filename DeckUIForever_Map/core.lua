@@ -32,7 +32,68 @@ local DEFAULTS = {
     buttonsOnHover = true,  -- addon and Blizzard buttons only while the mouse is over the map
     questLogClosed = true,  -- the world map opens without the quest log beside it
     mapControlsOnHover = true, -- the world map's breadcrumbs and buttons only under the mouse
+    zoneLevels   = true,    -- a zone's level range after its name, minimap and world map
 }
+
+-------------------------------------------------------------------
+-- A zone's level range (owner's wish, 2026-11-07)
+-------------------------------------------------------------------
+-- C_Map.GetMapLevels names the player levels a map is made for (in the
+-- probe of 2026-11-05). 0 or nil means the game knows none - continents,
+-- cities, instances - and nothing is shown then. Forever's new zones may
+-- lack values while Blizzard still tunes them: ZONE_LEVEL_FALLBACK takes a
+-- { min, max } per mapID for those, empty until the game shows a gap.
+-- Here in core.lua because minimap.lua and worldmap.lua both read it.
+local ZONE_LEVEL_FALLBACK = {
+    -- [1436] = { 10, 20 },   -- an example: Westfall
+}
+
+local function Plain(v)
+    return v ~= nil and not (issecretvalue and issecretvalue(v))
+end
+
+function ns.ZoneLevels(mapID)
+    if not mapID then return end
+    local min, max
+    if C_Map.GetMapLevels then
+        local ok, a, b = pcall(C_Map.GetMapLevels, mapID)
+        if ok and Plain(a) and Plain(b) then min, max = a, b end
+    end
+    if not (min and max and min > 0 and max > 0) then
+        local fb = ZONE_LEVEL_FALLBACK[mapID]
+        if not fb then return end
+        min, max = fb[1], fb[2]
+    end
+    if max < min then min, max = max, min end
+    return min, max
+end
+
+-- The colour the game gives a quest of that level, read at the point of
+-- the range nearest the player: yellow while the player is inside the
+-- range, green or grey once above it, orange or red while below it.
+local function LevelColor(level)
+    local c = GetQuestDifficultyColor and GetQuestDifficultyColor(level)
+    if c and c.r then return c.r, c.g, c.b end
+    return 1, 0.82, 0
+end
+
+-- "10-20" (or "60" for a single level) and its colour, or nothing
+function ns.ZoneLevelText(mapID)
+    local min, max = ns.ZoneLevels(mapID)
+    if not min then return end
+    local player = UnitLevel("player") or 1
+    local r, g, b = LevelColor(math.max(min, math.min(max, player)))
+    local text = min == max and tostring(min) or (min .. "-" .. max)
+    return text, r, g, b
+end
+
+-- the same, as one coloured string for inline use
+function ns.ZoneLevelString(mapID)
+    local text, r, g, b = ns.ZoneLevelText(mapID)
+    if not text then return end
+    return ("|cff%02x%02x%02x%s|r"):format(
+        math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5), text)
+end
 
 local function Init()
     DeckUIForeverMapDB = DeckUIForeverMapDB or {}

@@ -814,9 +814,20 @@ local function KeepOn() return DeckUIForeverOrbsDB.dotKeep ~= false end
 local TOKENS = {}
 for i = 1, 40 do TOKENS[#TOKENS + 1] = "nameplate" .. i end
 
+-- a unit's GUID, or nil while the game keeps it secret (owner 2026-11-08,
+-- in a fight: UnitGUID("target") came back secret and threw as a table
+-- key and in a comparison). A secret unit cannot be told from any other,
+-- so it counts as unknown: no kept column for it, no cast recorded on
+-- it, no match on a nameplate - the kept columns then work out of a
+-- fight and wherever the game shows the GUIDs.
+local function GUID(unit)
+    if not UnitExists(unit) then return nil end
+    return Ask(UnitGUID(unit))
+end
+
 local function TokenFor(guid)
     for _, t in ipairs(TOKENS) do
-        if UnitExists(t) and UnitGUID(t) == guid then return t end
+        if GUID(t) == guid then return t end
     end
     return nil
 end
@@ -841,7 +852,7 @@ local function DropAll()
 end
 
 local function CastOn(guid)
-    if guid then castOn[guid] = GetTime() end
+    if guid and not Secret(guid) then castOn[guid] = GetTime() end
 end
 
 -- the unit the target column showed, as it goes
@@ -892,7 +903,7 @@ local lastGUID, lastRunning = nil, false
 
 local function Update()
     if preview then return end
-    local guid = Attackable("target") and UnitGUID("target") or nil
+    local guid = Attackable("target") and GUID("target") or nil
     if guid ~= lastGUID then
         Keep(lastGUID, lastRunning)
         lastGUID, lastRunning = guid, false
@@ -907,7 +918,7 @@ local function Update()
     end
     -- the focus column keeps its place when the target column is empty
     target:SetShown(any)
-    local stack = UpdateKept(guid, UnitExists("focus") and UnitGUID("focus") or nil, any)
+    local stack = UpdateKept(guid, GUID("focus"), any)
     holder:SetHeight(math.max((any and target:GetHeight() or 0) + stack, focusOn and focus:GetHeight() or 0, 20))
     if icons then holder:SetWidth(math.max(any and target.width or 0, focusOn and focus.width or 0, 20)) end
     holder:SetShown(any or focusOn or #kept > 0)

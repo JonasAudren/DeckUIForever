@@ -164,12 +164,21 @@ local ZONE_COLORS = {
     contested = { 1, 0.7, 0 },
 }
 
+-- The zone's level range follows the name (core.lua's ns.ZoneLevelString),
+-- in the colour the game gives a quest of that level; blank where the
+-- game names no range.
 local function UpdateZone()
-    zone:SetText(GetMinimapZoneText() or "")
+    local name = GetMinimapZoneText() or ""
+    if DeckUIForeverMapDB.zoneLevels then
+        local range = ns.ZoneLevelString(C_Map.GetBestMapForUnit("player"))
+        if range then name = name .. " " .. range end
+    end
+    zone:SetText(name)
     local pvpType = C_PvP.GetZonePVPInfo()
     local c = ZONE_COLORS[pvpType]
     if c then zone:SetTextColor(unpack(c)) else zone:SetTextColor(1, 0.82, 0) end
 end
+ns.UpdateZone = UpdateZone
 
 -- Clicks on the edges: the clock opens Blizzard's time manager (alarm,
 -- stopwatch), like its own clock button did.
@@ -389,7 +398,7 @@ end)
 
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA",
-                     "PLAYER_ENTERING_WORLD", "EDIT_MODE_LAYOUTS_UPDATED" }) do
+                     "PLAYER_ENTERING_WORLD", "EDIT_MODE_LAYOUTS_UPDATED", "PLAYER_LEVEL_UP" }) do
     ev:RegisterEvent(e)
 end
 ev:SetScript("OnEvent", function(_, event)
@@ -411,6 +420,9 @@ ns.OnDebug(function()
         tostring(MinimapCluster:GetParent() == hider)))
     local mapID = C_Map.GetBestMapForUnit("player")
     print(("  map %s, coordinates %s"):format(tostring(mapID), tostring(Coordinates())))
+    local min, max = ns.ZoneLevels(mapID)
+    print(("  zone levels %s-%s (shown: %s)"):format(tostring(min), tostring(max),
+        tostring(DeckUIForeverMapDB.zoneLevels)))
     local restricted = C_RestrictedActions and C_RestrictedActions.IsAddOnRestrictionActive
         and Enum.AddOnRestrictionType and Enum.AddOnRestrictionType.Map
         and C_RestrictedActions.IsAddOnRestrictionActive(Enum.AddOnRestrictionType.Map)

@@ -1,0 +1,35 @@
+## Interface: 16001
+## Title: DeckUIForever Questing
+## Notes: DeckUIForever module: a quest compendium, the NPC dialog on autopilot, reward marks and a quest item key
+## Author: Gottlieb
+## Version: 1.4.0
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Quests & Leveling
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+# No OptionalDeps on Questie: the hub loads this module inside its own
+# ADDON_LOADED, long before the game reaches Questie's place in the addon
+# list, and an optional dependency made the game load Questie and
+# QuestieDB right then, on demand and out of order - after which Questie
+# never started (owner, 2026-11-08). questdata.lua looks for Questie at
+# runtime and needs no load order.
+## SavedVariables: DeckUIForeverQuestingDB, DeckUIForeverQuestDataDB
+
+# core first (defaults, the pause key, the event hub), then our own quest
+# data (the shipped file, the recorder, the scanner), the data layer and
+# the chains the compendium reads, then the window, then the helpers
+# that act at the NPC; config last.
+core.lua
+data_forever.lua
+record.lua
+scan.lua
+questdata.lua
+import.lua
+chains.lua
+compendium.lua
+dialog.lua
+rewards.lua
+zone.lua
+questitem.lua
+config.lua

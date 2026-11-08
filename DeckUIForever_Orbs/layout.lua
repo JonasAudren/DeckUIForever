@@ -65,6 +65,7 @@ ns.DEFAULTS = {
     hotAllBuffs     = false,       -- the HoT window's buff rows: every buff on the member; off = yours up to a minute
     hotHealer       = false,       -- the HoT window's click to cast: secure buttons on the icons and names; /reload
     hotPadHints     = true,        -- the HoT window: Blizzard's targeting key before each name, gamepad style only
+    hotStranger     = true,        -- the HoT window: a line for a friendly target outside the group; off = the group alone
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
     buffBar         = false,       -- own buff bar in FF style (buffs.lua), replaces Blizzard's; /reload
     -- the buff bar's switches (Buff bar page, 2026-10-30), live but for the two look ones

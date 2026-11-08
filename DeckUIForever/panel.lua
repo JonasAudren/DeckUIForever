@@ -63,7 +63,7 @@ D.PAGE_GROUPS = {
     { title = "General",   pages = { "General", "Devices", "Screen", "Targets", "Windows" } },
     { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "Group", "Raid" } },
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
-    { title = "World",     pages = { "Quests", "Map", "MapWorld", "Nav" } },
+    { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
     { title = "Info",      pages = { "Tooltip", "Week" } },
 }
@@ -358,12 +358,13 @@ D.PAGE_FRAMES = {
     Spec    = { "Spec bar" },
     Bags    = { "Bags", "Bank" },
     Quests  = { "Quest tracker" },
+    Questing = { "Quest item", "Compendium" },
     Map     = { "Minimap", "World map" },
     Tooltip = { "Tooltip" },
     Nav     = { "Compass", "Navigation target", "Waypoint list" },
-    Week    = { "Week", "Week button" },
+    Week    = { "Week" },
     Loot    = { "Loot", "Loot list", "Loot rolls" },
-    Screen  = { "Server info", "Gold", "Bag overview", "Main menu" },
+    Screen  = { "Server info", "Gold", "Bag overview", "Main menu", "Dock" },
     Windows = { "Group listing" },
 }
 
@@ -388,7 +389,7 @@ local ENEMY_KEYS = { enemyList = true, showFocus = true, showBoss = true, bossSt
 local function BuffBarKey(k) return BUFFBAR_KEYS[k] == true or k:find("^buffBar") ~= nil end
 local function EnemyKey(k) return ENEMY_KEYS[k] == true end
 -- the Overview's three sub-pages share DeckUIForeverDB with everything else of the hub
-local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true }
+local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true, dock = true }
 local TARGET_KEYS = { targetArrow = true, xivPlates = true, plateSpace = true, rankMarks = true,
                       softTargetName = true, softTargetCast = true }
 local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow = true }
@@ -414,6 +415,7 @@ D.PAGE_RESET = {
     Spec    = { db = "DeckUIForeverSpecDB", keep = { groupSets = true } },
     Bags    = { db = "DeckUIForeverBagsDB", keep = { trackedItems = true } },
     Quests  = { db = "DeckUIForeverQuestsDB" },
+    Questing = { db = "DeckUIForeverQuestingDB", keep = { ignoredNPCs = true } },
     Map     = { db = "DeckUIForeverMapDB" },
     Tooltip = { db = "DeckUIForeverTooltipDB" },
     Nav     = { db = "DeckUIForeverNavDB" },
@@ -622,6 +624,7 @@ D.MODULE_DESCRIPTIONS = {
     Spec    = "A small bar of your talent groups; click one to switch.",
     Bags    = "One window for all bags and the keyring, sorted into categories, and the bank in the same look.",
     Quests  = "Its own quest tracker in place of Blizzard's: quests, timers, scenarios, legacy challenges.",
+    Questing = "Quests made easier: the NPC dialog on autopilot, a mark on the reward worth taking, a key for the quest item, and a compendium of every quest by zone, class and chain.",
     Map     = "A square or round minimap and a smaller, cleaner world map.",
     Tooltip = "The mouse-over tooltip in DeckUIForever's look, with a few extra lines.",
     Nav     = "A compass bar, the navigation target with distance and arrival time, and /way waypoints.",
@@ -793,6 +796,11 @@ panel:AddTab("Screen", {
             f:Label("Main menu")
             f:Checkbox("Main menu as round buttons", db, "mainMenu", function() D.ApplyMainMenu() end,
                 "The game's menu buttons as a row of round buttons with a gold ring. Blizzard's own row goes away.")
+        end
+        if D.ApplyDock then
+            f:Label("Dock")
+            f:Checkbox("DeckUIForever's dock", db, "dock", function() D.ApplyDock() end,
+                "A small panel with round buttons for the settings, the week overview and the quest compendium, as the modules are on. Drag it by any button, or move it with Move below.")
         end
     end,
 })
@@ -1021,6 +1029,8 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         if fn then fn() else print("DeckUIForever: /df " .. msg .. " is not part of DeckUIForever in this game.") end
         -- the Bars module adds its own lines to /df bars
         if msg == "bars" and D.PrintModuleBars then D.PrintModuleBars() end
+    elseif msg == "questing" then
+        if D.PrintQuesting then D.PrintQuesting() else print("DeckUIForever: switch on the Questing module (General tab) for /df questing.") end
     elseif msg == "pad" then
         -- the Pad module's report on Blizzard's controller bar
         if D.PrintPad then D.PrintPad() else print("DeckUIForever: switch on the Pad module (General tab) for /df pad.") end

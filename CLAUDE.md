@@ -30,6 +30,8 @@ DeckUIForever_Tooltip/ phase 2: the mouse-over tooltip (/decktip)
 DeckUIForever_Spec/   phase 3 (2026-11-05): talent group switcher (/spec), DeckUI's core_mists.lua
 DeckUIForever_Bags/   phase 3: bags with the keyring, bank with bag slots behind the tabs (/bags)
 DeckUIForever_Quests/ phase 3: objective tracker with quest timers (/quests)
+DeckUIForever_Questing/ 2026-11-07, owner's wish: the NPC dialog on autopilot, reward marks, zone tracking,
+                    the quest item key, the quest compendium on Questie's database (/questing, /compendium)
 DeckUIForever_Week/   phase 5 (2026-11-05): the week for every character (/week)
 DeckUIForever_Bars/   2026-11-05, owner's wish outside the plan: the eight action bars in FFXIV's hotbar look
                     for keyboard and mouse (page "Bars", /df bars); LibActionButton as DeckUI Cross carries it
@@ -330,6 +332,23 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   every member a fixed row (party tokens are contiguous) and the stranger row `count`, in both modes. The
   static layer always shows in this mode (`SetStatic`). PLAYER_REGEN_ENABLED runs `Update`, which lays out
   what the fight left. **Untested in game.**
+  **The rows follow the game's group order (2026-11-08, owner: "die HoT-Liste an die Gruppe anpassen ... ich bin
+  an erster Stelle, ich will in meiner Gruppenstelle sein", asked which order and picked "Raidgruppe")**: `Rows()`
+  gives the present members rows 0..count-1 - in a raid sorted by `UnitInRaid(token)` (the raid index; Blizzard's
+  `CompactRaidGroup_UpdateUnits` fills a raid group's five frames in `GetRaidRosterInfo` order, so the player
+  sits at their place in their raid group, and in a raid party1-4 are that group's other members), in a party
+  by token (you first, party1-4 - `CRFSort_Group` puts the player first too; the game has no join position for
+  you in a party) - the gone ones from row `count` on, where the stranger also sits; `Stack` places by `Rows()`
+  (`c.row`). `UnitInRaid` is `SecretWhenUnitIdentityRestricted`: a secret keeps the last order (`lastRows`). In
+  the healer mode `Stack` still runs out of combat only, so a roster change mid-fight sorts after the fight.
+  `/orbs hots` prints "order: raid group/you first" and each line's row and raid index; the window switch's
+  tooltip in config.lua says the order. No option. **Untested in game.**
+  **The target line is an option (2026-11-08, owner's screenshot: "komischerweise wurde immer ein 6ter in der
+  Gruppe angezeigt obwohl kein NPC in der Nähe war" - the sixth line was "Thom Filch", an NPC he had targeted;
+  a target stays at any distance)**: `hotStranger` (on, layout.lua default; `StrangerWanted`). Off,
+  `StrangerOn` is false, and in the healer mode `ns.ApplyHotStranger` (through `ns.OutOfCombat`) unregisters
+  the line's state driver (`STRANGER_SHOWN`) and hides it; on again, it registers the driver. `Line` registers
+  it only when the key is on. `/orbs hots` prints "target line on/off". **Untested in game.**
   **Controller glyphs (2026-11-07, owner: "in die native Controller-Steuerung einbinden, als Option")**: read in
   the `forever` source - `Blizzard_GamepadTargeting` (GroupTargeting.lua: `GroupTargeting:StartTargeting(container)`
   runs SmartNavigation over frames with a `.unit` and clicks the chosen one; RaidTargetDPAD.lua starts it on
@@ -371,7 +390,13 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   dead, out of a fight with nothing running (the lookup, a second after a cast) or `KEEP` 30 s after
   the last cast or sighting, and stacks them under the target column (`GAP`); the holder's height is
   the stack. Window only (`attached` drops them); `SetDotTracker(false)` drops all. `/orbs dots` lists
-  them. **Untested in game.**
+  them. **In a fight an enemy's GUID is secret** (owner 2026-11-08, 1.3.0: `UnitGUID("target")` came back
+  secret - 239 errors: a secret as `castOn`'s key, in `k.guid == guid` and in `guid ~= lastGUID`), so
+  every GUID goes through `GUID(unit)` (`Ask(UnitGUID)`, nil when secret; debuffs.lua and hots.lua each
+  have one) and `CastOn` drops a secret: a secret unit is unknown - no kept column for it, no match on a
+  nameplate (`TokenFor`), the hots stranger line stays off while its GUID is secret. So the kept columns
+  work out of a fight and wherever the game shows the GUIDs; whether a hostile target's GUID is secret in
+  every fight or only for some units is **to be seen in game**.
   **The XIV EXP bar fades Blizzard's `Main/SecondaryStatusTrackingBarContainer`, never parks them**
   (`FadeStatusBars` in ffstyle.lua): a container asks `GetParent()` for its manager, and under a parent
   of ours Edit Mode failed on entering (`CheckForLayoutChange` nil, owner's first test 2026-11-05). The
@@ -434,6 +459,187 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   Windows page, `restock` and `mailHelper` on Loot and merchant; all off by default. Untested in game.
 - Kept as they were, with their feature checks: `merchant.lua` (falls back to selling one by one
   without `C_MerchantFrame.SellAllJunkItems`), `reputation.lua`, `lootroll.lua`.
+
+## Questing (2026-11-07, owner: "ein Modul um das Questen zu erleichtern", then the level range on the map and "ein
+## Kompendium aller Quests nach Gebieten, Klassen, Questreihen, abgeschlossen oder nicht, wo annehmen, Voraussetzungen")
+
+- `DeckUIForever_Questing`, LoadOnDemand, `DeckUIForeverQuestingDB`, page "Questing" under World, off by default.
+  `core.lua`: DEFAULTS, `ns.Paused()` (held pause key `pauseKey` shift|ctrl|alt|none - Forever maps Shift to LT and
+  Ctrl to LB on the Deck - or `/questing pause`), the NPC ignore list `ignoredNPCs` (data, kept on Defaults;
+  `/questing ignore` at the NPC), `ns.On(event, fn)` one shared event frame, `/questing` (pause, ignore, ignored,
+  forget, track, debug, else the page), `/compendium`, `D.PrintQuesting` for `/df questing`, `D.compendiumToggle`
+  for the hub binding `DECKUIFOREVER_COMPENDIUM`.
+- `dialog.lua`: GOSSIP_SHOW / QUEST_GREETING (finished quests first via `C_GossipInfo.SelectActiveQuest(questID)`
+  / `SelectActiveQuest(i)`, then one quest to take, then a single plain-talk option - icon 132053, not
+  `selectOptionWhenOnlyOption` - when the NPC has no quests), QUEST_DETAIL (`AcceptQuest`; a player as `questnpc`
+  is a shared quest, `acceptShared`; a start item or `QuestGetAutoAccept` is left to Blizzard's pop-up),
+  QUEST_PROGRESS (`CompleteQuest` when `IsQuestCompletable`), QUEST_COMPLETE (`GetQuestReward(1)` with at most one
+  choice), QUEST_ACCEPT_CONFIRM (`ConfirmAcceptQuest`), QUEST_ACCEPTED (`QuestUtil.ShareQuest` with `autoShare`).
+  `shouldRun` goes false for the rest of a conversation once the pause key or the ignore list said no, and comes
+  back 0.5 s after every quest/gossip panel is hidden (Questie's AutoQuesting pattern). **Stands down** when
+  QuickQuest or Immersion is loaded or Questie's profile has `autoAccept.enabled`/`autocomplete` on
+  (`ns.OtherHelper`). Read against the forever branch of Gethe/wow-ui-source: Camelot loads
+  `Blizzard_UIPanels_Game/Mainline/QuestFrame.lua`, `QuestInfo.lua`, `GossipFrame.lua` (their own gamepad bindings,
+  A = accept/complete); nothing of them is hooked.
+- `rewards.lua`: QUEST_COMPLETE with 2+ choices - `GetQuestItemLink("choice", i)`, `C_Item.GetItemInfo` (sell price,
+  equipLoc, class/subclass), `C_Item.GetDetailedItemLevelInfo`; an upgrade is usable, for a slot in `SLOTS`, of the
+  class's armour kind at its level (`BestArmor`: cloth casters, leather druid/rogue, hunter/shaman mail from 40,
+  warrior/paladin plate from 40; misc armour always, shields warrior/paladin/shaman) and above the lowest worn item
+  level in those slots (or the slot is empty). Marks are frames of ours parented to Blizzard's
+  `rewardsFrame.RewardButtons` with `type == "choice"` and `GetID()` = choice index: coin (UI-GoldIcon) on the
+  priciest, arrow (atlas `bags-greenarrow`, fallback UI-MicroStream-Green) on an upgrade, the price in the corner.
+  Not-yet-loaded items redraw through `Item:ContinueOnItemLoad` and QUEST_ITEM_UPDATE. `rewardAuto` (off): with
+  everything loaded and no arrow, `GetQuestReward(best)` 0.2 s later, only if `ns.DialogAllowed()`.
+- `zone.lua`: `ns.TrackZone(byHand)` on ZONE_CHANGED_NEW_AREA (+1 s), PLAYER_ENTERING_WORLD (+3 s) and a
+  QUEST_POI_UPDATE shortly after: quests of the log in `C_QuestLog.GetQuestsOnMap(mapID)` get `AddQuestWatch`, the
+  others `RemoveQuestWatch` with `zoneUntrack` (never the super-tracked one). `D.DecorateQuestTitle(questID, title)`
+  - "[12+] Title" in `GetQuestDifficultyColor` - which **DeckUIForever_Quests/quests.lua asks for in `QuestEntry`**
+  (the one line changed there); `ns.RedrawTracker` is `C_QuestLog.SortQuestWatches` (fires the watch event).
+  Blizzard's tracker and the quest log's list are not touched (a hook on the map runs tainted into its pins).
+- `questitem.lua`: `DeckQuestingItem`, a `SecureActionButtonTemplate` of type item, attribute set out of combat
+  only (`pending` until PLAYER_REGEN_ENABLED); the pick is the super-tracked quest's item, else the nearest tracked
+  quest's (`GetDistanceSqToQuest`), else the nearest in the log (`GetQuestLogSpecialItemInfo`, complete quests only
+  with showWhenComplete). Icon, count, `GetQuestLogSpecialItemCooldown`, key text from
+  `GetBindingKey("CLICK DeckQuestingItem:LeftButton")` - **the hub's Bindings.xml declares that CLICK binding** and
+  core.lua names it (`BINDING_NAME_CLICK DeckQuestingItem:LeftButton`), so the key exists before the module loads.
+  Movable "Quest item" (shows a question mark while unlocked), device `itemScale`.
+- `questdata.lua` (`ns.Data`): the source. **Questie's Forever build** (Questie/Questie, `Questie_Forever.toc`,
+  Interface 16001, read 2026-11-07) keeps its data in the separate `QuestieDB` addon (`LibQuestieDB`) and binds it in
+  `Database/QuestieDB.lua`: `QuestieDB.QueryQuest(id, keys)` returns the fields packed in key order,
+  `QuestieDB.QuestPointers` is every quest id, `QueryNPC`/`QueryObject` give `name`, `spawns` ({[areaId] = {{x,y}}}),
+  `zoneID`; `ZoneDB:GetUiMapIdByAreaId`/`GetAreaIdByUiMapId`; `QuestiePlayer.HasRequiredRace/Class`;
+  `QuestieDB.IsDoableVerbose(id, false, true, true)` returns brief text, bool, `DoableStates` code (mapped to our
+  states done/log/available/locked/blocked/foreign in `Data.State`); `QuestieJourney.zoneMap` / `.zones` are the
+  Journey's groups by zoneOrSort (areaId, or Questie's negative sort keys: -1 Epic, -344 Legendary, classes,
+  professions, events) already filtered to the player's race and class, built from `l10n.zoneCategoryLookup`
+  (1 EK, 2 Kalimdor, 8 Zephras Isle, 9 Dungeons, 10 Battlegrounds, 11 Class, 12 Professions, 13 Events). Everything
+  is reached through `QuestieLoader:ImportModule` and pcall'd; the module waits for `Questie.started` (polled once a
+  second, two minutes at most) and goes without Questie otherwise (`Data.MapQuestLines` on `C_QuestLine`,
+  `GetAllCompletedQuestIDs`). Completion is always the game's `C_QuestLog.IsQuestFlaggedCompleted`. **No Questie
+  data is copied into the package** (GPL against our MIT); Questie is an OptionalDep.
+- `chains.lua` (`ns.Chains`): links from `nextQuestInChain`, `preQuestSingle` (each) and `preQuestGroup`, read 300
+  quests per frame (`C_Timer.NewTicker(0)`), components joined and ordered (Kahn, ties by level), length = longest
+  path; long = 5+ steps, epic = Questie's Epic/Legendary sort or 4+ steps reaching level 50 with an elite/dungeon/raid
+  tag or a class restriction. Built when the compendium first opens with Questie.
+- `compendium.lua`: `DeckCompendiumWindow` 840x540, three panes (tree / list by state / details with waypoint
+  buttons via `C_Map.SetUserWaypoint` + `C_SuperTrack.SetSuperTrackedUserWaypoint`), pooled row buttons, search
+  box (name substring over every quest, first 300), filters `hideDone`/`onlyMine`, opens on the player's zone,
+  movable "Compendium", device `scale`, `D.GamepadWindow` with its close button. **Untested in game**, and never
+  seen with Questie's Forever build live - the first run should be `/compendium` with Questie installed and
+  `/df questing`.
+- Hub: `Questing` in `MODULE_ADDONS`/`MODULE_ORDER`/`MODULE_TITLES`/`MODULE_OFF_BY_DEFAULT`, World group,
+  `PAGE_FRAMES.Questing` ("Quest item", "Compendium"), `PAGE_RESET.Questing` keeps `ignoredNPCs`, description,
+  `/df questing`, two bindings, `release-common.ps1`.
+- **Map, the same day**: "Level range at zone names" (`zoneLevels`, on) - `ns.ZoneLevels(mapID)` on
+  `C_Map.GetMapLevels` in Map's core.lua with an empty `ZONE_LEVEL_FALLBACK` by mapID for Forever zones the game
+  gives no range for, after the last NavBar crumb of the world map (worldmap.lua, in the `NavBar_CheckLength` hook
+  and `WorldMapFrame.OnMapChanged`) and after our minimap zone text (minimap.lua), coloured with
+  `GetQuestDifficultyColor`. The hover label over a zone on a continent map shows the range already: Blizzard's
+  `AreaLabelDataProvider` does that itself in Forever. Untested in game.
+- **Our own quest data (2026-11-07, owner: "ich möchte nicht abhängig sein")**: `questdata.lua` is a layer over
+  three sources - the game, our own data, Questie - and the window never knows which. `data_forever.lua` defines
+  the shape (`ns.SHIPPED`: `quests[id] = { n, l, r, t, m, g, f, p, x, c, o, d }`, `npcs[id] = { n, m, x, y }`,
+  `lines[id] = { n, m, q }`; givers as keys `n<npc>`, `i<item>`, `s<map>:<x>:<y>`) and ships the owner's record for a
+  release: copy the tables of `DeckUIForeverQuestDataDB` (account-wide SavedVariables, second entry in the toc) from
+  `WTF\Account\<account>\SavedVariables\DeckUIForever_Questing.lua` in there. `record.lua` (`ns.Own`: Quest/Touch,
+  NPC/TouchNPC, Line/Lines, All, Link, HarvestLines, Stats) writes at GOSSIP_SHOW and QUEST_GREETING (every quest
+  offered - `C_GossipInfo.GetAvailableQuests` / `GetAvailableQuestInfo(i)` whose fifth return is the questID - and
+  every one taken back, `GetActiveQuestID(i)`), QUEST_DETAIL (giver: NPC with name and the player's position, start
+  item, or a spot; `GetObjectiveText`), QUEST_ACCEPTED (level, tag, objectives from the log) and QUEST_TURNED_IN
+  (finisher); a quest offered or taken within 20 s after a hand-in at the same giver key is linked as its follow-up
+  (`Own.Link`: `x` on the one before, `p` on the one after). `Own.HarvestLines(mapID)` reads
+  `C_QuestLine.GetAvailableQuestLines` on zone change, login and compendium open: consecutive quests of a line are
+  linked, a line's quest gets a spot giver at the entry's x, y when no NPC is known. `scan.lua` (`ns.Scan`:
+  Start/Stop/Reset/Status/Running): `C_QuestLog.RequestLoadQuestByID` for ids 1..100000, two per 50 ms tick, at
+  most 12 in flight, 3 s timeout, pauses in combat and instances, position in `DeckUIForeverQuestDataDB.scan`
+  (resumes next session); QUEST_DATA_LOAD_RESULT stores title, tag, objectives, repeatable. Option `record` (on),
+  page buttons "Start/Stop the scan" and "What is known", `/questing scan [stop|reset|status]`, `/questing record`.
+  `Data.Quest(id)` merges Questie's part (cached) with our own (read fresh) - own `p` stands in for preGroup, own
+  `m` gives `zoneName` through `Data.ZoneMap`; `Data.Links(id)` joins both for chains.lua (which now builds from
+  any source and is invalidated on quest events); `Data.Starters/Finishers` return places with `mapID`, `zone`, `x`,
+  `y` from either source; `Data.State` without Questie: done/log, locked by own links or level, available when
+  seen offered, else "Known by name". `Data.Categories` without Questie: zones by the zone map of the giver's map
+  grouped by continent (`Data.ZoneMap`, `Data.ContinentName`), dungeons by map type, the game's quest lines,
+  "Known by name only" (the list caps at 400 rows, the search box finds the rest), "This character: Done"; with
+  Questie the Journey groups plus "Recorded by you, new to Questie". **Untested in game.** Open questions for the
+  first run: whether Forever's `C_QuestLine` returns lines for Classic maps (`/questing record` counts them), and
+  how fast the server answers the scan.
+- **The Questie import (2026-11-08, owner: "Weg 2", then "Questie-Import" over the game-only way)**: `import.lua`
+  (`ns.Import`: Start/Stop/Clear/Status/Running/Available) copies Questie's data into `DeckUIForeverQuestDataDB`
+  once, with Questie loaded and started (`Data.HasQuestie()`): `/questing import [clear|status]`, page buttons
+  "Import Questie's data" / "Forget the import". Five stages on a `C_Timer.NewTicker(0)`, 150 a frame: quests
+  (every id of `QDB.QuestPointers` through `Data.QuestieQuest` = the cached `FromQuestie`), then the NPCs, objects
+  and start items those quests named, then every zone-or-sort key seen. The shape grew (data_forever.lua): quest
+  `i` imported, `s` zoneOrSort, `h` max level, `a` preQuestSingle (any one; `p` stays preQuestGroup, all), `e`
+  exclusiveTo, `v` parent, `b` breadcrumb target, `k`/`y` class and race sets (`Data.ClassSet`/`RaceSet` turn
+  Questie's masks - `QDB.classKeys`/`raceKeys`, fallback tables - into the game's tokens, nil when every classic
+  class or race is in), `t` Questie's corrected tag; giver keys gain `o<object>`; new tables `objs` (like `npcs`,
+  with `z` zone name), `items` (names the game lacks), `sorts[id] = { n, c = Journey category, m = map }`;
+  `d.imported = { at, quests, npcs, objects, questie = version }`. Questie's links replace the inferred `p`;
+  `g`/`f` merge (Questie's first), a recorded NPC position stays. **questdata.lua reads it all without Questie**:
+  `Data.Quest` fills preSingle/exclusiveTo/parent/breadcrumb/maxLevel/classOnly/raceOnly/zone from own, `imported`
+  flag; `Data.State`'s own path knows exclusive-done, breadcrumb moved on, parent not in log, max level, and says
+  "available" for an imported quest; `Data.ForPlayer` checks `classOnly`/`raceOnly` (chains.lua reads `classOnly`
+  too); `Data.ZoneName`, `MapForArea`, `AreaForMap`, `ItemName` fall back to `sorts`/`items`; `Data.Categories` has
+  a third branch (`HasImport()`): the Journey's six categories from `sorts` + `ImportedMap()` (class groups only
+  with a quest for this character), the game's lines, and "Recorded by you, not in the import" (`OwnGroups(skip)`
+  takes a predicate now). The compendium's search works without Questie (the `HasQuestie` condition was a
+  leftover). `Own.Object/TouchObject/Item/Sort/Sorts/ImportInfo/Reload` in record.lua. The import is the account's
+  private copy of GPL data; nothing of it ships (data_forever.lua stays the owner's record only - decide before
+  ever copying imported tables in there). **Untested in game**; the first run needs Questie starting (owner's
+  QuestieDB 1.0.12 Forever + `## Dependencies: QuestieDB` by hand, see memory), then `/questing import`,
+  `/questing record`, `/compendium`, then Questie off and `/compendium` again.
+- **Questie on the owner's client, checked on disk 2026-11-08**: `Questie` 12.6.3 (CurseForge; `Questie_Camelot.toc` is what the
+  client loads, `## Dependencies: QuestieDB` added by hand - harmless, the OptionalDeps line orders the load anyway), `QuestieDB`
+  1.0.12 (GitHub, the **baked** build: its 15 MB `QuestieDB_Camelot.toc` holds the whole database as 116k `## X-...` metadata
+  lines read with `C_AddOns.GetAddOnMetadata`, `X-Flavor: Forever`, contract 4 = Questie's 4; `_G.LibQuestieDB` is set in the
+  last line of `src/api.lua`, so any load error before it leaves Questie's `zoneDB.lua` without the global and
+  `QuestieInit.lua:425` calls a nil `ZoneDB.Initialize` - that is the owner's old error, which fits the earlier Mists
+  QuestieDB package not loading at all), `QuestieTrace` 1.9.1. Every toc entry exists on disk; QuestieDB guards `C_Seasons`;
+  `C_EncodingUtil` (CBOR, deflate, base64) is in Forever's API docs. The hub's saved error list (errors.lua keeps this and the
+  previous session, pending ones from file load too) held **no Questie error** in the two sessions after the install - only our
+  `rewards.lua:162` (`GetCoinTextureString` is gone in Forever; `CoinText` uses `C_CurrencyInfo.GetCoinTextureString` now).
+  `/questing questie` (`ns.QuestieDebug`, also in `/questing debug`) prints the client's view: enable state and load reason of
+  both addons, `LibQuestieDB` mode/flavor/contract/Support and the three `C_EncodingUtil` functions, then **how far
+  Questie's start has come** - QuestieInit runs three stages in a ThreadLib coroutine after PLAYER_LOGIN: 1 binds the
+  database (`QuestieDB.QuestPointers`), 2 builds `QuestieJourney.zoneMap`, 3 sets `Questie.started` (false = a stage
+  failed, `QuestieStatus` holds the report, printed too) - and `/questing questie watch` repeats that line every 15 s.
+  (There is no `X-QuestIDS` metadata key; an earlier version of the line reported it "MISSING" wrongly.) Reinstalled from
+  CurseForge 2026-11-08: Questie 12.6.4, same QuestieDB 1.0.12 Forever baked - correct.
+- **Questie did not start while the Questing module was on (owner, 2026-11-08: "sobald ich das Quest modul deaktiviert habe
+  hat questie geladen")**: `Questie.started` stayed nil, no error, config saved. The module's toc listed
+  `## OptionalDeps: Questie, QuestieDB`; the hub loads its LoadOnDemand modules inside its own ADDON_LOADED (core.lua, long
+  before the game reaches "Q" in the addon list), so the game loaded Questie and QuestieDB right then, nested and out of order,
+  and Questie's start never ran through. The OptionalDeps line is gone (questdata.lua polls Questie at runtime, no load order
+  needed). **Rule: a module toc never lists a third-party addon as OptionalDeps** - the hub's early LoadAddOn would drag it in.
+  Confirmed in game the same day: with the line gone and the module on, Questie 12.6.4 reaches stage 3 49 s after login
+  (5233 quests, 103 zones, API ready). The import then ran clean: 5233 quests, 1936 NPCs, 307 objects, 384 item names,
+  130 zones/sorts; the SavedVariables file grew from 0.2 to 2.2 MB; with Questie off the compendium showed every zone.
+- **The guided import (2026-11-08, owner: "vereinfachten Import ... um es den Nutzern zu erleichtern")**: `Import.Guided()`
+  is what the button and `/questing import` call. `Import.QuestieState()`: ready → `Import.Start()`; starting → sets
+  `DeckUIForeverQuestingDB.importPending`, questdata's `Try()` calls `Import.OnQuestieUp()` when Questie is up and that
+  starts it; disabled (`C_AddOns.GetAddOnEnableState` 0 for Questie or QuestieDB) → `D.Dialog` "Reload and import" that
+  enables both, sets `importPending` + `importEnabledQuestie`, `ReloadUI()`; notloaded (enabled, not loaded) → the same
+  dialog without enabling; missing / nodb → a chat line saying what to install. `Finish()` clears `importPending` and, when
+  `importEnabledQuestie`, asks "Off and reload" (`C_AddOns.DisableAddOn` both). `InitData` without Questie calls
+  `Import.QuestieAbsent()` (forgets a pending import, says so). `OnQuestieUp` also prints once per account
+  (`importHinted`) that the import exists, when nothing was imported yet. Untested in game at the time of writing.
+- **Shipping rule for `data_forever.lua`**: when the owner's record is copied in for a release, every quest and NPC with
+  `i = true` is stripped, and `objs`, `items`, `sorts` and `imported` are left out entirely - they are the import's, Questie's
+  GPL data, the account's private copy. Only what was recorded at NPCs, scanned or harvested from quest lines ships.
+- **The dock (2026-11-07, owner: the week button plus the hub and compendium buttons, "eleganter im FFXIV-Stil")**:
+  `DeckUIForever/dock.lua`, `DeckUIForeverDock` - a flat dark panel with a one-pixel edge and a gold line along
+  the top, round buttons in mainmenu.lua's Dress (gold ring, dark disc, masked icon, 28 px). `D.DockButton(key,
+  { order, icon, texCoord, title, tip (table or function), onClick, onRightClick, badge, available })`,
+  `D.DockUpdate()` re-reads badges and availability, `D.ApplyDock()` the switch `DeckUIForeverDB.dock` (on,
+  Screen page, `SCREEN_KEYS`, movable "Dock" in `PAGE_FRAMES.Screen`). The hub registers "settings" (order 1,
+  the logo face_a, right click = `D.SetUnlocked`), Week "week" (order 2, the old orb's icon and vault badge;
+  `DeckWeekButton` and the movable "Week button" are gone, `showButton` now means "in the dock",
+  `ns.UpdateButton` calls `D.DockUpdate`), Questing "compendium" (order 3, in `ns.InitCompendium`). Any button
+  drags the dock (its OnDragStart/Stop hand to the dock's, which `D.MakeDraggable` set, so the position
+  saves); a drag is no click. Shown while a button is available or the frames are unlocked. Untested in game.
+- Syntax checks without a Lua binary: `python -c "from luaparser import ast; ast.parse(open(f).read())"`
+  (`pip install luaparser`, plain `python`, not `python -I`).
 
 ## The settings window (menu review 2026-11-07, owner: "das komplette Menü, Aufbau und Texte einfacher")
 
@@ -511,3 +717,10 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    push, Release workflow run 42391059063, CurseForge file id 9495157). Seen in game before the release: only
    the HoT window's round icons ("viel besser"); Pad, the D-pad windows, the healer mode, the glyphs, the
    debuff icon mode and the new menu were not.
+   **Prepared 2026-11-08: v1.4.0** (the Questing module with the compendium, own quest data, the scanner and
+   the Questie import, the dock, the map level ranges, the HoT window's raid order and the stranger switch,
+   the fixes for the kept columns, the parchment ink beside the map and the healer mode's self-target line;
+   `bump-version.ps1 1.4.0`, `package.ps1` built 517 KB / 12 folders, commit, tag v1.4.0). Seen in game before:
+   Questie's start with the module on, the import, the compendium with and without Questie, the light quest
+   details, the transparent self-target line. Not seen: the guided import's dialogs, the NPC dialog autopilot,
+   the reward marks, zone tracking, the quest item key, the dock, the map level range.

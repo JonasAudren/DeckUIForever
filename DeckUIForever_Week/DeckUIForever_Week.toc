@@ -2,7 +2,7 @@
 ## Title: DeckUIForever Week
 ## Notes: DeckUIForever module: your week at a glance - raid lockouts, Legacy and PvP renown, dailies, weekly quests, reputation, currencies, for every character
 ## Author: Gottlieb
-## Version: 1.3.0
+## Version: 1.4.0
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Category: Quests & Leveling

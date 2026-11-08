@@ -597,53 +597,14 @@ function ns.Toggle()
 end
 
 -------------------------------------------------------------------
--- The button on screen: a small orb that opens the window
+-- The button: in the hub's dock
 -------------------------------------------------------------------
--- DeckUIForever's round look (gold ring, dark disc, D.RoundMask), a calendar
--- inside and, in its corner, how many Great Vault slots are unlocked this
--- week. Dragged anywhere directly (owner's wish, 2026-10-02) - a drag
--- does not count as a click - and with /df unlock like everything; its
--- place is kept per device. Shown unless switched off in the Week tab.
-local BTN = 36
-local button = CreateFrame("Button", "DeckWeekButton", UIParent)
-button:SetSize(BTN, BTN)
-button:SetFrameStrata("MEDIUM")
-button.defaultPoint = { "TOPRIGHT", UIParent, "TOPRIGHT", -230, -30 }
-button:SetPoint(unpack(button.defaultPoint))
-button:RegisterForClicks("LeftButtonUp")
-button:Hide()
-
-local ring = button:CreateTexture(nil, "BACKGROUND")
-ring:SetAllPoints()
-ring:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-ring:AddMaskTexture(D.RoundMask(button))
-
-local inner = CreateFrame("Frame", nil, button)
-inner:SetPoint("CENTER")
-inner:SetSize(BTN - 6, BTN - 6)
-local innerMask = D.RoundMask(inner)
-local disc = inner:CreateTexture(nil, "BACKGROUND")
-disc:SetAllPoints()
-disc:SetColorTexture(0.05, 0.05, 0.05, 0.95)
-disc:AddMaskTexture(innerMask)
-local icon = inner:CreateTexture(nil, "ARTWORK")
-icon:SetPoint("CENTER")
-icon:SetSize(BTN - 14, BTN - 14)
-icon:SetTexture("Interface\\Icons\\INV_Misc_Note_02")
-icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-icon:AddMaskTexture(innerMask)
-
-local hl = button:CreateTexture(nil, "HIGHLIGHT")
-hl:SetAllPoints()
-hl:SetColorTexture(1, 1, 1, 0.15)
-hl:AddMaskTexture(D.RoundMask(button))
-
-local badge = button:CreateFontString(nil, "OVERLAY")
-badge:SetFont(D.FONT, 12, "OUTLINE")
-badge:SetPoint("BOTTOMRIGHT", 2, -2)
-badge:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-
--- unlocked vault slots of the character on show in the game, this week
+-- A small round button that opens the window, with how many Great Vault
+-- slots are unlocked this week in its corner. It was an orb of its own
+-- on screen (2026-10-02); since 2026-11-07 it stands in the hub's dock
+-- (dock.lua) beside the settings and the quest compendium, and the
+-- dock is what gets dragged. "Button on screen" in the Week tab keeps
+-- it out of the dock when off.
 local function UnlockedSlots()
     local snap = DeckUIForeverWeekDB and DeckUIForeverWeekDB.chars[ns.CharKey()]
     if not snap or not snap.vault or ns.IsStale(snap) then return 0 end
@@ -658,37 +619,29 @@ local function UnlockedSlots()
 end
 
 function ns.UpdateButton()
-    if not DeckUIForeverWeekDB then return end
-    button:SetShown(DeckUIForeverWeekDB.showButton)
-    local n = UnlockedSlots()
-    badge:SetText(n > 0 and n or "")
+    if D.DockUpdate then D.DockUpdate() end
 end
 
--- a press that turned into a drag is not a click
-button:SetScript("OnMouseDown", function(self) self.dragged = false end)
-button:SetScript("OnClick", function(self)
-    if self.dragged then return end
-    ns.Toggle()
-end)
-button:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-    GameTooltip:SetText("This week")
-    GameTooltip:AddLine("Reset in " .. Duration(C_DateAndTime.GetSecondsUntilWeeklyReset()), 0.7, 0.7, 0.7)
-    GameTooltip:AddLine("Click: open the week overview", 0.7, 0.7, 0.7)
-    GameTooltip:AddLine("Drag: move it", 0.7, 0.7, 0.7)
-    GameTooltip:Show()
-end)
-button:SetScript("OnLeave", GameTooltip_Hide)
+if D.DockButton then
+    D.DockButton("week", {
+        order = 2,
+        icon = "Interface\\Icons\\INV_Misc_Note_02",
+        title = "This week",
+        tip = function()
+            return { "Reset in " .. Duration(C_DateAndTime.GetSecondsUntilWeeklyReset()), "Click: open the week overview" }
+        end,
+        onClick = function() ns.Toggle() end,
+        badge = function()
+            local n = UnlockedSlots()
+            return n > 0 and tostring(n) or ""
+        end,
+        available = function() return DeckUIForeverWeekDB == nil or DeckUIForeverWeekDB.showButton ~= false end,
+    })
+end
 
 function ns.InitWindow()
     if DeckUIForeverWeekDB.showButton == nil then DeckUIForeverWeekDB.showButton = true end
     D.MakeMovable(win, "Week", DeckUIForeverWeekDB)
     D.MakeDraggable(win)
-    D.MakeMovable(button, "Week button", DeckUIForeverWeekDB)
-    D.MakeDraggable(button)
-    button:HookScript("OnDragStart", function(self)
-        self.dragged = true
-        GameTooltip:Hide()
-    end)
     ns.UpdateButton()
 end

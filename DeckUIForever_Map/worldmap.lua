@@ -212,14 +212,69 @@ local function StyleCloseButton(b)
     x:SetText("X")
 end
 
+-------------------------------------------------------------------
+-- The zone's level range after the last breadcrumb
+-------------------------------------------------------------------
+-- (owner's wish, 2026-11-07) A text of ours on a frame hung off the
+-- NavBar - it inherits the bar's alpha, so it comes and goes with the
+-- controls - to the right of the crumb of the map on screen, in the
+-- colour the game gives a quest of that level (core.lua). Updated after
+-- every NavBar_CheckLength pass (the crumbs are rebuilt on each map
+-- change) and on the map's own OnMapChanged. Continents and cities have
+-- no range and show nothing.
+local levelText
+
+local function UpdateMapLevels()
+    local bar = WorldMapFrame and WorldMapFrame.NavBar
+    if not bar then return end
+    if not levelText then
+        local holder = CreateFrame("Frame", nil, bar)
+        holder:SetAllPoints(bar)
+        holder:SetFrameLevel(bar:GetFrameLevel() + 5)
+        levelText = holder:CreateFontString(nil, "OVERLAY")
+        levelText:SetFont(D.FONT, 13, "OUTLINE")
+    end
+    -- the crumb of the map on screen: the last shown one, or home
+    local last = bar.home
+    for _, b in ipairs(bar.navList or {}) do
+        if b:IsShown() then last = b end
+    end
+    local text, r, g, b
+    if DeckUIForeverMapDB.zoneLevels and last then
+        text, r, g, b = ns.ZoneLevelText(WorldMapFrame:GetMapID())
+    end
+    if text then
+        levelText:ClearAllPoints()
+        levelText:SetPoint("LEFT", last, "RIGHT", 8, 0)
+        levelText:SetText(text)
+        levelText:SetTextColor(r, g, b)
+        levelText:Show()
+    else
+        levelText:Hide()
+    end
+end
+
+-- the checkbox in the Map tab: both maps at once
+function ns.ApplyZoneLevels()
+    UpdateMapLevels()
+    if ns.UpdateZone then ns.UpdateZone() end
+end
+
 local function StyleMapButtons()
     local border = WorldMapFrame.BorderFrame
     StyleCloseButton(border and border.CloseButton)
     if WorldMapFrame.NavBar then
         StyleNavBar(WorldMapFrame.NavBar)
         hooksecurefunc("NavBar_CheckLength", function(bar)
-            if bar == WorldMapFrame.NavBar then StyleNavBar(bar) end
+            if bar == WorldMapFrame.NavBar then
+                StyleNavBar(bar)
+                UpdateMapLevels()
+            end
         end)
+        if type(WorldMapFrame.OnMapChanged) == "function" then
+            hooksecurefunc(WorldMapFrame, "OnMapChanged", UpdateMapLevels)
+        end
+        UpdateMapLevels()
     end
     for _, f in ipairs(WorldMapFrame.overlayFrames or {}) do
         if f.Icon and (f.FilterCounter or f.ActiveTexture) then StyleRoundButton(f) end
@@ -373,10 +428,46 @@ local function StyleTab(tab)
     Flat(tab.HighlightTexture, square, 1, 1, 1, 0.08)
 end
 
+-- Blizzard writes the quest details in parchment ink (GetMaterialTextColors
+-- "Parchment": dark brown text, black headers), which on our dark panel is
+-- unreadable (owner 2026-11-08: "der questtext ist sehr dunkel"). After
+-- every display, every dark font string under the details frame turns
+-- light; coloured ones - a finished objective's grey, red and green
+-- states, item names - keep their colour. QuestInfoFrame moves into the
+-- details frame for the map view, so the walk reaches its texts too.
+local function LightenDarkText(frame, depth)
+    if not frame or depth > 8 then return end
+    if frame.GetRegions then
+        for _, r in ipairs({ frame:GetRegions() }) do
+            if r:IsObjectType("FontString") then
+                local cr, cg, cb = r:GetTextColor()
+                if cr and cr < 0.5 and cg < 0.5 and cb < 0.5 then r:SetTextColor(0.95, 0.92, 0.85) end
+            end
+        end
+    end
+    if frame.GetChildren then
+        for _, c in ipairs({ frame:GetChildren() }) do LightenDarkText(c, depth + 1) end
+    end
+end
+
+local function LightenQuestDetails()
+    local details = QuestMapFrame and QuestMapFrame.DetailsFrame
+    if details and details:IsShown() then LightenDarkText(details, 0) end
+end
+
 local function StyleQuestLog()
     local q = QuestMapFrame
     if not q or q.deckStyled then return end
     q.deckStyled = true
+
+    -- the details' text, a frame after Blizzard has written it (the
+    -- rewards fill in the same call; a QUEST_ITEM_UPDATE redisplays)
+    if QuestInfo_Display then
+        hooksecurefunc("QuestInfo_Display", function() C_Timer.After(0, LightenQuestDetails) end)
+    end
+    if QuestMapFrame_ShowQuestDetails then
+        hooksecurefunc("QuestMapFrame_ShowQuestDetails", function() C_Timer.After(0, LightenQuestDetails) end)
+    end
 
     FadePath(q, "QuestsFrame", "ScrollFrame", "Background")
     FadePath(q, "QuestsFrame", "BorderFrame")
@@ -431,6 +522,10 @@ ns.OnDebug(function()
         WorldMapFrame:GetScale(), tostring(WorldMapFrame:IsMaximized()),
         tostring(GetCVarBool("mapFade")), tostring(GetCVarBool("worldMapShowPlayerCoords")),
         tostring(GetCVarBool("worldMapShowCursorCoords"))))
+    local mapID = WorldMapFrame:GetMapID()
+    local min, max = ns.ZoneLevels(mapID)
+    print(("  map %s levels %s-%s, level text shown=%s"):format(tostring(mapID), tostring(min),
+        tostring(max), tostring(levelText and levelText:IsShown())))
     -- which breadcrumb is which, if one of them looks wrong
     local bar = WorldMapFrame.NavBar
     if bar then
