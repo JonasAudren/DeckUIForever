@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.4.1
+
+- Bags: no more error from Blizzard's bank code (BankFrame.lua:43,
+  FetchNumPurchasedBankTabs) when gold changes hands after a bank visit.
+  Closing the bank now leaves Blizzard's parked bank frame the way its
+  own closed bank is: no bank type, no listener for gold.
+- Bars: a recast timer in Final Fantasy's look - the seconds left on a
+  cooldown, large and white in the middle of the slot, no decimals, the
+  global cooldown with the sweep only. On by default ("Recast timer" on
+  the Bars page); it replaces Blizzard's cooldown numbers on our slots.
+- Your HoTs: the window can do more, every part a switch of its own on
+  the "Your HoTs" page and off until you tick it. A thin health capsule
+  under each name, as the FF frames' bars, or a flat bar behind the
+  name; dead, ghost or offline in words; members and pets out of range
+  dimmed; the debuffs you can remove; your buffs as icons that show only
+  while someone lacks them; your direct heals and cures as buttons (with
+  click to cast; a cure only while there is something to remove, the
+  resurrection only on the dead); a list of your own spells; the time
+  left while a spell is on cooldown; your mana regeneration (MP5) above
+  the window; lines for pets, smaller and each under its owner; the
+  whole raid as a table by raid group; and a blink or a sound before a
+  HoT runs out.
+- Auction house: the price scan no longer gives up after ten seconds
+  and then ignores the late answer. It waits up to 90 seconds, counts
+  the seconds in the status line, and still reads an answer that comes
+  later.
+- Devices: a button "Stop syncing UI and keys" under "Keep on this
+  device". Interface settings, chat windows and key bindings then stay on
+  the device instead of going through Blizzard's server; a second click
+  syncs them again. Macros stay synced. /df sync prints the state.
+
 ## 1.4.0
 
 Questing made easier: a compendium of every quest, the NPC dialog on

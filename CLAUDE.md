@@ -104,6 +104,13 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   transparent - a black shade at alpha 0.2 under a 1 px light outline (four WHITE8x8 lines at alpha 0.3)
   - the key sits white on the top-left corner (LAB hotkey at offset 0/+2, 11 px), the icon fills the slot
   behind the rounded mask. The dark edge and the dark fill of DeckUI's bars.lua are gone.
+  **Recast timer (2026-11-09, owner: "CD Timer im FFXIV Stil")**: `CooldownLook` in core.lua styles every
+  slot's Cooldown widget (via `Style`, so stance and pet too; the totem bar's Blizzard buttons not):
+  the game's own countdown (`SetCountdownFont` with a font object, 18 px THICKOUTLINE white, centered,
+  milliseconds threshold 0, minimum duration 2000 ms so the GCD shows the sweep only). Nothing reads
+  start/duration - they can be secret, LAB passes duration objects. LAB's `config.cooldownCount` follows
+  `cdNumbers` (default on) instead of the `countdownForCooldowns` CVar; `ns.ApplyCooldownNumbers` is live.
+  Owner's test 2026-11-09: "läuft gut".
   The nil `DeckUIForeverBarsDB` of the first test is fixed (made on ADDON_LOADED, as Week does).
   Second LAB patch (owner's test 2026-11-05): `GetFlyoutInfo(id)` returns nothing for an unknown
   flyout in Forever where retail errors, so the two flyout loops skip a nil `numSlots` (marked
@@ -366,6 +373,53 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   callback), 0 outside the gamepad style, in a raid or with the CVar off (`HintsOn`). Alpha only, never
   Show/Hide: the lines may be protected (healer mode). Event INPUT_DEVICE_INTERFACE_TRANSITION is registered
   for the style switch. **Untested in game** (needs the Deck in the gamepad style).
+  **The extensions of 2026-11-10 (owner: "den HoT-Monitor erweitern, aber alles immer als Option"; picked from a
+  list, plus "alle Healerspells und Buffs, die ich casten kann, solange diese nicht auf dem Spieler sind")**: twelve
+  keys, all off, hots.lua's header lists them. Entries now carry a `kind`: `hot` (the engine's slot, as before),
+  `buff` (`hotBuffSlots`, table `BUFFS` priest/druid/mage with the group versions under `also`: our static icon
+  shows only while `BuffMissing` says so - `GetAuraDataBySpellName(unit, name, "HELPFUL")`, the truth out of a
+  fight; in a fight only a hit counts and the last answer stands; never for the dead, the invisible or a targeted
+  NPC, nor ever on a pet line - a pet is an invalid target for them in Forever (owner's test; `C_Spell.IsSpellInRange`
+  answering nil was tried as the test and did not catch it); paladin blessings are left out on purpose), `cast` (`hotCastSlots`, table `CASTS`, only with `hotHealer`: a
+  plain button; **`need`** since the same day, owner: "Debuff-Knöpfe nur wenn man wirklich etwas debuffen kann
+  und Resurrect nur bei Toten" - `need = "cure"`: `CureFrame`, a one-slot container on `DISPEL_FILTER` whose
+  engine button carries our spell icon, so it shows in a fight too; out of a fight `DebuffTypes`
+  (`GetAuraDataByIndex`, `dispelName`) hides a cure for another kind by alpha; the secure button under it still
+  takes a click. `need = "dead"`: `DeadOnly`, a visibility state driver `[@unit,dead]` on the secure button, which
+  carries the icon itself; that slot keeps full alpha on a dead line). `hotCustom` (a string, names or IDs between commas, edit box on the page, `CustomList`) adds
+  `hot` entries; `ns.ApplyHotList` rebuilds. A slot's container is hidden for the non-hot kinds (`Assign`).
+  `hotRegen` (same day, owner: "meine aktuelle Manareg ... als Option im HoTs-Fenster"): a text above the holder,
+  no row of it (`UpdateRegen` in `Update`) - `GetManaRegen()` times five as MP5, the rate that holds now and the
+  other in grey; the five-second rule is our own clock (`lastSpend`, UNIT_SPELLCAST_SUCCEEDED on a frame of its
+  own, `SpendsMana` via `C_Spell.GetSpellPowerCost`; fixed the same day after the owner's fight left the line stuck at
+  "in 5 s" - a secret cost had counted as a spend, wand shots too: now a drop of readable mana on UNIT_POWER_UPDATE
+  decides, else the cast by its cost as last read out of a fight (`costKnown`), never Shoot/Auto Shot/Attack, and
+  an unknown cost or a secret spell ID is no spend); a secret rate keeps the last text; `/orbs hots` prints the
+  raw values. Untested: whether Forever's `GetManaRegen` gives both rates and stays readable in a fight.
+  `hotCooldown` (same day, owner: "bei Spells ein CD-Timer, wenn gebraucht"): a Cooldown frame of ours per slot
+  (`SlotCooldown`/`StyleCooldown`), fed as LibActionButton's retail path - `C_Spell.GetSpellCooldown(name)` for
+  `isActive`/`isOnGCD` (no GCD), `C_Spell.GetSpellCooldownDuration` into `SetCooldownFromDurationObject`
+  (`EntryCooldown`, asked once per spell in `ApplyCooldowns`); `cdDirty` (SPELL_UPDATE_COOLDOWN, `Assign`, size,
+  the switch) makes `Update` apply. Cast slots: sweep and time in the middle; hot slots: a small number on the
+  top edge, no sweep; a resurrection's clock is parented to its secure button; none for cures and buffs. Untested.
+  Per line: `hotHealth` (in the FF look since the same day, owner: "in FFO-Stil" - `ns.PillBar`, a capsule `HEALTH_H` 5
+  high under the name, which `PlaceTitle` lifts by `HEALTH_LIFT` while `c.lifted`; `hotHealthBlock` brings back the flat bar behind the whole name, `c.healthBlock`, both are made
+  and `UpdateHealth` shows one; fed secrets and all, UNIT_HEALTH updates the bar alone; the
+  name moved onto a child frame above it), `hotStatus` (`Status`: words on a frame above the slots, slots at alpha
+  0.25), `hotRange` (`UnitInRange` into `SetAlphaFromBoolean`, not for you or the target line; pets too since the same day, and a readable `checked == false` keeps the line lit), `hotDispel`
+  (`Dispels`: an aura group of two with raid.lua's dispel filter between name and slots, `DispelWidth` in
+  `LineWidth`). `hotPets` and `hotRaid` are read at the factory (`petsOn`, `raidOn`, reload): lines `pet`,
+  `partypet1-4`, each in the row under its owner (`pets[i]` is `members[i]`'s; `Stack`), the whole line scaled to
+  `PET_SCALE` 0.8 (`SetScale` in `Line`; `Stack`'s `Put` works in holder pixels and divides a pet's offsets by
+  the scale), stepped in by `PET_SHIFT` and the name pale blue (`PET`), owner: "klar zum Hunter oder Hexer
+  zuordnen", "kleiner und leicht versetzt"; `Finish`'s `At` keeps a pet's slots centred in the members' columns all the same; `raid1-40` with `RaidMode()` (option and `IsInRaid`) - `Stack` then lays a
+  column per raid group in use (`GetRaidRosterInfo`, a secret freezes the table), four to a band, no "others"
+  icons, the party lines hide (`[group:raid] hide;` in their healer-mode drivers, the target line's driver gets
+  `noraid`), `InTable` asks `UnitInRaid("target")`. `hotWarn`/`hotWarnSound`/`hotWarnAt`: `Remaining` reads the
+  HoT by name each tick, a red pulse frame per slot (`SetWarn`) and one sound a second at most - where the times
+  are secret in a fight nothing happens. `/orbs hots` prints the switches and every slot with its kind.
+  **All untested in game**; first things to see: whether the times and a friend's buffs are readable in a fight,
+  and whether Forever knows `RaidPlayerDispellable`.
   **The unlock preview is an option since 2026-11-06** (owner: "take the HoT and DoT preview out, as an
   option"): `dotPreview` / `hotPreview` (off) decide whether `ShowPreview` fills the three sample rows;
   off, the holder shows as an empty box three rows high so the Move overlay has something to drag.
@@ -654,6 +708,14 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
 - Texts: a label is a few words, an explanation two or three plain sentences about what the player sees;
   "Needs a reload." closes it where it does; no engine words (secure, state driver, CVar, taint) and no
   Final Fantasy lore beyond what names the look. Keep that style for new options.
+
+- **"Stop syncing UI and keys" (2026-11-10, owner: "einen Knopf, damit UI und Tastenkombis nicht mehr mit dem
+  Server synchronisiert werden")**: a toggle button on the Devices page above the "Key bindings" checkbox.
+  `D.SYNC_CVARS` in core.lua (`synchronizeConfig`, `synchronizeChatFrames`, `synchronizeBindings`),
+  `D.SyncIsOff()`, `D.SetServerSync(on)` (off: `SaveBindings` of the loaded set; refuses in combat),
+  `/df sync` (`D.PrintSync`). The master CVar `synchronizeSettings` and `synchronizeMacros` are left alone so
+  macros stay synced. Only `synchronizeBindings` is confirmed to exist in the client; an unknown CVar is
+  skipped. Edit Mode layouts and action bar contents have no CVar - their checkboxes stay. **Untested in game.**
 
 ## Audit
 

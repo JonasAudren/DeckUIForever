@@ -121,19 +121,84 @@ local function Since() return time() - (DeckUIForeverDB.ahLastScan or 0) end
 
 local answered = 0   -- REPLICATE_ITEM_LIST_UPDATE seen this session (/df ah)
 
+-- A full scan of a big auction house can take a minute or more. The first
+-- version gave up after 10 seconds and then threw the late answer away as
+-- "someone else's scan" - and since the server had counted that request,
+-- every further click inside 15 minutes was ignored ("No answer" again and
+-- again, owner 2026-11-09). Now:
+--  - a request stays ours for LATE seconds: an answer that comes after the
+--    wait gave up is still read;
+--  - while waiting, the list's size is polled once a second, in case the
+--    data is there without the event;
+--  - the request waits for the throttle system when the game has one.
+local WAIT = 90          -- seconds the status line waits before offering a retry
+local LATE = 5 * 60      -- seconds an answer still counts as ours
+local requestedAt        -- time() of the last ReplicateItems of ours
+local waitTicker
+local BeginRead          -- defined below, after the reader
+
+local function StopWaiting()
+    if waitTicker then waitTicker:Cancel() waitTicker = nil end
+end
+
+local function Ours()
+    return requested or (requestedAt and time() - requestedAt < LATE)
+end
+
+local function Ready()
+    local ah = C_AuctionHouse
+    if ah.IsThrottledMessageSystemReady then
+        local ok, ready = pcall(ah.IsThrottledMessageSystemReady)
+        if ok and ready == false then return false end
+    end
+    return true
+end
+
+local function Request()
+    requested, requestedAt = true, time()
+    C_AuctionHouse.ReplicateItems()
+    local before = C_AuctionHouse.GetNumReplicateItems() or 0
+    local waited = 0
+    StopWaiting()
+    waitTicker = C_Timer.NewTicker(1, function()
+        if not requested then StopWaiting() return end
+        waited = waited + 1
+        -- the list may be there without the event
+        local n = C_AuctionHouse.GetNumReplicateItems() or 0
+        if n > 0 and before == 0 then
+            BeginRead()
+            return
+        end
+        if waited >= WAIT then
+            StopWaiting()
+            requested = false   -- an answer within LATE is still read (Ours)
+            Say("No answer yet - it may still come. Leave the window open or try again.")
+            scanButton:Show()
+        else
+            Say(("Asking the auction house for all listings ... %ds"):format(waited))
+        end
+    end)
+end
+
 -- ahLastScan is written when the list arrives, not when it is asked for:
 -- an unanswered request must not lock the button for 15 minutes
 local function StartScan()
-    requested = true
+    if prices then return end   -- already reading
     scanButton:Hide()
     Say("Asking the auction house for all listings ...")
-    C_AuctionHouse.ReplicateItems()
-    -- nothing after ten seconds: let the button be pressed again
-    C_Timer.After(10, function()
-        if requested then
-            requested = false
-            Say("No answer from the auction house - try again.")
-            scanButton:Show()
+    if Ready() then
+        Request()
+        return
+    end
+    -- the throttle system is busy: wait for it, a few seconds at most
+    requested = true
+    local tries = 0
+    StopWaiting()
+    waitTicker = C_Timer.NewTicker(0.5, function()
+        tries = tries + 1
+        if Ready() or tries >= 10 then
+            StopWaiting()
+            Request()
         end
     end)
 end
@@ -169,24 +234,33 @@ local function OnClose()
         reader:SetScript("OnUpdate", nil)
         prices = nil
     end
-    requested = false
+    requested, requestedAt = false, nil
+    StopWaiting()
     status:Hide()
+end
+
+BeginRead = function()
+    StopWaiting()
+    requested, requestedAt = false, nil
+    if prices then return end   -- already reading (event and poll both fired)
+    DeckUIForeverDB.ahLastScan = time()
+    total = C_AuctionHouse.GetNumReplicateItems() or 0
+    if total == 0 then
+        Say("The auction house sent no listings.", 5)
+        scanButton:Hide()
+        return
+    end
+    scanButton:Hide()
+    prices, index = {}, 0
+    reader:SetScript("OnUpdate", ReadSlice)
 end
 
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("REPLICATE_ITEM_LIST_UPDATE")
 ev:SetScript("OnEvent", function()
     answered = answered + 1
-    if not (DeckUIForeverDB and requested) then return end   -- someone else's scan
-    requested = false
-    DeckUIForeverDB.ahLastScan = time()
-    total = C_AuctionHouse.GetNumReplicateItems() or 0
-    if total == 0 then
-        Say("The auction house sent no listings.", 5)
-        return
-    end
-    prices, index = {}, 0
-    reader:SetScript("OnUpdate", ReadSlice)
+    if not (DeckUIForeverDB and Ours()) then return end   -- someone else's scan
+    BeginRead()
 end)
 
 -- the window arrives with Blizzard's load-on-demand addon; its OnShow is
@@ -208,6 +282,8 @@ function D.PrintAuction()
         tostring(DeckUIForeverDB.ahScan), RealmKey(), count,
         store and SecondsToTime(time() - store.time) or "never",
         math.max(0, INTERVAL - (time() - (DeckUIForeverDB.ahLastScan or 0)))))
-    print(("  waiting for an answer=%s, answers this session=%d, reading=%s, style=%s (applied=%s)"):format(
-        tostring(requested), answered, tostring(prices ~= nil), tostring(DeckUIForeverDB.ahStyle), tostring(D.ahStyled or false)))
+    print(("  waiting for an answer=%s (asked %s ago), listings in the client=%d, answers this session=%d, reading=%s, style=%s (applied=%s)"):format(
+        tostring(requested), requestedAt and (time() - requestedAt .. "s") or "never",
+        C_AuctionHouse.GetNumReplicateItems and (C_AuctionHouse.GetNumReplicateItems() or 0) or -1,
+        answered, tostring(prices ~= nil), tostring(DeckUIForeverDB.ahStyle), tostring(D.ahStyled or false)))
 end

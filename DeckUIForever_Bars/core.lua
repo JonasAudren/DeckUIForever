@@ -116,7 +116,50 @@ local function ButtonConfig(info, i)
     local c = CopyTable(config)
     c.keyBoundTarget = info.command .. i
     c.hideElements.hotkey = DeckUIForeverBarsDB.hideKeys and true or false
+    -- the recast timer in the slot (ours, see CooldownLook) instead of
+    -- following Blizzard's "countdownForCooldowns" setting
+    c.cooldownCount = DeckUIForeverBarsDB.cdNumbers ~= false
     return c
+end
+
+-------------------------------------------------------------------
+-- The recast timer in FFXIV's look (owner's wish, 2026-11-09)
+-------------------------------------------------------------------
+-- FFXIV dims the slot under a clockwise sweep and writes the seconds
+-- left large and white in the middle of the icon, a dark edge around the
+-- digits, no "s" and no decimals; the global cooldown gets the sweep
+-- only. The numbers are the game's own countdown on the Cooldown widget:
+-- the cooldown's start and duration may be secret in combat (LAB hands
+-- the slot a duration object), so nothing here reads them - the widget
+-- counts in C. Only its font, place and thresholds are set.
+-- DeckUIForeverBarsDB.cdNumbers (default on).
+local CD_FONT = "DeckUIForeverBarsRecastFont"
+local recastFont = CreateFont(CD_FONT)
+recastFont:SetFont(D.FONT, 18, "THICKOUTLINE")
+recastFont:SetTextColor(1, 1, 1)
+recastFont:SetShadowColor(0, 0, 0, 0.8)
+recastFont:SetShadowOffset(1, -1)
+
+local cooldowns = {}   -- every slot's Cooldown widget that wears the look
+
+local function CooldownNumbersShown()
+    return not (DeckUIForeverBarsDB and DeckUIForeverBarsDB.cdNumbers == false)
+end
+
+local function CooldownLook(cd)
+    if not cd or cd.DeckRecast then return end
+    cd.DeckRecast = true
+    cd:SetCountdownFont(CD_FONT)
+    cd:SetCountdownMillisecondsThreshold(0)    -- whole seconds, as FFXIV
+    cd:SetMinimumCountdownDuration(2000)       -- the global cooldown: sweep only
+    local fs = cd:GetCountdownFontString()
+    if fs then
+        fs:ClearAllPoints()
+        fs:SetPoint("CENTER", cd, "CENTER", 1, 0)
+        fs:SetJustifyH("CENTER")
+    end
+    cd:SetHideCountdownNumbers(not CooldownNumbersShown())
+    cooldowns[#cooldowns + 1] = cd
 end
 
 -------------------------------------------------------------------
@@ -199,6 +242,7 @@ local function Style(b)
         b.cooldown:SetSwipeTexture(MASK)
         b.cooldown:SetSwipeColor(0, 0, 0, 0.7)
         b.cooldown:SetDrawEdge(false)
+        CooldownLook(b.cooldown)
     end
     if b.Border then b.Border:SetAlpha(0) end
 end
@@ -388,6 +432,15 @@ function ns.ApplyKeys()
     end
 end
 
+-- the recast numbers on or off, live: LAB's buttons through their config
+-- (LAB sets the widget from it on every config update), the stance and
+-- pet slots directly
+function ns.ApplyCooldownNumbers()
+    ns.ApplyKeys()
+    local hide = not CooldownNumbersShown()
+    for _, cd in ipairs(cooldowns) do cd:SetHideCountdownNumbers(hide) end
+end
+
 -- shows our bars and hides Blizzard's (or gives them back), out of combat
 function ns.ApplyBars()
     if not DeckUIForeverBarsDB then return end
@@ -450,6 +503,7 @@ local function Init()
     local db = DeckUIForeverBarsDB
     if db.barAlpha == nil then db.barAlpha = 1 end
     if db.barNumbers == nil then db.barNumbers = true end
+    if db.cdNumbers == nil then db.cdNumbers = true end
     for _, key in ipairs({ "stanceBar", "petBar", "totemBar" }) do
         if db[key] == nil then db[key] = true end
     end

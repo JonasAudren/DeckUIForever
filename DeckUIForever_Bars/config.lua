@@ -27,6 +27,8 @@ D.RegisterModule("Bars", {
         end, "How see-through the bars are.")
         f:Checkbox("Bar numbers", db, "barNumbers", ns.ApplyBarNumbers,
             "A small number at the left end of each bar.")
+        f:Checkbox("Recast timer", db, "cdNumbers", ns.ApplyCooldownNumbers,
+            "The seconds left on a cooldown, large in the middle of the slot, as Final Fantasy shows them.")
         f:Checkbox("Hide the keys", db, "hideKeys", function()
             ns.ApplyKeys()
             ns.ApplyStanceBar()

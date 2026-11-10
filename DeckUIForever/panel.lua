@@ -985,6 +985,15 @@ panel:AddTab("Devices", {
         f:Gap(4)
         f:Label("Keep on this device")
         local keepTip = "Blizzard keeps this on its server, so every device gets the same. Tick it on each device to keep that device's own."
+        local function SyncText()
+            return D.SyncIsOff() and "Sync UI and keys again" or "Stop syncing UI and keys"
+        end
+        local syncBtn = f:Button(SyncText(), function()
+            D.SetServerSync(D.SyncIsOff() and true or false)
+            D.RefreshWidgets(c)
+        end, "Your interface settings, chat windows and key bindings no longer go to Blizzard's server, so this device keeps its own and your other devices keep theirs. Click again to sync them as before. Macros stay synced.")
+        function syncBtn:Refresh() self:SetText(SyncText()) end
+        table.insert(c.widgets, syncBtn)
         f:Checkbox("Key bindings", function() return D.bindingsCVar end, "localOnly", D.SetLocalBindings, keepTip)
         if D.SetKeepBars then
             f:Checkbox("Action bar layouts", db, "keepBars", D.SetKeepBars, keepTip)
@@ -1022,6 +1031,8 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         D.ResetPositions()
     elseif msg == "device" then
         D.PrintDevice()
+    elseif msg == "sync" then
+        D.PrintSync()
     elseif msg == "build" then
         D.PrintBuild()
     elseif DEBUG_COMMANDS[msg] then

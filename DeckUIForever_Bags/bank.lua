@@ -434,6 +434,18 @@ local function CloseBank()
     atBank = false
     window:Hide()
     BankFrame.BankPanel:Hide()
+    -- Blizzard reads the bank type two ways: BankPanel.bankType directly,
+    -- and through BankFrame:GetActiveBankType(), which is nil while the
+    -- panel is hidden. The bag-cost money display (BankPanel.MoneyDisplay)
+    -- was seen listening to PLAYER_MONEY with the panel hidden (1.4.0,
+    -- 2026-11-09): its Refresh reads the first, passes, triggers
+    -- ShowOrHideBagCost, which reads the second and hands Blizzard's own
+    -- code a nil (Camelot/BankFrame.lua:43). Leave the type as it is in
+    -- Blizzard's own closed bank, nil, so Refresh stops at its guard, and
+    -- drop the listener in case the hidden parent swallowed its OnHide.
+    BankFrame.BankPanel.bankType = nil
+    local money = BankFrame.BankPanel.MoneyDisplay
+    if money then money:UnregisterEvent("PLAYER_MONEY") end
     CloseAllBags(BankFrame)
 end
 
@@ -477,6 +489,10 @@ function ns.PrintBank()
         tostring(BankFrame:IsShown())))
     -- nil here is the ContainerFrame.lua:1167 error waiting to happen
     print(('  BankFrame right edge: %s'):format(tostring(BankFrame:GetRight())))
+    local money = BankFrame.BankPanel.MoneyDisplay
+    print(("  BankPanel shown=%s bankType=%s, money display listens to PLAYER_MONEY=%s"):format(
+        tostring(BankFrame.BankPanel:IsShown()), tostring(BankFrame.BankPanel.bankType),
+        tostring(money and money:IsEventRegistered("PLAYER_MONEY"))))
     for _, bankType in ipairs(TYPES) do
         local reason = C_Bank.FetchBankLockedReason(bankType)
         print(("  %s: view=%s use=%s locked=%s tabs=%d"):format(TYPE_NAMES[bankType],

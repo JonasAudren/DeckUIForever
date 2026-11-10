@@ -93,6 +93,35 @@ local oUF = ns.oUF
 -- window itself cannot join Blizzard's window navigation - that takes
 -- addon frames out of combat only, and a window that is always shown
 -- would count as open and block the HUD's own targeting.
+--
+-- The extensions of 2026-11-10 (owner: "den HoT-Monitor erweitern, aber
+-- alles immer als Option"), every one a switch that is off by default:
+--   hotHealth    a health capsule under each name (ns.PillBar, a StatusBar fed straight
+--                from UnitHealth - the values may be secret in a fight)
+--   hotStatus    Dead / Ghost / Offline written over the dimmed icons
+--   hotRange     a member out of range is dimmed (UnitInRange into
+--                SetAlphaFromBoolean, as oUF's range element)
+--   hotDispel    up to two debuffs you can remove, between the name and
+--                the heals (an aura group with Blizzard's dispel filter)
+--   hotBuffSlots your castable buffs (BUFFS) as slots that show only while
+--                the buff is missing. Looked up by name, anyone's cast
+--                counts; in a fight a lookup that finds nothing proves
+--                nothing (the game may hide the aura), so the state of
+--                before the fight stands until a lookup finds the buff
+--   hotCastSlots your direct heals, dispels and resurrection (CASTS) as
+--                plain buttons - only with click to cast, there is no
+--                aura to show
+--   hotCustom    a list of your own, spell names or IDs separated by
+--                commas: each gets a slot like a HoT (yours, with the clock)
+--   hotPets      a line per pet of the party (pet, partypet1-4); /reload
+--   hotRaid      in a raid a line for every raid member instead of your
+--                group, a column per raid group, four columns to a band,
+--                without the buff icons; /reload
+--   hotWarn, hotWarnSound, hotWarnAt   a HoT in its last seconds blinks
+--                and may play a sound - read by name, so only where the
+--                game hands out the times (in a fight they may be secret:
+--                then nothing blinks; to be seen in game)
+-- All of it untested in game at the time of writing.
 -------------------------------------------------------------------
 local ICON, NAME_W, PAD = 22, 64, 4   -- icon size as shipped (hotScale scales it), the name's width, the edges
 local SPACING = 2                      -- between the icons
@@ -102,9 +131,28 @@ local POLL = 0.25
 local GAP = 2                          -- between the lines
 local GOLD = { 1, 0.82, 0.3 }
 local MISSING = { 0.9, 0.3, 0.3 }
+local DISPEL_MAX = 2                   -- debuffs you can remove, per line
+local RAID_COLS, COL_GAP, BAND_GAP = 4, 8, 8   -- the raid table: groups per band, the gaps
+local FAR = 0.4                        -- a line out of range
+local WARN_GAP = 1                     -- seconds between two warning sounds
+local WHITE = "Interface\\Buttons\\WHITE8x8"
+-- a pet's line is smaller than a member's and steps in under its owner's
+-- (owner 2026-11-10: "kleiner und leicht versetzt, nicht so groß wie ein Spieler")
+local PET_SCALE = 0.8
+local PET_SHIFT = 12
+local PET ={ 0.72, 0.78, 0.86 }       -- and wears a pale blue instead of the members' gold
+local HEALTH_H = 5                    -- the health capsule under the name
+local HEALTH_LIFT = 3                  -- the name moves up by this to make room for it
+local HEALTH = { 0.3, 0.82, 0.3 }      -- the FF frames' health green
+
+-- debuffs only you can dispel: Blizzard's own filter name where it has one (as raid.lua)
+local DISPEL_FILTER = "HARMFUL|" .. (AuraUtil and AuraUtil.AuraFilters
+    and AuraUtil.AuraFilters.RaidPlayerDispellable or "RAID")
 
 local function Secret(v) return issecretvalue and issecretvalue(v) end
 local function Ask(v) if Secret(v) then return nil end return v end
+
+local function Opt(key) return DeckUIForeverOrbsDB[key] and true or false end
 
 -------------------------------------------------------------------
 -- What each healer keeps up
@@ -119,6 +167,45 @@ local function Ask(v) if Secret(v) then return nil end return v end
 local LISTS = {
     DRUID  = { { id = 774 }, { id = 8936 } },   -- Rejuvenation, Regrowth
     PRIEST = { { id = 139 }, { id = 17 } },     -- Renew, Power Word: Shield
+}
+
+-- hotBuffSlots: the buffs you can put on someone else, shown while they
+-- are missing. also: the group version, whose aura has a name of its own.
+-- Paladins are left out on purpose - one blessing per paladin and member,
+-- so five of the six would always read as missing; the list of your own
+-- (hotCustom) takes the one you hand out.
+local BUFFS = {
+    PRIEST = { { id = 1243, also = { 21562 } },    -- Power Word: Fortitude, Prayer of Fortitude
+               { id = 14752, also = { 27681 } },   -- Divine Spirit, Prayer of Spirit
+               { id = 976, also = { 27683 } } },   -- Shadow Protection, Prayer of Shadow Protection
+    DRUID  = { { id = 1126, also = { 21849 } },    -- Mark of the Wild, Gift of the Wild
+               { id = 467 } },                     -- Thorns
+    MAGE   = { { id = 1459, also = { 23028 } } },  -- Arcane Intellect, Arcane Brilliance
+}
+
+-- hotCastSlots: what a click casts on the member and leaves no aura to
+-- watch - the direct heals, the dispels, the resurrection. First ranks;
+-- the name casts the highest one you know. need says when the button is
+-- there at all (owner 2026-11-10: "Debuff-Knöpfe nur wenn man wirklich
+-- etwas debuffen kann und Resurrect nur bei Toten"): "cure" while the
+-- member carries a debuff you can remove (types: the kinds this spell
+-- takes), "dead" while the member is dead. The heals are always there.
+local MAGIC, CURSE, DISEASE, POISON = "Magic", "Curse", "Disease", "Poison"
+local function Cure(id, ...) return { id = id, need = "cure", types = { ... } } end
+local function Res(id) return { id = id, need = "dead" } end
+local CASTS = {
+    PRIEST  = { { id = 2050 }, { id = 2054 }, { id = 2060 }, { id = 2061 },   -- Lesser Heal, Heal, Greater Heal, Flash Heal
+                Cure(527, MAGIC), Cure(528, DISEASE), Cure(552, DISEASE),     -- Dispel Magic, Cure Disease, Abolish Disease
+                Res(2006) },                                                  -- Resurrection
+    DRUID   = { { id = 5185 },                                                -- Healing Touch
+                Cure(2782, CURSE), Cure(8946, POISON), Cure(2893, POISON),    -- Remove Curse, Cure Poison, Abolish Poison
+                Res(20484) },                                                 -- Rebirth
+    PALADIN = { { id = 635 }, { id = 19750 },                                 -- Holy Light, Flash of Light
+                Cure(4987, MAGIC, POISON, DISEASE), Cure(1152, POISON, DISEASE),   -- Cleanse, Purify
+                { id = 633 }, Res(7328) },                                    -- Lay on Hands, Redemption
+    SHAMAN  = { { id = 331 }, { id = 8004 }, { id = 1064 },                   -- Healing Wave, Lesser Healing Wave, Chain Heal
+                Cure(526, POISON), Cure(2870, DISEASE), Res(2008) },          -- Cure Poison, Cure Disease, Ancestral Spirit
+    MAGE    = { Cure(475, CURSE) },                                           -- Remove Lesser Curse
 }
 
 local function SpellName(id)
@@ -184,16 +271,77 @@ function ns.ApplyHotExclusion()
     end
 end
 
+local healer = false   -- click to cast (hotHealer), read once at the factory: the buttons stay for the session
+local customUnknown = {}   -- what of hotCustom the game did not know, for /orbs hots
+
+-- the list of your own: names or IDs between commas. A name resolves only
+-- for a spell the character has; an ID must be one you know.
+local function CustomList(seen)
+    wipe(customUnknown)
+    local text = DeckUIForeverOrbsDB.hotCustom
+    if type(text) ~= "string" then return end
+    for token in text:gmatch("[^,;\n]+") do
+        token = strtrim(token)
+        if token ~= "" then
+            local id = tonumber(token)
+            local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(id or token)
+            if info and info.spellID and info.name and (not id or Known(id)) then
+                if not seen[info.name] then
+                    seen[info.name] = true
+                    local e = { id = info.spellID }
+                    local ids = RankIDs(e, info.name)
+                    for k in pairs(ids) do allIDs[k] = true end
+                    entries[#entries + 1] = { kind = "hot", name = info.name, id = info.spellID, ids = ids,
+                                              icon = info.iconID or SpellIcon(info.spellID), custom = true }
+                end
+            else
+                customUnknown[#customUnknown + 1] = token
+            end
+        end
+    end
+end
+
+-- The slots of a line, in this order: your HoTs, the list of your own,
+-- your buffs while missing, your direct casts. kind says how a slot
+-- behaves (hot: the engine's aura button; buff: our icon while the buff
+-- is missing; cast: a plain button).
 local function Rebuild()
     wipe(entries)
     allIDs = {}
+    local seen = {}
     for _, e in ipairs(LISTS[ListKey()] or {}) do
         if Known(e.known or e.id) then
             local n = SpellName(e.id)
-            if n then
+            if n and not seen[n] then
+                seen[n] = true
                 local ids = RankIDs(e, n)
                 for id in pairs(ids) do allIDs[id] = true end
-                entries[#entries + 1] = { name = n, icon = SpellIcon(e.id), id = e.id, ids = ids }
+                entries[#entries + 1] = { kind = "hot", name = n, icon = SpellIcon(e.id), id = e.id, ids = ids }
+            end
+        end
+    end
+    CustomList(seen)
+    if Opt("hotBuffSlots") then
+        for _, e in ipairs(BUFFS[ListKey()] or {}) do
+            local n = Known(e.id) and SpellName(e.id)
+            if n and not seen[n] then
+                seen[n] = true
+                local names = { n }
+                for _, other in ipairs(e.also or {}) do
+                    local o = SpellName(other)
+                    if o then names[#names + 1] = o end
+                end
+                entries[#entries + 1] = { kind = "buff", name = n, icon = SpellIcon(e.id), id = e.id, names = names }
+            end
+        end
+    end
+    if healer and Opt("hotCastSlots") then
+        for _, e in ipairs(CASTS[ListKey()] or {}) do
+            local n = Known(e.id) and SpellName(e.id)
+            if n and not seen[n] then
+                seen[n] = true
+                entries[#entries + 1] = { kind = "cast", name = n, icon = SpellIcon(e.id), id = e.id,
+                                          need = e.need, types = e.types }
             end
         end
     end
@@ -227,9 +375,13 @@ holder:Hide()
 -- it. A line keeps its unit token for good: the containers in it are
 -- made on that token.
 local preview = false
+local cdDirty = true   -- the slots' cooldown clocks (hotCooldown) want a fresh look: Update takes it
 local Update   -- below
 local loadedSize   -- the icon size this session loaded: a change back clears the reload flag
-local healer = false   -- click to cast (hotHealer), read once at the factory: the buttons stay for the session
+local petsOn, raidOn = false, false   -- hotPets / hotRaid, read once at the factory: their lines are made there
+
+-- every raid member instead of your group: the option, and you are in a raid
+local function RaidMode() return raidOn and IsInRaid() and true or false end
 
 -- in the healer mode the window is protected: in a fight nothing of it
 -- moves, shows or hides by our hand
@@ -248,15 +400,58 @@ end
 -- the healer mode's driver for the target line: a living friend that is
 -- not in the party (solo, targeting yourself shows you twice: the
 -- restricted environment cannot compare units)
-local STRANGER_SHOWN = "[@target,help,nodead,noparty] show; hide"
+-- with the raid table every raid member has a line already, so the target
+-- line is for someone outside the raid
+local function StrangerShown()
+    return raidOn and "[@target,help,nodead,noparty,noraid] show; hide"
+        or "[@target,help,nodead,noparty] show; hide"
+end
 
-local function Line(parent, unit)
+-- kind: "member" (player, party1-4), "pet", "raid" (raid1-40) or "stranger"
+local function Line(parent, unit, kind)
     local c = CreateFrame("Frame", nil, parent)
     c.unit = unit
-    c.title = Text(c, 11)
+    c.kind = kind
+    if kind == "pet" then c:SetScale(PET_SCALE) end   -- Stack's Put reckons with it
+    -- the health bar (hotHealth), in the FF look since 2026-11-10 (owner:
+    -- "den Health Bar etwas anpassen in FFO-Stil"): a thin glossy capsule
+    -- under the name, as FFXIV's party list - ffstyle.lua's PillBar, with
+    -- the name lifted above it (PlaceTitle). Ours, never protected.
+    local hb = ns.PillBar(c, NAME_W, HEALTH_H)
+    hb:SetPoint("BOTTOMLEFT", PAD, 1)
+    hb:SetFrameLevel(c:GetFrameLevel() + 1)
+    hb:SetStatusBarColor(HEALTH[1], HEALTH[2], HEALTH[3])
+    hb:Hide()
+    -- the look before it, kept as an option (hotHealthBlock, owner the same
+    -- day: "so wie es davor aussah als Option"): a flat bar behind the
+    -- whole name. Both are made; UpdateHealth shows the one asked for.
+    local block = CreateFrame("StatusBar", nil, c)
+    block:SetPoint("LEFT", 0, 0)
+    block:SetSize(PAD + NAME_W + 2, Size())
+    block:SetFrameLevel(c:GetFrameLevel() + 1)
+    block:SetStatusBarTexture(WHITE)
+    block:SetStatusBarColor(0.2, 0.62, 0.3, 0.6)
+    local bg = block:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(block)
+    bg:SetColorTexture(0, 0, 0, 0.45)
+    block:Hide()
+    c.healthBlock = block
+    c.health = hb
+    -- the name on a layer of its own, above the bar
+    local text = CreateFrame("Frame", nil, c)
+    text:SetAllPoints(c)
+    text:SetFrameLevel(c:GetFrameLevel() + 3)
+    c.title = Text(text, 11)
     c.title:SetPoint("LEFT", PAD, 0)
     c.title:SetWidth(NAME_W)
     c.title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    -- Dead / Ghost / Offline over the icons (hotStatus): above every slot,
+    -- and no mouse, so a click still reaches the button underneath
+    local over = CreateFrame("Frame", nil, c)
+    over:SetAllPoints(c)
+    over:SetFrameLevel(c:GetFrameLevel() + 30)
+    c.status = Text(over, 11)
+    c.status:SetPoint("LEFT", PAD + NAME_W + 6, 0)
     c.slots = {}
     if healer then
         -- the name targets the member; the game shows and hides the line
@@ -264,10 +459,14 @@ local function Line(parent, unit)
         b:SetPoint("LEFT", 0, 0)
         b:SetSize(PAD + NAME_W + 2, Size())
         c.target = b
-        if unit == "target" then
-            if DeckUIForeverOrbsDB.hotStranger ~= false then RegisterStateDriver(c, "visibility", STRANGER_SHOWN) end
-        else
+        if kind == "stranger" then
+            if DeckUIForeverOrbsDB.hotStranger ~= false then RegisterStateDriver(c, "visibility", StrangerShown()) end
+        elseif kind == "raid" then
             RegisterStateDriver(c, "visibility", ("[@%s,exists] show; hide"):format(unit))
+        else
+            -- with the raid table the party's lines step aside in a raid
+            RegisterStateDriver(c, "visibility", ("%s[@%s,exists] show; hide"):format(
+                raidOn and "[group:raid] hide; " or "", unit))
         end
     else
         c:Hide()
@@ -278,13 +477,24 @@ end
 -- you first, then the party in the game's order; the stranger's line last,
 -- so the table does not shift when a target comes and goes
 local PARTY = { "player", "party1", "party2", "party3", "party4" }
-local members, stranger, lines = {}, nil, {}
+local PETS = { "pet", "partypet1", "partypet2", "partypet3", "partypet4" }
+local members, pets, raid, stranger, lines = {}, {}, {}, nil, {}
+local byUnit = {}
 
 local function MakeLines()
-    for i, unit in ipairs(PARTY) do members[i] = Line(holder, unit) end
-    stranger = Line(holder, "target")
-    for _, c in ipairs(members) do lines[#lines + 1] = c end
+    for i, unit in ipairs(PARTY) do members[i] = Line(holder, unit, "member") end
+    if petsOn then
+        for i, unit in ipairs(PETS) do pets[i] = Line(holder, unit, "pet") end
+    end
+    if raidOn then
+        for i = 1, (MAX_RAID_MEMBERS or 40) do raid[i] = Line(holder, "raid" .. i, "raid") end
+    end
+    stranger = Line(holder, "target", "stranger")
+    for _, list in ipairs({ members, pets, raid }) do
+        for _, c in ipairs(list) do lines[#lines + 1] = c end
+    end
     lines[#lines + 1] = stranger
+    for _, c in ipairs(lines) do byUnit[c.unit] = c end
 end
 
 -- under one another (the default) or side by side, per device
@@ -346,7 +556,7 @@ end
 local function PlaceTitle(c, withGlyph)
     local shift = withGlyph and (Size() + 2) or 0
     c.title:ClearAllPoints()
-    c.title:SetPoint("LEFT", PAD + shift, 0)
+    c.title:SetPoint("LEFT", PAD + shift, c.lifted and HEALTH_LIFT or 0)
     c.title:SetWidth(math.max(10, NAME_W - shift))
 end
 
@@ -381,6 +591,28 @@ function ns.ApplyHotHints() UpdateHints() end
 local function Idle() return DeckUIForeverOrbsDB.hotIdle and true or false end
 
 local function SetStatic(s, fighting, force)
+    local kind = not force and s.entry and s.entry.kind or "hot"
+    if kind == "cast" then
+        -- a button, nothing to watch: in colour. A heal is always there;
+        -- a cure's icon rides on the engine's button (CureFrame) and a
+        -- resurrection's on the secure button (Assign), so ours stays away
+        local on = not s.entry.need
+        s.icon:SetShown(on)
+        s.rim:SetShown(on)
+        s.icon:SetDesaturated(false)
+        s.icon:SetAlpha(0.9)
+        s.rim:SetVertexColor(0.2, 0.2, 0.2, 1)
+        return
+    elseif kind == "buff" then
+        -- only while the buff is missing: then in colour with a red rim
+        local on = s.missing and true or false
+        s.icon:SetShown(on)
+        s.rim:SetShown(on)
+        s.icon:SetDesaturated(false)
+        s.icon:SetAlpha(0.85)
+        s.rim:SetVertexColor(MISSING[1], MISSING[2], MISSING[3], 1)
+        return
+    end
     local on = force or fighting or Idle() or healer
     s.icon:SetShown(on)
     s.rim:SetShown(on)
@@ -401,6 +633,7 @@ local function SlotFrame(c, i)
     if Locked() then return nil end   -- a new slot's button cannot be set up in a fight
     local size = Size()
     s = CreateFrame("Frame", nil, c)
+    s.unit = c.unit
     s:SetSize(size, size)
     s.rim = ns.IconRim(s, 0.35, 0.33, 0.3, 1)
     s.icon = ns.RoundIcon(s:CreateTexture(nil, "ARTWORK"))
@@ -431,21 +664,123 @@ local function SlotFrame(c, i)
         cast:SetScript("OnLeave", GameTooltip_Hide)
         s.cast = cast
     end
+    -- the expiry warning (hotWarn): a red glow of ours that pulses over
+    -- the icon, above everything of the slot and deaf to the mouse
+    local warn = CreateFrame("Frame", nil, s)
+    warn:SetAllPoints(s)
+    warn:SetFrameLevel(s:GetFrameLevel() + 14)
+    local glow = ns.RoundIcon(warn:CreateTexture(nil, "OVERLAY"))
+    glow:SetAllPoints(warn)
+    glow:SetTexture(WHITE)
+    glow:SetVertexColor(1, 0.25, 0.15, 1)
+    glow:SetBlendMode("ADD")
+    local pulse = warn:CreateAnimationGroup()
+    pulse:SetLooping("BOUNCE")
+    local a = pulse:CreateAnimation("Alpha")
+    a:SetFromAlpha(0.05)
+    a:SetToAlpha(0.65)
+    a:SetDuration(0.35)
+    warn:Hide()
+    s.warn, s.pulse = warn, pulse
     c.slots[i] = s
     return s
+end
+
+local function SetWarn(s, on)
+    on = on and true or false
+    if (s.warning or false) == on then return end
+    s.warning = on
+    s.warn:SetShown(on)
+    if on then s.pulse:Play() else s.pulse:Stop() end
+end
+
+-- A cure's slot (need "cure"): a one-slot container on the debuffs you can
+-- remove. The engine shows its button only while there is one - in a fight
+-- too, where no call of ours may read a debuff - and our spell icon rides
+-- on that button. The engine's own icon (the debuff's) is handed over
+-- unseen. The secure button above stays: a click on the empty place still
+-- casts, the game then says there is nothing to remove.
+local function CureFrame(s)
+    if s.cure then return s.cure end
+    local auras = CreateFrame("AuraContainer", nil, s, "CustomAuraContainerTemplate")
+    auras:SetAllPoints(s)
+    auras:SetUnit(s.unit)
+    auras:AddAuraSlot("cure", DISPEL_FILTER, {
+        candidateFilters = { excludeSpellIDs = {} },
+        initializeFrame = function(button)
+            button:SetAllPoints(s)
+            ns.IconRim(button, 0.95, 0.2, 0.2, 1)
+            local theirs = ns.RoundIcon(button:CreateTexture(nil, "BACKGROUND"))
+            theirs:SetAllPoints(button)
+            theirs:SetAlpha(0)
+            local icon = ns.RoundIcon(button:CreateTexture(nil, "ARTWORK"))
+            icon:SetAllPoints(button)
+            icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            icon:SetTexture(s.entry and s.entry.icon or 134400)
+            s.cureIcon = icon   -- ours, not handed over: Assign may change the picture
+            button:SetIcon(theirs)
+        end,
+    })
+    s.cure = auras
+    return auras
+end
+
+-- a resurrection's slot (need "dead"): the secure button itself comes and
+-- goes with the member's death (a state driver, so in a fight too) and
+-- carries the icon. Out of combat only.
+local function DeadOnly(s, e)
+    local dead = e.need == "dead"
+    if dead and not s.castIcon then
+        s.castRim = ns.IconRim(s.cast, 0.2, 0.2, 0.2, 1)
+        s.castIcon = ns.RoundIcon(s.cast:CreateTexture(nil, "ARTWORK"))
+        s.castIcon:SetAllPoints(s.cast)
+        s.castIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    end
+    if s.castIcon then
+        s.castIcon:SetTexture(e.icon or 134400)
+        s.castIcon:SetShown(dead)
+        s.castRim:SetShown(dead)
+    end
+    if dead == (s.deadOnly or false) then return end
+    s.deadOnly = dead
+    if dead then
+        RegisterStateDriver(s.cast, "visibility", "[@" .. s.unit .. ",dead] show; hide")
+    else
+        UnregisterStateDriver(s.cast, "visibility")
+        s.cast:Show()
+    end
 end
 
 -- the slot's spell: the name casts the highest rank; in a fight the
 -- attribute waits (pendingSpell), FillLine assigns again after it
 local function Assign(s, e)
     s.entry = e
+    cdDirty = true
+    s.missing = nil
+    SetWarn(s, false)
     s.icon:SetTexture(e.icon or 134400)
-    pcall(s.auras.SetAuraSlotCandidateFilters, s.auras, "hot", { includeSpellIDs = e.ids or {} })
+    if e.need == "cure" then
+        local cure = CureFrame(s)
+        cure:SetAlpha(1)
+        cure:Show()
+        if s.cureIcon then pcall(s.cureIcon.SetTexture, s.cureIcon, e.icon or 134400) end
+        pcall(cure.UpdateAllAuras, cure)
+    elseif s.cure then
+        s.cure:Hide()
+    end
+    -- only a HoT's slot shows the engine's aura button (the container is
+    -- ours and not protected, so this may happen in a fight)
+    s.auras:SetShown(e.kind == "hot")
+    if e.kind == "hot" then
+        pcall(s.auras.SetAuraSlotCandidateFilters, s.auras, "hot", { includeSpellIDs = e.ids or {} })
+        pcall(s.auras.UpdateAllAuras, s.auras)
+    end
     if s.cast then
         if InCombatLockdown() then
             s.pendingSpell = e.name
         else
             s.cast:SetAttribute("spell", e.name)
+            DeadOnly(s, e)
             s.pendingSpell = nil
         end
     end
@@ -490,6 +825,35 @@ local function Others(c)
     return auras
 end
 
+-- the debuffs on the member that you can remove (hotDispel), between the
+-- name and the heals: the engine's icons again, with a red rim
+local function DispelOn() return Opt("hotDispel") end
+local function DispelWidth() return DispelOn() and (DISPEL_MAX * Slot() + 2) or 0 end
+
+local function Dispels(c)
+    if c.dispels then return c.dispels end
+    local size = Size()
+    local auras = CreateFrame("AuraContainer", nil, c, "CustomAuraContainerTemplate")
+    auras:SetSize(DISPEL_MAX * Slot(), size)
+    auras:SetUnit(c.unit)
+    auras:SetFlowLayoutAnchorPoint("LEFT")
+    auras:SetFlowLayoutAxis(ns.FLOW.Horizontal)
+    auras:SetFlowLayoutMaximumLineSize(DISPEL_MAX * Slot())
+    auras:SetFlowLayoutGrowthDirection(1, -1)
+    auras:AddAuraGroup("dispel", DISPEL_FILTER, {
+        maxFrameCount = DISPEL_MAX,
+        candidateFilters = { excludeSpellIDs = {} },
+        layout = { elementSpacing = SPACING },
+        initializeFrame = function(button)
+            button:SetSize(size, size)
+            ns.IconRim(button, 0.95, 0.2, 0.2, 1)
+            ns.AuraIconButton(button, size)
+        end,
+    })
+    c.dispels = auras
+    return auras
+end
+
 -- the list's IDs may change (a new rank), or the buff switch: the groups follow
 local function UpdateOthersFilter()
     for _, c in ipairs(lines) do
@@ -513,8 +877,13 @@ function ns.ApplyHotSize()
     local size = Size()
     ns.OutOfCombat("hotSize", function()
         for _, c in ipairs(lines) do
-            for _, s in ipairs(c.slots) do s:SetSize(size, size) end
+            for _, s in ipairs(c.slots) do
+                s:SetSize(size, size)
+                s.cdKind = nil   -- the cooldown clock is laid out for the new size
+            end
+            cdDirty = true
             if c.target then c.target:SetHeight(size) end
+            c.healthBlock:SetHeight(size)
             if c.glyph then c.glyph:SetSize(size, size) end
             if c.titleShifted then PlaceTitle(c, true) end
         end
@@ -526,13 +895,19 @@ end
 -- the containers follow their unit token, not the unit behind it: a new
 -- target, or a party token that changed hands, is read in afresh
 local function RefreshUnit(c)
-    for _, s in ipairs(c.slots) do pcall(s.auras.UpdateAllAuras, s.auras) end
+    for _, s in ipairs(c.slots) do
+        s.missing = nil   -- someone else stands behind the token: the buffs are looked up afresh
+        pcall(s.auras.UpdateAllAuras, s.auras)
+        if s.cure then pcall(s.cure.UpdateAllAuras, s.cure) end
+    end
     if c.others then pcall(c.others.UpdateAllAuras, c.others) end
+    if c.dispels then pcall(c.dispels.UpdateAllAuras, c.dispels) end
 end
 
--- the line's width: name, a slot per heal, the buff icons
+-- the line's width: name, the debuffs to remove, a slot per heal, the buff
+-- icons (the raid table goes without those: forty lines want to be narrow)
 local function LineWidth(slots)
-    return PAD + NAME_W + 4 + slots * Slot() + OthersMax() * Slot() + PAD
+    return PAD + NAME_W + 4 + DispelWidth() + slots * Slot() + (RaidMode() and 0 or OthersMax() * Slot()) + PAD
 end
 
 -- lays the slots out after the name, the buffs after them, and sizes the line
@@ -540,23 +915,54 @@ local function Finish(c, shown)
     if Locked() then return end
     local size, slot = Size(), Slot()
     local x = PAD + NAME_W + 4
+    -- A pet's line is scaled down and stepped in (PET_SCALE, PET_SHIFT),
+    -- but its icons stay in the members' columns (owner 2026-11-10: "die
+    -- Zauber der Pets bitte wieder einordnen"): At turns a member's offset
+    -- into the pet line's own, so that a piece `width` wide sits centred
+    -- where a member's does (width 0: left edges meet).
+    local k = c.kind == "pet" and PET_SCALE or 1
+    local shift = (c.kind == "pet" and not Across()) and PET_SHIFT or 0
+    local function At(at, width)
+        return (at + width / 2 - shift) / k - width / 2
+    end
+    if DispelOn() then
+        local dispels = Dispels(c)
+        dispels:ClearAllPoints()
+        dispels:SetPoint("LEFT", c, "LEFT", At(x, 0), 0)
+        if not dispels:IsShown() then
+            dispels:Show()
+            pcall(dispels.UpdateAllAuras, dispels)
+        end
+        x = x + DispelWidth()
+    elseif c.dispels then
+        c.dispels:Hide()
+    end
     for i, s in ipairs(c.slots) do
         if i <= shown then
             s:ClearAllPoints()
-            s:SetPoint("LEFT", c, "LEFT", x, 0)
+            s:SetPoint("LEFT", c, "LEFT", At(x, size), 0)
             if not s:IsShown() then
                 s:Show()
                 -- a slot that comes back reads its unit afresh
                 pcall(s.auras.UpdateAllAuras, s.auras)
+                if s.cure then pcall(s.cure.UpdateAllAuras, s.cure) end
             end
             x = x + slot
         else
             s:Hide()
         end
     end
-    local others = Others(c)
-    others:ClearAllPoints()
-    others:SetPoint("LEFT", c, "LEFT", x, 0)
+    if RaidMode() then
+        if c.others then c.others:Hide() end
+    else
+        local others = Others(c)
+        others:ClearAllPoints()
+        others:SetPoint("LEFT", c, "LEFT", At(x, 0), 0)
+        if not others:IsShown() then
+            others:Show()
+            pcall(others.UpdateAllAuras, others)
+        end
+    end
     c:SetSize(LineWidth(shown), size)
 end
 
@@ -571,17 +977,182 @@ local function Fighting()
     return Ask(UnitAffectingCombat("player")) ~= false
 end
 
+-- the health bar behind the name: the numbers go to the bar as they come,
+-- secret or not
+local function UpdateHealth(c)
+    local on = Opt("hotHealth")
+    local block = Opt("hotHealthBlock")
+    local hb, other = c.health, c.healthBlock
+    if block then hb, other = other, hb end
+    other:Hide()
+    local lift = on and not block
+    if lift ~= (c.lifted or false) then
+        -- the name sits above the capsule, and back in the middle without it
+        c.lifted = lift
+        PlaceTitle(c, c.titleShifted)
+    end
+    if not on or not UnitExists(c.unit) then
+        hb:Hide()
+        return
+    end
+    hb:SetMinMaxValues(0, UnitHealthMax(c.unit))
+    hb:SetValue(UnitHealth(c.unit))
+    hb:Show()
+end
+
+-- Dead / Ghost / Offline, nil while all is well (or the game will not say)
+local function Status(c)
+    if c.kind == "stranger" or not Opt("hotStatus") then return nil end
+    local unit = c.unit
+    if c.kind ~= "pet" and Ask(UnitIsConnected(unit)) == false then
+        return PLAYER_OFFLINE or "Offline", 0.6, 0.6, 0.6
+    end
+    if Ask(UnitIsGhost(unit)) == true then return "Ghost", 0.6, 0.6, 0.6 end
+    if Ask(UnitIsDead(unit)) == true then return DEAD or "Dead", 0.9, 0.3, 0.3 end
+    return nil
+end
+
+-- out of range the line is dimmed (hotRange). The answer may be secret:
+-- the engine takes it as it is. You yourself stay lit, and the target
+-- line's alpha belongs to Update. The pets are dimmed too (owner
+-- 2026-11-10: "Reichweite für Begleiter"); where the game says it did not
+-- measure (checked false, readable), the line stays lit.
+local function UpdateRange(c)
+    if c.kind == "stranger" then return end
+    if not Opt("hotRange") or c.unit == "player" then
+        if c.ranged then
+            c.ranged = nil
+            c:SetAlpha(1)
+        end
+        return
+    end
+    c.ranged = true
+    local ok, inRange, checked = pcall(UnitInRange, c.unit)
+    if not ok or (not Secret(checked) and not checked) then
+        c:SetAlpha(1)
+    elseif c.SetAlphaFromBoolean then
+        c:SetAlphaFromBoolean(inRange, 1, FAR)
+    elseif Secret(inRange) or Secret(checked) then
+        c:SetAlpha(1)
+    else
+        c:SetAlpha((checked and not inRange) and FAR or 1)
+    end
+end
+
+-- Is the buff of this slot missing on the unit? Anyone's cast counts.
+-- Out of a fight the lookup by name is the truth. In a fight it can only
+-- prove the buff is there - nothing found may mean hidden - so the last
+-- answer stands. Never for the dead, the far away, or an NPC you target.
+local function BuffMissing(c, e, last)
+    local unit = c.unit
+    if Ask(UnitIsDeadOrGhost(unit)) == true then return false end
+    if Ask(UnitIsVisible(unit)) == false then return false end
+    if c.kind == "stranger" and Ask(UnitIsPlayer(unit)) ~= true then return false end
+    -- never on a pet's line: in Forever a pet is no target for these buffs
+    -- (owner 2026-11-10: "Buff wird beim Pet angezeigt, obwohl es invalid
+    -- target ist"). C_Spell.IsSpellInRange was tried first to tell - nil
+    -- for a spell that cannot go on the unit - and still let the icon
+    -- through in the owner's test, so the pets are left out as a whole.
+    if c.kind == "pet" then return false end
+    for _, name in ipairs(e.names) do
+        local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, name, "HELPFUL")
+        if ok then
+            if Secret(data) then return last or false end
+            if data ~= nil then return false end
+        end
+    end
+    if InCombatLockdown() then return last or false end
+    return true
+end
+
+-- the seconds your HoT has left on the unit, nil when it is not there or
+-- the game keeps the time to itself
+local function Remaining(unit, e)
+    local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, e.name, "HELPFUL|PLAYER")
+    if not ok or Secret(data) or data == nil then return nil end
+    local expires, duration = Ask(data.expirationTime), Ask(data.duration)
+    if not expires or not duration or duration <= 0 then return nil end
+    return expires - GetTime()
+end
+
+local lastSound = 0
+local function Warn(c, s, e)
+    if e.kind ~= "hot" or not (Opt("hotWarn") or Opt("hotWarnSound")) then
+        SetWarn(s, false)
+        s.warned = nil
+        return
+    end
+    local left = Remaining(c.unit, e)
+    local late = left ~= nil and left > 0 and left <= (tonumber(DeckUIForeverOrbsDB.hotWarnAt) or 3)
+    SetWarn(s, late and Opt("hotWarn"))
+    if late and not s.warned and Opt("hotWarnSound") and GetTime() - lastSound >= WARN_GAP then
+        lastSound = GetTime()
+        PlaySound(SOUNDKIT and SOUNDKIT.ALARM_CLOCK_WARNING_3 or 12889, "Master")
+    end
+    s.warned = late or nil
+end
+
+-- The kinds of debuff on the unit (Magic, Curse, ...), false when the game
+-- will not say. Out of a fight the list is the truth; in one a debuff may
+-- be kept from us, and nothing found would not mean nothing there.
+local function DebuffTypes(unit)
+    if InCombatLockdown() or not (C_UnitAuras and C_UnitAuras.GetAuraDataByIndex) then return false end
+    local found = {}
+    for i = 1, 40 do
+        local ok, data = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, "HARMFUL")
+        if not ok or Secret(data) then return false end
+        if data == nil then break end
+        local kind = data.dispelName
+        if Secret(kind) then return false end
+        if kind then found[kind] = true end
+    end
+    return found
+end
+
 -- fills a line with the list for its unit
 local function FillLine(c)
     local fighting = Fighting()
+    local status, r, g, b = Status(c)
+    local types   -- the unit's debuff kinds, read once per line and only when a cure asks
     for i, e in ipairs(entries) do
         local s = SlotFrame(c, i)
         if not s then break end
         if s.entry ~= e or s.pendingSpell then Assign(s, e) end
+        if e.kind == "buff" then s.missing = BuffMissing(c, e, s.missing) end
+        if e.need == "cure" and s.cure then
+            -- the engine shows the button for any debuff you can remove;
+            -- where the kinds can be read, a spell for another kind steps back
+            if types == nil then types = DebuffTypes(c.unit) end
+            local fits = not types
+            if types then
+                for _, kind in ipairs(e.types or {}) do
+                    if types[kind] then fits = true break end
+                end
+            end
+            s.cure:SetAlpha(fits and 1 or 0)
+        end
         SetStatic(s, fighting)
+        Warn(c, s, e)
     end
+    -- alpha is free in a fight, so a dead member's icons step back at once
+    -- (not the resurrection: that is the one to press)
+    for _, s in ipairs(c.slots) do
+        local res = s.entry and s.entry.need == "dead"
+        s:SetAlpha((status and not res) and 0.25 or 1)
+    end
+    c.status:SetText(status or "")
+    if status then c.status:SetTextColor(r, g, b) end
     c.title:SetText(c.unit == "player" and "You" or UnitName(c.unit))
+    if status then
+        c.title:SetTextColor(0.6, 0.6, 0.6)
+    elseif c.kind == "pet" then
+        c.title:SetTextColor(PET[1], PET[2], PET[3])
+    else
+        c.title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    end
     c.title:Show()
+    UpdateHealth(c)
+    UpdateRange(c)
     Finish(c, #entries)
     if not healer then c:Show() end
 end
@@ -625,26 +1196,101 @@ end
 -- Every line to its row (Rows; the stranger takes row `count`), under one
 -- another or side by side (hotAcross, per device); the holder is sized to
 -- the rows in use.
+--
+-- The pets (hotPets) stand right under their owner (owner 2026-11-10:
+-- "klar zum Hunter oder Hexer zuordnen"), smaller, stepped in and pale blue.
+-- The raid table (hotRaid, in a raid): a column per raid group in use,
+-- its members under one another in raid order, four columns to a band,
+-- the target line under the last band. A secret raid roster in a fight
+-- leaves the table as it stands.
 local function Stack(count, extra)
     if Locked() then return end
     local across, size, w = Across(), Size(), LineWidth(#entries)
-    local function Put(c, row)
+    local step = size + GAP
+    if RaidMode() then
+        local groups, order = {}, {}
+        for i, c in ipairs(raid) do
+            if UnitExists(c.unit) then
+                local _, _, g = GetRaidRosterInfo(i)
+                if Secret(g) then return end
+                g = g or 1
+                if not groups[g] then
+                    groups[g] = {}
+                    order[#order + 1] = g
+                end
+                table.insert(groups[g], c)
+            end
+        end
+        table.sort(order)
+        local bandH = 5 * step + BAND_GAP
+        for k, g in ipairs(order) do
+            local col, band = (k - 1) % RAID_COLS, math.floor((k - 1) / RAID_COLS)
+            for pos, c in ipairs(groups[g]) do
+                c.row = (k - 1) * 5 + pos - 1
+                c:ClearAllPoints()
+                c:SetPoint("TOPLEFT", holder, "TOPLEFT", col * (w + COL_GAP), -(band * bandH + (pos - 1) * step))
+            end
+        end
+        local bands = math.max(1, math.ceil(#order / RAID_COLS))
+        local cols = math.max(1, math.min(#order, RAID_COLS))
+        stranger.row = count
+        stranger:ClearAllPoints()
+        stranger:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -bands * bandH)
+        holder:SetSize(cols * (w + COL_GAP) - COL_GAP, bands * bandH - BAND_GAP + (extra and (step + BAND_GAP) or 0))
+        return
+    end
+    -- at: where the line starts, in the holder's pixels; hands back where
+    -- the next one starts. A pet's line is scaled down (PET_SCALE, set in
+    -- Line), so it takes less room, its offsets are divided by the scale
+    -- (a frame's offsets are in its own scale), and under one another it
+    -- steps in by PET_SHIFT.
+    local function Put(c, row, at)
+        local pet = c.kind == "pet"
+        local scale = pet and PET_SCALE or 1
         c.row = row
         c:ClearAllPoints()
         if across then
-            c:SetPoint("TOPLEFT", holder, "TOPLEFT", row * (w + GAP), 0)
+            c:SetPoint("TOPLEFT", holder, "TOPLEFT", at / scale, 0)
+            return at + (w + GAP) * scale
+        end
+        c:SetPoint("TOPLEFT", holder, "TOPLEFT", (pet and PET_SHIFT or 0) / scale, -at / scale)
+        return at + step * scale
+    end
+    -- the members in their order, each one's pet in the row right after
+    -- its owner (pets[i] is members[i]'s: pet and player, partypetN and
+    -- partyN); a member or pet that is gone waits behind everyone present
+    local rows = Rows()
+    local order = {}
+    for i, c in ipairs(members) do order[i] = { c = c, pet = pets[i], row = rows[c] or (i - 1), i = i } end
+    table.sort(order, function(a, b)
+        if a.row ~= b.row then return a.row < b.row end
+        return a.i < b.i
+    end)
+    local row, at, waiting = 0, 0, {}
+    for _, o in ipairs(order) do
+        if UnitExists(o.c.unit) then
+            at = Put(o.c, row, at)
+            row = row + 1
         else
-            c:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -row * (size + GAP))
+            waiting[#waiting + 1] = o.c
+        end
+        if o.pet then
+            if UnitExists(o.pet.unit) then
+                at = Put(o.pet, row, at)
+                row = row + 1
+            else
+                Put(o.pet, count, at)
+            end
         end
     end
-    local rows = Rows()
-    for i, c in ipairs(members) do Put(c, rows[c] or (i - 1)) end
-    Put(stranger, count)
-    local used = math.max(count + (extra and 1 or 0), 1)
+    local behind = at
+    for j, c in ipairs(waiting) do behind = Put(c, count + j - 1, behind) end
+    local used = Put(stranger, count, at)
+    if not extra then used = at end
     if across then
-        holder:SetSize(used * (w + GAP) - GAP, size)
+        holder:SetSize(math.max(used - GAP, w), size)
     else
-        holder:SetSize(w, used * (size + GAP) - GAP)
+        holder:SetSize(w, math.max(used - GAP, size))
     end
 end
 
@@ -659,8 +1305,16 @@ end
 -- the target stands in the table already (you or a party member): the
 -- GUIDs say so, where UnitIsUnit may hand back a secret in a fight
 local function InTable(guid)
+    if RaidMode() then
+        -- every raid member has a line: the game says whether the target is one
+        local id = UnitInRaid("target")
+        return not Secret(id) and id ~= nil
+    end
     for _, unit in ipairs(PARTY) do
         if GUID(unit) == guid then return true end
+    end
+    for _, c in ipairs(pets) do
+        if GUID(c.unit) == guid then return true end
     end
     return false
 end
@@ -684,15 +1338,245 @@ local function TargetInTable()
     return guid ~= nil and InTable(guid)
 end
 
+-------------------------------------------------------------------
+-- The spells' cooldowns (hotCooldown)
+-------------------------------------------------------------------
+-- A clock of ours on a slot while its spell is on cooldown (owner
+-- 2026-11-10: "bei Spells ein CD-Timer einbauen, wenn gebraucht") - Power
+-- Word: Shield's four seconds, Lay on Hands, Rebirth. Not the global
+-- cooldown. The way LibActionButton's retail path does it: the info table
+-- says whether a cooldown runs (isActive, isOnGCD), the duration object
+-- goes to the Cooldown frame unread, so a secret time is no matter.
+-- A heal's button gets the dark sweep with the time in the middle. A
+-- HoT's slot has the aura's clock there already, so its cooldown is a
+-- small number on the icon's top edge without a sweep. A resurrection's
+-- clock rides on its button and is gone with it; cures and the missing
+-- buffs get none. The same answer serves every line, asked once per spell.
+local function SlotCooldown(s)
+    if s.cd then return s.cd end
+    local cd = CreateFrame("Cooldown", nil, s, "CooldownFrameTemplate")
+    cd:EnableMouse(false)
+    cd:SetSwipeTexture(D.MASK)
+    cd:SetSwipeColor(0, 0, 0, 0.8)
+    cd:SetDrawEdge(false)
+    cd:SetDrawBling(false)
+    cd:SetHideCountdownNumbers(false)
+    s.cd = cd
+    return cd
+end
+
+local function StyleCooldown(s, e)
+    local cd = SlotCooldown(s)
+    local kind = e.need or e.kind
+    if s.cdKind == kind then return cd end
+    s.cdKind = kind
+    local size = Size()
+    local parent = (e.need == "dead" and s.cast) or s
+    cd:SetParent(parent)
+    cd:SetFrameLevel(parent:GetFrameLevel() + (parent == s and 8 or 1))
+    cd:ClearAllPoints()
+    if e.kind == "hot" then
+        cd:SetSize(size * 0.7, size * 0.7)
+        cd:SetPoint("CENTER", s, "TOP", 0, 0)
+        cd:SetDrawSwipe(false)
+        if cd.SetCountdownFont then cd:SetCountdownFont(ns.CountdownFont(size * 0.8)) end
+    else
+        cd:SetAllPoints(s)
+        cd:SetDrawSwipe(true)
+        if cd.SetCountdownFont then cd:SetCountdownFont(ns.CountdownFont(size)) end
+    end
+    return cd
+end
+
+-- what to hand the clock for this spell: a duration object, or a table
+-- { start, duration } where the client has no duration objects, or false
+local function EntryCooldown(e)
+    if not (C_Spell and C_Spell.GetSpellCooldown) then return false end
+    local ok, info = pcall(C_Spell.GetSpellCooldown, e.name)
+    if not ok or Secret(info) or type(info) ~= "table" then return false end
+    local gcd = info.isOnGCD
+    if not Secret(gcd) and gcd then return false end
+    local active = info.isActive
+    if not Secret(active) then
+        if active == false then return false end
+        if active == nil then
+            -- a client without the flag: the plain numbers decide
+            local d = info.duration
+            if Secret(d) or not d or d <= 1.5 then return false end
+        end
+    end
+    if C_Spell.GetSpellCooldownDuration then
+        local ok2, object = pcall(C_Spell.GetSpellCooldownDuration, e.name)
+        return ok2 and object or false
+    end
+    local start, d = info.startTime, info.duration
+    if Secret(start) or Secret(d) or not start or not d or d <= 0 then return false end
+    return { start, d }
+end
+
+local function ApplyCooldowns()
+    cdDirty = false
+    local on = Opt("hotCooldown")
+    local asked = {}
+    for _, c in ipairs(lines) do
+        for _, s in ipairs(c.slots) do
+            local e = s.entry
+            if not on or not e or e.kind == "buff" or e.need == "cure" then
+                if s.cd then s.cd:Clear() end
+            else
+                local answer = asked[e]
+                if answer == nil then
+                    answer = EntryCooldown(e)
+                    asked[e] = answer
+                end
+                local cd = StyleCooldown(s, e)
+                if not answer then
+                    cd:Clear()
+                elseif type(answer) == "table" and answer[1] then
+                    cd:SetCooldown(answer[1], answer[2])
+                elseif cd.SetCooldownFromDurationObject then
+                    pcall(cd.SetCooldownFromDurationObject, cd, answer)
+                end
+            end
+        end
+    end
+end
+
+local cooldownWatch = CreateFrame("Frame")
+cooldownWatch:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+cooldownWatch:SetScript("OnEvent", function() cdDirty = true end)
+
+-------------------------------------------------------------------
+-- Your mana regeneration (hotRegen)
+-------------------------------------------------------------------
+-- A small line above the window (owner 2026-11-10: "meine aktuelle
+-- Manareg ... als Option im HoTs-Fenster"): what you regenerate right now
+-- per five seconds, and beside it the other of the two rates
+-- GetManaRegen hands out - the full one, and the one that holds for five
+-- seconds after a spell that cost mana (Classic's five-second rule). The
+-- text hangs on the holder and is no row of it, so Stack knows nothing of
+-- it. Which rate holds is our own clock: the last cast of yours that cost
+-- mana (UNIT_SPELLCAST_SUCCEEDED and the spell's cost). A secret rate in a
+-- fight leaves the last text standing.
+local FSR = 5
+local MANA_TYPE = Enum.PowerType and Enum.PowerType.Mana or 0
+local lastSpend = 0
+local regenBox = CreateFrame("Frame", nil, holder)
+regenBox:SetSize(1, 1)
+regenBox:SetPoint("BOTTOMLEFT", holder, "TOPLEFT", 0, 0)
+local regenText = Text(regenBox, 10)
+regenText:SetPoint("BOTTOMLEFT", holder, "TOPLEFT", PAD, 3)
+regenText:Hide()
+
+-- What starts the five seconds (owner 2026-11-10, in a fight: "die
+-- aktuellen MPS werden auch 5 sec nach Cast nicht berechnet" - the line
+-- stood at "in 5 s": every cast counted, a wand's shot too, because a
+-- spell's cost is kept from us in a fight and unknown counted as yes).
+-- Now, in this order:
+--   1. your mana itself, where it can be read: a drop is a spend
+--      (UNIT_POWER_UPDATE), and the casts are not asked at all;
+--   2. else the cast, by what its cost was the last time it could be read
+--      (costKnown, learned out of a fight); the auto-repeat ones never;
+--   3. a spell never seen out of a fight, or a secret spell ID: no spend -
+--      rather the full rate shown a little early than the clock stuck.
+local costKnown = {}
+local NO_SPEND = { [5019] = true, [75] = true, [6603] = true }   -- Shoot (wand), Auto Shot, Attack
+local lastMana, manaReadable = nil, false
+local regenSeen = "nothing yet"   -- for /orbs hots
+
+-- true / false, or nil while the game will not say
+local function CostsMana(spellID)
+    if not (C_Spell and C_Spell.GetSpellPowerCost) then return nil end
+    local ok, costs = pcall(C_Spell.GetSpellPowerCost, spellID)
+    if not ok or Secret(costs) or type(costs) ~= "table" then return nil end
+    for _, cost in ipairs(costs) do
+        local kind, amount = cost.type, cost.cost
+        if Secret(kind) or Secret(amount) then return nil end
+        if kind == MANA_TYPE and (amount or 0) > 0 then return true end
+    end
+    return false
+end
+
+local function SpendsMana(spellID)
+    if Secret(spellID) or not spellID then
+        regenSeen = "a cast with a secret ID"
+        return false
+    end
+    if NO_SPEND[spellID] then return false end
+    local costs = CostsMana(spellID)
+    if costs ~= nil then
+        costKnown[spellID] = costs
+    else
+        costs = costKnown[spellID]
+    end
+    regenSeen = ("cast %d, cost %s"):format(spellID, costs == nil and "unknown" or costs and "mana" or "none")
+    return costs == true
+end
+
+local regenWatch = CreateFrame("Frame")
+regenWatch:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+regenWatch:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
+regenWatch:SetScript("OnEvent", function(_, event, _, _, spellID)
+    if not (DeckUIForeverOrbsDB and DeckUIForeverOrbsDB.hotRegen) then return end
+    local mana = UnitPower("player", MANA_TYPE)
+    manaReadable = not Secret(mana) and mana ~= nil
+    if event == "UNIT_POWER_UPDATE" then
+        if manaReadable then
+            if lastMana and mana < lastMana then
+                lastSpend = GetTime()
+                regenSeen = "mana dropped"
+            end
+            lastMana = mana
+        else
+            lastMana = nil
+        end
+    elseif not manaReadable and SpendsMana(spellID) then
+        lastSpend = GetTime()
+    elseif manaReadable then
+        -- learn the cost for the fights where the mana is kept from us
+        if not Secret(spellID) and spellID then
+            local costs = CostsMana(spellID)
+            if costs ~= nil then costKnown[spellID] = costs end
+        end
+    end
+end)
+
+local function UpdateRegen()
+    if not Opt("hotRegen") or not GetManaRegen then
+        regenText:Hide()
+        return
+    end
+    local max = Ask(UnitPowerMax("player", MANA_TYPE))
+    if max ~= nil and max <= 0 then   -- no mana at all: a warrior, a rogue
+        regenText:Hide()
+        return
+    end
+    regenText:Show()
+    local full, casting = GetManaRegen()
+    if Secret(full) or Secret(casting) or not full then return end
+    casting = casting or full
+    local per5 = function(v) return math.floor(v * 5 + 0.5) end
+    local left = FSR - (GetTime() - lastSpend)
+    if left > 0 then
+        regenText:SetFormattedText("|cffe6c370MP5|r %d  |cff8c8c8c%d in %d s|r", per5(casting), per5(full), math.ceil(left))
+    else
+        regenText:SetFormattedText("|cffe6c370MP5|r %d  |cff8c8c8c%d after a cast|r", per5(full), per5(casting))
+    end
+end
+
 function Update()
     if preview then return end
-    local count = 0
-    for _, c in ipairs(members) do
-        if UnitExists(c.unit) then
-            FillLine(c)
-            count = count + 1
-        elseif not healer then
-            c:Hide()
+    UpdateRegen()
+    -- your group and its pets, or with the raid table every raid member
+    local count, raidMode = 0, RaidMode()
+    for _, c in ipairs(lines) do
+        if c ~= stranger then
+            if (c.kind == "raid") == raidMode and UnitExists(c.unit) then
+                FillLine(c)
+                count = count + 1
+            elseif not healer then
+                c:Hide()
+            end
         end
     end
     local extra = StrangerOn()
@@ -711,11 +1595,21 @@ function Update()
         stranger:SetAlpha(TargetInTable() and 0 or 1)
     end
     Stack(count, extra)
+    if cdDirty then ApplyCooldowns() end
     if not holder:IsShown() and not Locked() then holder:Show() end
     UpdateHints()
 end
 
 function ns.ApplyHotLayout()
+    cdDirty = true
+    if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end
+end
+
+-- the slots changed (hotBuffSlots, hotCastSlots, hotCustom): read the
+-- lists again; in the healer mode a fight delays the new layout to its end
+local Rebuilt   -- below
+function ns.ApplyHotList()
+    Rebuilt()
     if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end
 end
 
@@ -725,7 +1619,7 @@ function ns.ApplyHotStranger()
     ns.OutOfCombat("hotStranger", function()
         if healer and stranger then
             if StrangerWanted() then
-                RegisterStateDriver(stranger, "visibility", STRANGER_SHOWN)
+                RegisterStateDriver(stranger, "visibility", StrangerShown())
             else
                 UnregisterStateDriver(stranger, "visibility")
                 stranger:Hide()
@@ -747,14 +1641,27 @@ local function Tick(_, dt)
     Update()
 end
 
+function Rebuilt()
+    Rebuild()
+    UpdateOthersFilter()
+end
+
 local SPEC_EVENTS = { "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_TALENT_UPDATE", "SPELLS_CHANGED" }
-driver:SetScript("OnEvent", function(_, event)
+driver:SetScript("OnEvent", function(_, event, unit)
+    if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
+        -- the bar alone, at once; the rest of the line waits for the tick
+        local c = unit and byUnit[unit]
+        if c and not preview and Opt("hotHealth") then UpdateHealth(c) end
+        return
+    end
     if event == "PLAYER_TARGET_CHANGED" then
         RefreshUnit(stranger)
         if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end   -- the line's name and alpha at once
-    elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" then
-        -- party1 may be someone else now
-        for _, c in ipairs(members) do RefreshUnit(c) end
+    elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" or event == "UNIT_PET" then
+        -- party1 may be someone else now, and so may a pet or a raid token
+        for _, c in ipairs(lines) do
+            if c ~= stranger then RefreshUnit(c) end
+        end
     elseif event == "INPUT_DEVICE_INTERFACE_TRANSITION" then
         -- the style switch: the glyphs come or go with Update
     elseif event ~= "PLAYER_REGEN_ENABLED" and event ~= "PLAYER_REGEN_DISABLED" then
@@ -804,7 +1711,11 @@ local function ShowPreview(on)
     Sample(mate, 1, 136081, false)
     Finish(mate, 1)
     mate:Show()
-    Stack(2, false)
+    you:ClearAllPoints()
+    you:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, 0)
+    mate:ClearAllPoints()
+    mate:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(Size() + GAP))
+    holder:SetSize(LineWidth(#samples), 2 * (Size() + GAP) - GAP)
     holder:Show()
 end
 
@@ -813,6 +1724,7 @@ function ns.SetHotTracker(on)
     if on then
         for _, e in ipairs({ "PLAYER_TARGET_CHANGED", "GROUP_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD",
                              "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED", "INPUT_DEVICE_INTERFACE_TRANSITION",
+                             "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_PET",
                              unpack(SPEC_EVENTS) }) do
             if not C_EventUtils or C_EventUtils.IsEventValid(e) then driver:RegisterEvent(e) end
         end
@@ -832,6 +1744,8 @@ oUF:Factory(function()
     D.MakeMovable(holder, "HoTs", DeckUIForeverOrbsDB)
     loadedSize = Size()
     healer = DeckUIForeverOrbsDB.hotHealer and true or false
+    petsOn = Opt("hotPets")
+    raidOn = Opt("hotRaid")
     MakeLines()
     -- the friendly target modifier lights the glyphs the moment it is held
     if GamepadMode and GamepadMode.RegisterTargetModifierStateChanged then
@@ -858,19 +1772,39 @@ function ns.HotDebug()
     print(("  controller glyphs: option %s, gamepad style %s, party targeting %s, friendly modifier held %s"):format(
         DeckUIForeverOrbsDB.hotPadHints ~= false and "on" or "off", tostring(GamepadStyle()),
         tostring(HintsOn()), tostring(FriendlyModifierDown())))
+    local function OnOff(key) return Opt(key) and "on" or "off" end
+    print(("  extras: health %s, status %s, range %s, debuffs to remove %s (%s), missing buffs %s, cast buttons %s, pets %s (loaded %s), raid table %s (loaded %s, active %s), warning blink %s sound %s at %s s"):format(
+        OnOff("hotHealth"), OnOff("hotStatus"), OnOff("hotRange"), OnOff("hotDispel"), DISPEL_FILTER,
+        OnOff("hotBuffSlots"), OnOff("hotCastSlots"), OnOff("hotPets"), tostring(petsOn),
+        OnOff("hotRaid"), tostring(raidOn), tostring(RaidMode()),
+        OnOff("hotWarn"), OnOff("hotWarnSound"), tostring(DeckUIForeverOrbsDB.hotWarnAt or 3)))
+    do
+        -- what the game hands out for the regeneration line, raw (per second)
+        local full, casting
+        if GetManaRegen then full, casting = GetManaRegen() end
+        local function Show(v) return Secret(v) and "secret" or tostring(v) end
+        print(("  mana regeneration %s: GetManaRegen %s, full %s, after a cast %s, last mana spend %.1f s ago, mana readable %s, last seen: %s"):format(
+            OnOff("hotRegen"), GetManaRegen and "there" or "missing", Show(full), Show(casting),
+            lastSpend > 0 and (GetTime() - lastSpend) or -1, tostring(manaReadable), regenSeen))
+    end
+    if #customUnknown > 0 then
+        print("  your own list, not known to the game: " .. table.concat(customUnknown, ", "))
+    end
     for _, e in ipairs(LISTS[ListKey()] or {}) do
-        local name = SpellName(e.id)
+        print(("  list %d %s: known %s"):format(e.id, tostring(SpellName(e.id)), tostring(Known(e.known or e.id))))
+    end
+    for i, e in ipairs(entries) do
         local ids = {}
-        for _, entry in ipairs(entries) do
-            if entry.id == e.id then
-                for id in pairs(entry.ids) do ids[#ids + 1] = id end
-            end
-        end
+        for id in pairs(e.ids or {}) do ids[#ids + 1] = id end
         table.sort(ids)
-        print(("  %d %s: known %s, slot IDs %s"):format(e.id, tostring(name), tostring(Known(e.known or e.id)),
-            #ids > 0 and table.concat(ids, " ") or "-"))
+        print(("  slot %d: %s (%d), %s%s%s%s"):format(i, tostring(e.name), e.id, e.kind,
+            e.need == "cure" and (", only with " .. table.concat(e.types or {}, "/"))
+                or e.need == "dead" and ", only on the dead" or "",
+            e.custom and ", your own" or "",
+            #ids > 0 and (", IDs " .. table.concat(ids, " ")) or ""))
     end
     for _, c in ipairs(lines) do
+        if c.kind ~= "raid" or UnitExists(c.unit) then
         local slots = 0
         for _, s in ipairs(c.slots) do if s:IsShown() then slots = slots + 1 end end
         print(("  %s: %s, %s, row %s, raid index %s, slots %d%s"):format(c.unit,
@@ -879,5 +1813,6 @@ function ns.HotDebug()
             IsInRaid() and UnitExists(c.unit) and tostring(Ask(UnitInRaid(c.unit)) or "secret") or "-", slots,
             c == stranger and (", friendly " .. tostring(Friendly("target")) .. ", in the table " ..
                 tostring(GUID("target") ~= nil and InTable(GUID("target")))) or ""))
+        end
     end
 end

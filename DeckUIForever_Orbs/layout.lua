@@ -66,6 +66,22 @@ ns.DEFAULTS = {
     hotHealer       = false,       -- the HoT window's click to cast: secure buttons on the icons and names; /reload
     hotPadHints     = true,        -- the HoT window: Blizzard's targeting key before each name, gamepad style only
     hotStranger     = true,        -- the HoT window: a line for a friendly target outside the group; off = the group alone
+    -- the HoT window's extensions of 2026-11-10, all off (hots.lua's header has them)
+    hotHealth       = false,       -- a health capsule under each name
+    hotCooldown     = false,       -- a clock on a HoT-window slot while its spell is on cooldown
+    hotRegen        = false,      -- your mana regeneration (MP5) above the HoT window
+    hotHealthBlock  = false,      -- ... or the flat bar behind the whole name
+    hotStatus       = false,       -- Dead / Ghost / Offline over the icons
+    hotRange        = false,       -- a member out of range is dimmed
+    hotDispel       = false,       -- up to two debuffs you can remove, after the name
+    hotBuffSlots    = false,       -- your castable buffs as slots that show while missing
+    hotCastSlots    = false,       -- your direct heals and cures as buttons (healer mode only)
+    hotCustom       = "",          -- spells of your own, names or IDs between commas
+    hotPets         = false,       -- a line per party pet; /reload
+    hotRaid         = false,       -- in a raid a line per raid member; /reload
+    hotWarn         = false,       -- a HoT in its last seconds blinks
+    hotWarnSound    = false,       -- and plays a sound
+    hotWarnAt       = 3,           -- seconds before the end
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
     buffBar         = false,       -- own buff bar in FF style (buffs.lua), replaces Blizzard's; /reload
     -- the buff bar's switches (Buff bar page, 2026-10-30), live but for the two look ones

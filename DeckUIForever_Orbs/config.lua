@@ -320,6 +320,66 @@ D.RegisterModule("HoTs", {
         end, "Click a HoT icon to cast it on that member; click the name to target them. Works in combat. In this mode the window stays frozen during a fight and sorts itself again when the fight ends. Needs a reload.")
         f:Checkbox("Controller keys at the names (Steam Deck)", db, "hotPadHints", function() ns.ApplyHotHints() end,
             "Shows which controller key targets each member while you hold the target modifier: the D-pad for party members 1 to 4, the bottom face button for you. Only in the gamepad style, not in a raid.")
+        if loaded.hotPets == nil then loaded.hotPets = DeckUIForeverOrbsDB.hotPets and true or false end
+        if loaded.hotRaid == nil then loaded.hotRaid = DeckUIForeverOrbsDB.hotRaid and true or false end
+        f:Label("Who is listed")
+        f:Checkbox("Lines for pets", db, "hotPets", function(v)
+            D.NeedReload("orbs:hotPets", (v and true or false) ~= loaded.hotPets)
+        end, "Your pet and your party's pets get a line each, right under their owner - smaller, stepped in and the name pale blue. Not in the raid table. Needs a reload.")
+        f:Checkbox("The whole raid", db, "hotRaid", function(v)
+            D.NeedReload("orbs:hotRaid", (v and true or false) ~= loaded.hotRaid)
+        end, "In a raid, every raid member gets a line instead of only your group: one column per raid group, four columns side by side. To keep it narrow, the buff icons after the HoTs are left out there. Needs a reload.")
+        f:Label("On each line")
+        f:Checkbox("Health bar", db, "hotHealth", function() ns.ApplyHotLayout() end,
+            "A thin green bar under each name shows how much health the member has left.")
+        f:Checkbox("Health bar behind the name", db, "hotHealthBlock", function() ns.ApplyHotLayout() end,
+            "With the health bar on: a flat bar behind the whole name instead of the thin one under it.")
+        f:Checkbox("Dead, ghost or offline", db, "hotStatus", function() ns.ApplyHotLayout() end,
+            "A member who is dead, a ghost or offline is marked in words, and their icons step back.")
+        f:Checkbox("Dim members out of range", db, "hotRange", function() ns.ApplyHotLayout() end,
+            "The line of a member or pet too far away for your heals is dimmed.")
+        f:Checkbox("Debuffs you can remove", db, "hotDispel", function() ns.ApplyHotLayout() end,
+            "Up to two debuffs your class can remove show with a red rim between the name and your HoTs. The icon size follows the slider after a reload.")
+        f:Checkbox("Cooldown timers", db, "hotCooldown", function() ns.ApplyHotLayout() end,
+            "While one of your spells is on cooldown, its spot shows the time left. A heal's button gets a dark sweep with the time in the middle; on a HoT the time sits small on the top edge, above the HoT's own clock. Not for the global cooldown.")
+        f:Label("Above the window")
+        f:Checkbox("Your mana regeneration", db, "hotRegen", function() ns.ApplyHotLayout() end,
+            "A small line above the window: the mana you get back every five seconds right now (MP5). For five seconds after a spell that cost mana you get less; the grey number beside it is the other rate. Not for classes without mana.")
+        f:Label("More spells")
+        f:Checkbox("Your buffs while they are missing", db, "hotBuffSlots", function() ns.ApplyHotList() end,
+            "Buffs you can cast on others - Fortitude, Mark of the Wild, Arcane Intellect and the like - get a spot each. The icon shows only while the member lacks the buff, no matter who cast it. Not on pets. During a fight the window may not notice a buff that drops; it catches up when the fight ends.")
+        f:Checkbox("Your heals as buttons (healer mode)", db, "hotCastSlots", function() ns.ApplyHotList() end,
+            "With click to cast on: your direct heals, your cures and your resurrection get a button on every line. Click it to cast the spell on that member. A cure shows only while the member has a debuff you can remove, the resurrection only while the member is dead.")
+        f:Hint("Your own spells, by name or ID, separated by commas. Each gets a spot like a HoT. Press Enter to save.")
+        f:Add(30, function(parent, y)
+            local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+            edit:SetSize(300, 20)
+            edit:SetPoint("TOP", 0, y)
+            edit:SetAutoFocus(false)
+            edit:SetFontObject(ChatFontNormal)
+            local function Save(self)
+                DeckUIForeverOrbsDB.hotCustom = strtrim(self:GetText() or "")
+                self:ClearFocus()
+                ns.ApplyHotList()
+            end
+            edit:SetScript("OnEnterPressed", Save)
+            edit:SetScript("OnEscapePressed", function(self)
+                self:SetText(DeckUIForeverOrbsDB.hotCustom or "")
+                self:ClearFocus()
+            end)
+            edit:SetScript("OnShow", function(self) self:SetText(DeckUIForeverOrbsDB.hotCustom or "") end)
+            edit:SetText(DeckUIForeverOrbsDB.hotCustom or "")
+            D.Tip(edit, "Your own spells", "For example: Blessing of Might, Fear Ward. Only spells your character knows are taken; /orbs hots lists what was not recognised. Empty the box and press Enter to remove them.")
+            return edit
+        end)
+        f:Label("Warning before a HoT runs out")
+        f:Checkbox("Blink", db, "hotWarn", nil,
+            "A HoT in its last seconds pulses red. Where the game hides the time left during a fight, nothing blinks.")
+        f:Checkbox("Play a sound", db, "hotWarnSound", nil,
+            "A short sound when one of your HoTs enters its last seconds.")
+        f:Slider("Seconds before the end", 1, 10, 1, function(v) return v .. " s" end, db, "hotWarnAt",
+            function(v) DeckUIForeverOrbsDB.hotWarnAt = v end,
+            "How early the warning starts.")
         f:Label("Buffs")
         f:Checkbox("Show every buff, not only yours", db, "hotAllBuffs", function() ns.ApplyHotBuffs() end,
             "On: every buff on the member, long ones too, up to ten. Off: only your own buffs of a minute or less, up to six.")

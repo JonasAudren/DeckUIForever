@@ -2,7 +2,7 @@
 ## Title: DeckUIForever Pad
 ## Notes: DeckUIForever module: Blizzard's controller action bar in Final Fantasy XIV's hotbar look - the look only, the controls stay Blizzard's
 ## Author: Gottlieb
-## Version: 1.4.0
+## Version: 1.4.1
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Category: Action Bars

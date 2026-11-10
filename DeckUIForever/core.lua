@@ -228,6 +228,60 @@ function D.SetLocalBindings(localOnly)
     end
 end
 
+-- One button for the lot: the interface settings, the chat windows and the
+-- key bindings stop travelling through the server. Each is a client CVar
+-- of its own in Config.wtf, so per machine like synchronizeBindings above.
+-- The master switch synchronizeSettings is left alone on purpose: it would
+-- take the macros along, which nobody asked for. Edit Mode layouts and
+-- what sits on the action bars have no CVar - their checkboxes do that.
+D.SYNC_CVARS = { "synchronizeConfig", "synchronizeChatFrames", "synchronizeBindings" }
+
+-- true when none of them is synced any more (a CVar this client does not
+-- know is skipped; nil when it knows none of them)
+function D.SyncIsOff()
+    local known = false
+    for _, name in ipairs(D.SYNC_CVARS) do
+        local v = GetCVar(name)
+        if v ~= nil then
+            known = true
+            if v ~= "0" then return false end
+        end
+    end
+    return known or nil
+end
+
+function D.SetServerSync(on)
+    if InCombatLockdown() then
+        print("DeckUIForever: not in combat - try again after the fight.")
+        return
+    end
+    local changed = 0
+    for _, name in ipairs(D.SYNC_CVARS) do
+        if GetCVar(name) ~= nil then
+            SetCVar(name, on and "1" or "0")
+            changed = changed + 1
+        end
+    end
+    if changed == 0 then
+        print("DeckUIForever: this client has no switch for the server sync.")
+    elseif on then
+        -- no SaveBindings here either: it would upload this device's set
+        print("DeckUIForever: interface settings and key bindings are synced with the server again - the server's copy loads at the next login.")
+    else
+        -- start the local copy from the bindings loaded now
+        SaveBindings(GetCurrentBindingSet())
+        print("DeckUIForever: interface settings and key bindings now stay on this device. Do the same on your other devices.")
+    end
+end
+
+function D.PrintSync()
+    for _, name in ipairs(D.SYNC_CVARS) do
+        print(("DeckUIForever: %s = %s"):format(name, tostring(GetCVar(name))))
+    end
+    print(("DeckUIForever: synchronizeSettings = %s, synchronizeMacros = %s (not touched)"):format(
+        tostring(GetCVar("synchronizeSettings")), tostring(GetCVar("synchronizeMacros"))))
+end
+
 -- /df build - the numbers a release depends on. The interface number in
 -- our .toc files decides two things at once: whether WoW calls the addon
 -- out of date, and which game version the CurseForge upload is filed under,
