@@ -786,3 +786,10 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    Questie's start with the module on, the import, the compendium with and without Questie, the light quest
    details, the transparent self-target line. Not seen: the guided import's dialogs, the NPC dialog autopilot,
    the reward marks, zone tracking, the quest item key, the dock, the map level range.
+   **Released**: v1.4.1 on 2026-11-10 (the HoT window's optional parts - health capsule, status words, range,
+   removable debuffs, missing buffs, heal/cure/resurrection buttons, own spells, cooldown timers, MP5 line, pet
+   lines, raid table, the HoT warning -, the Bars recast timer, the sync switch, the bank fix, the auction scan's
+   longer wait; tag push, Release workflow run 42851899671, CurseForge file id 9543697, game version id 17053).
+   Seen in game before by the owner (screenshots): the health capsule, the pet lines, the cure and resurrection
+   conditions ("schon sehr gut"), the MP5 line. Not seen: the MP5 five-second clock's last fix (mana drop / cached
+   costs), the cooldown timers, the auction scan's wait, the sync switch.
