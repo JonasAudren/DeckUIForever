@@ -202,6 +202,37 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   trackpad's, and the Quests module's tracker is not Blizzard's `ObjectiveTrackerFrame`, so the HUD
   mode's first stop is missing with Quests on - both open.
 
+## Deck Heal (2026-11-11, owner: "bauen als Option und Unterfenster von HoTs: DeckHeal ... alles muss ausschaltbar sein")
+
+- `DeckUIForever_Orbs/padheal.lua` (after hots.lua in the toc; its header has the design): a healing layer for
+  the controller. The hub's Bindings.xml declares `CLICK DeckHealLayer:LeftButton` ("Deck Heal: healing layer
+  (hold)", core.lua). `DeckHealLayer` is a `SecureHandlerClickTemplate` registered for AnyDown and AnyUp: its
+  `_onclick` snippet lays PADDUP/RIGHT/DOWN/LEFT on `DeckHealPick1-4` (party1-4, Blizzard's friendly targeting
+  order) and PAD1/PAD3/PAD4/PAD2 (A, X, Y, B) on `DeckHealCast1-4` with `self:SetBindingClick(true, ...)` on key
+  down and `self:ClearBindings()` on key up (`toggle` attribute: each press switches). A pick's snippet writes
+  its token into the four cast buttons' `unit` (the picked one again = player; a token that does not exist is
+  refused through `UnitExists`); the casts are `SecureActionButtonTemplate` type spell, their `spell` set out of
+  combat only (`ApplySpells`, `ns.OutOfCombat`). None of the nine buttons is a child of the HoT window, so the
+  layer works with the window off and does not protect it. The frames are made the first time `padHeal` is on
+  (`Setup`); off, `enabled` is false and the snippet returns.
+- What shows is unprotected and driven by `CallMethod` (`LayerChanged`, `Picked` -> `Refresh`): the bar
+  `DeckOrbsDeckHeal` (movable "Deck Heal": picked member's name, four round icons with Blizzard's key pictures)
+  and a gold frame per member line of the HoT window (`MakeRings`: a child of `ns.HotLine(unit)` made out of
+  combat, alpha only afterwards; not for the raid table's lines).
+- Spells: `padHealSpells` (names or IDs between commas, four at most) or `ns.HotLayerSpells(4)` in hots.lua -
+  the class's `LISTS`, then `CASTS` without `need` from the end of the list (Lay on Hands carries
+  `layer = false`), then the cures.
+- Keys (layout.lua): `padHeal` (off), `padHealToggle` (off), `padHealSpells` (""), `padHealBar` (on),
+  `padHealFrame` (on); every switch calls `ns.ApplyPadHeal`, which also drops a layer that is on. Page
+  `DeckHeal` ("Deck Heal", config.lua) after HoTs under Orbs; `PAGE_FRAMES.DeckHeal`, `PAGE_RESET.DeckHeal`
+  (`^padHeal`, left out of the Orbs page's reset). `/orbs deckheal` (`ns.PadHealDebug`) prints the key, the
+  counts of key down / key up / picks / casts since login and each button's spell and unit.
+- **Untested in game.** Three things only the game answers, in this order: does the key's down *and* up reach
+  the handler (counts in `/orbs deckheal`; if no up, `padHealToggle`), may a secure handler set bindings in a
+  fight in Forever (the probe's wrap-script test was inconclusive), and does a priority override binding beat
+  Blizzard's gamepad action bar for the D-pad and face buttons. A new file and a Bindings.xml entry: the client
+  needs a restart, not only a reload.
+
 ## What phase 3 changed against DeckUI's modules (2026-11-05; owner's first test the same day: "all good" after the two fixes below)
 
 - **Spec**: `core.lua` is DeckUI's `core_mists.lua` (one button per talent group,
@@ -716,6 +747,50 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   `/df sync` (`D.PrintSync`). The master CVar `synchronizeSettings` and `synchronizeMacros` are left alone so
   macros stay synced. Only `synchronizeBindings` is confirmed to exist in the client; an unknown CVar is
   skipped. Edit Mode layouts and action bar contents have no CVar - their checkboxes stay. **Untested in game.**
+
+- **"Camera: maximum distance" (2026-11-11, owner: "einen Knopf für max Kameradistanz")**: a toggle button on the
+  Screen page under "Camera". `D.CAMERA_CVAR` (`cameraDistanceMaxZoomFactor`), `D.CameraIsMax()` (above the
+  CVar's default; nil without the CVar, then the button is not built), `D.SetCameraMax(on)` in core.lua: tries
+  4, 3.4, 2.6 and keeps the first the client reads back, then `CameraZoomOut(50)`; off sets
+  `C_CVar.GetCVarDefault`. No saved key of ours - the client stores the CVar. `/df camera` (`D.PrintCamera`).
+  **Untested in game**: which limit Forever accepts.
+
+- **"Hidden settings" (2026-11-11, owner: "ein neues Untermenü unter General mit allen Codes, Reihenfolge nach
+  deiner Prio und kurzer prägnanter Erklärung")**: `DeckUIForever/console.lua` (after panel.lua in the toc), page
+  key `Console`, last in the General group. `D.CONSOLE_SECTIONS` is the whole list (sections "Healing and the
+  Deck", "Controller", "Looks", "When an addon misbehaves"; items `{ cvar, kind = check|slider|cycle, label, tip,
+  ... }`); the page is built from it, the widgets read and write the CVar through two proxy tables (`bools`,
+  `numbers`) in place of a `db`, nothing of ours is saved. An item whose CVar the client does not know is left
+  out, an empty section too. Never written in combat (`Set`). `D.ResetConsole` (button on the page; the footer's
+  Defaults button is not used, `PAGE_RESET` has no entry), `/df cvars` (`D.PrintCVars`: value, default or
+  "unknown"). **The names and ranges are the retail engine's from memory, not checked against Forever** - run
+  `/df cvars` first; uncertain ones: the `SoftTargetFriend*` family, `GamePadVibrationStrength`, `autoUnshift`/
+  `autoStand`, `nameplateMaxDistance` (locked in retail). A stick dead zone was left out: no CVar name known.
+  **Untested in game.**
+
+- **Friendly nameplates in the FF look (2026-11-11, owner: "warum ich bei dem Softtarget für Heal nicht unseren
+  FFO-Style sehe")**: nameplates.lua's `Add` covered enemies only (`Enemy(unit)`), so the plate the game shows
+  for the soft friendly target kept Blizzard's look. Now a friend's plate is covered too (`f.friend`: green name,
+  bar and track) unless `DeckUIForeverDB.xivPlatesFriendly` is false (on by default, Targets page, `TARGET_KEYS`).
+  Plates the game does not hand out (`GetNamePlateForUnit` nil, friendly ones in instances in retail) keep
+  Blizzard's look as before. A friend is only a unit `UnitCanAssist` says true for and no game object: the
+  first build also covered the interact target's herb ("Mageroyal" twice, under softtarget.lua's name; owner's
+  screenshot the same day). **The fix is untested in game.**
+
+- **Two fixes from the owner's /df errors of 2026-11-11 (1.4.1), both untested in game.**
+  (1) `ADDON_ACTION_FORBIDDEN ... UseContainerItem` at `Mainline/ContainerFrame.lua:1611`: the click passes
+  `BankFrame:GetActiveBankType()` = `BankPanel:IsShown() and BankPanel.bankType`, and bank.lua wrote that field
+  (tainted). **Bags never writes `BankFrame.BankPanel.bankType` any more and keeps the panel hidden** (`InitBank`,
+  `OpenBank`, `CloseBank`), so the read is a clean nil; the deposit at the bank is ours: `ns.BankDeposit` from a
+  `PreClick` on every item button (core.lua `NewButton`; OnClick stays the template's) - right button, no
+  modifier, your bags only, `C_Container.PickupContainerItem` from the bag and onto a matching stack with room
+  or the first free slot of the bank type on show (`BankPlace`). Open: what the engine's
+  `UseContainerItem(bag, slot, nil, nil)` does afterwards on the locked slot (a red "item is locked" line would be
+  the sign), and whether a withdraw (right click in the bank window) works with a nil bank type.
+  (2) `ADDON_ACTION_BLOCKED` in party.lua's style function: a group header makes a member's button in a fight;
+  `ns.RowSetup(frame, w, h)` (layout.lua; party.lua `BuildRow`, raid.lua `BuildTile`) does `SetSize` and
+  `RegisterForClicks("AnyUp")` out of combat or at PLAYER_REGEN_ENABLED (`lateRows`) - the header's
+  `oUF-initialConfigFunction` has sized the button already.
 
 ## Audit
 

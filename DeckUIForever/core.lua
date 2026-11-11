@@ -84,6 +84,8 @@ BINDING_NAME_DECKUIFOREVER_WEEK = "Week overview: open / close"
 BINDING_NAME_DECKUIFOREVER_COMPENDIUM = "Quest compendium: open / close"
 -- a click binding: the key clicks the Questing module's secure quest item button
 _G["BINDING_NAME_CLICK DeckQuestingItem:LeftButton"] = "Quest item: use it"
+-- and the Orbs module's healing layer for the controller (padheal.lua): hold it
+_G["BINDING_NAME_CLICK DeckHealLayer:LeftButton"] = "Deck Heal: healing layer (hold)"
 function D.ToggleCompendium()
     if D.compendiumToggle then
         D.compendiumToggle()
@@ -280,6 +282,56 @@ function D.PrintSync()
     end
     print(("DeckUIForever: synchronizeSettings = %s, synchronizeMacros = %s (not touched)"):format(
         tostring(GetCVar("synchronizeSettings")), tostring(GetCVar("synchronizeMacros"))))
+end
+
+-- The camera as far out as the client allows (owner 2026-11-11: "einen
+-- Knopf für max Kameradistanz"). The game's slider stops short of what
+-- the CVar cameraDistanceMaxZoomFactor takes; how far that goes differs
+-- between the clients (2.6 in retail, more in the Classic ones), so the
+-- candidates are tried from the top and the first the client keeps stands.
+-- The client saves the CVar itself; nothing of ours is stored.
+D.CAMERA_CVAR = "cameraDistanceMaxZoomFactor"
+local CAMERA_TRIES = { 4, 3.4, 2.6 }
+
+local function CameraFactor() return tonumber(GetCVar(D.CAMERA_CVAR) or "") end
+local function CameraDefault()
+    return tonumber(C_CVar and C_CVar.GetCVarDefault and C_CVar.GetCVarDefault(D.CAMERA_CVAR) or "") or 1.9
+end
+
+-- true while the limit is above the client's default; nil when the client
+-- has no such CVar
+function D.CameraIsMax()
+    local now = CameraFactor()
+    if not now then return nil end
+    return now > CameraDefault() + 0.01
+end
+
+function D.SetCameraMax(on)
+    if not CameraFactor() then
+        print("DeckUIForever: this client has no setting for the camera's distance limit.")
+        return
+    end
+    if not on then
+        SetCVar(D.CAMERA_CVAR, CameraDefault())
+        print(("DeckUIForever: the camera's distance limit is back at the game's default (%s)."):format(
+            tostring(CameraFactor())))
+        return
+    end
+    for _, value in ipairs(CAMERA_TRIES) do
+        pcall(SetCVar, D.CAMERA_CVAR, value)
+        local now = CameraFactor()
+        if now and now >= value - 0.01 then break end
+    end
+    -- and out to the new limit at once
+    if CameraZoomOut then pcall(CameraZoomOut, 50) end
+    print(("DeckUIForever: the camera now zooms out as far as the game allows (limit %s)."):format(
+        tostring(CameraFactor())))
+end
+
+function D.PrintCamera()
+    print(("DeckUIForever: %s = %s (default %s), zoom now %s"):format(D.CAMERA_CVAR,
+        tostring(GetCVar(D.CAMERA_CVAR)), tostring(CameraDefault()),
+        GetCameraZoom and ("%.1f"):format(GetCameraZoom()) or "?"))
 end
 
 -- /df build - the numbers a release depends on. The interface number in
@@ -616,6 +668,7 @@ local DEFAULTS = {
     rankMarks     = true,    -- elite/rare/boss emblems before enemy names (rankmark.lua)
     targetArrow   = false,   -- FFXIV's arrow over the target's nameplate (targetarrow.lua)
     xivPlates     = false,   -- enemy nameplates as FFXIV draws them (nameplates.lua)
+    xivPlatesFriendly = true, -- with xivPlates: friends' plates too, in green (the soft friendly target's among them)
     plateSpace    = true,    -- and wider spacing between them (nameplates.lua sets the CVars)
     infoServer    = false,   -- FFXIV's server info: realm, mail, latency, time (infobars.lua)
     infoGold      = false,   -- the gold you carry, with a coin

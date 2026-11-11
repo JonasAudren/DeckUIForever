@@ -5,4 +5,5 @@
     <Binding name="DECKUIFOREVER_WEEK" category="ADDONS">DeckUIForever.ToggleWeek()</Binding>
     <Binding name="DECKUIFOREVER_COMPENDIUM" category="ADDONS">DeckUIForever.ToggleCompendium()</Binding>
     <Binding name="CLICK DeckQuestingItem:LeftButton" category="ADDONS"/>
+    <Binding name="CLICK DeckHealLayer:LeftButton" category="ADDONS"/>
 </Bindings>

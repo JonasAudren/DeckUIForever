@@ -201,8 +201,7 @@ end
 
 local function BuildTile(self, unit)
     local w, h = Size()
-    self:SetSize(w, h)
-    self:RegisterForClicks("AnyUp")
+    ns.RowSetup(self, w, h)   -- not in a fight: a member may join in one
     self:SetScript("OnEnter", ns.GroupOnEnter)
     self:SetScript("OnLeave", GameTooltip_Hide)
     self.DeckDispelButtons = {}

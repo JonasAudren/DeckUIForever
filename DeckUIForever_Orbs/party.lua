@@ -164,8 +164,7 @@ end
 
 local function BuildRow(self, unit)
     local xiv = ns.GroupXIV()
-    self:SetSize(W, H)
-    self:RegisterForClicks("AnyUp")
+    ns.RowSetup(self, W, H)   -- not in a fight: a member may join in one
     self:SetScript("OnEnter", OnEnter)
     self:SetScript("OnLeave", GameTooltip_Hide)
 

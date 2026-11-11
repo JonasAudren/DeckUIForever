@@ -62,7 +62,7 @@ local oUF = ns.oUF
 -- Click to cast (hotHealer, off, /reload; owner 2026-11-07: "a healer
 -- mode - click the missing icon and the HoT goes on the target"). Every
 -- slot gets a SecureActionButton over the icon (type spell, the heal's
--- name - the highest rank - and the line's unit token), the name one
+-- highest rank by its spell ID, ns.HotTopRank - and the line's unit token), the name one
 -- that targets the member. Their attributes never change in a fight:
 -- each slot's spell and unit are fixed, so the game lets them cast in
 -- combat. The price: a secure button protects its parents, so in combat
@@ -202,7 +202,7 @@ local CASTS = {
                 Res(20484) },                                                 -- Rebirth
     PALADIN = { { id = 635 }, { id = 19750 },                                 -- Holy Light, Flash of Light
                 Cure(4987, MAGIC, POISON, DISEASE), Cure(1152, POISON, DISEASE),   -- Cleanse, Purify
-                { id = 633 }, Res(7328) },                                    -- Lay on Hands, Redemption
+                { id = 633, layer = false }, Res(7328) },                     -- Lay on Hands (never a Deck Heal default), Redemption
     SHAMAN  = { { id = 331 }, { id = 8004 }, { id = 1064 },                   -- Healing Wave, Lesser Healing Wave, Chain Heal
                 Cure(526, POISON), Cure(2870, DISEASE), Res(2008) },          -- Cure Poison, Cure Disease, Ancestral Spirit
     MAGE    = { Cure(475, CURSE) },                                           -- Remove Lesser Curse
@@ -243,6 +243,35 @@ local function RankIDs(e, name)
         end
     end
     return ids
+end
+
+-- The spell ID of the highest rank of `name` the character has, or
+-- `fallback`. A button that casts by name got a lower rank on Forever
+-- (owner 2026-11-11), so the buttons cast this ID instead. Highest: the
+-- rank number of the subtext ("Rank 4"), then the level it is learnt at,
+-- then the later spellbook entry (the book lists ranks upwards).
+function ns.HotTopRank(name, fallback)
+    if not (name and C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) then return fallback end
+    local bank = Enum.SpellBookSpellBank.Player
+    local spellType = Enum.SpellBookItemType and Enum.SpellBookItemType.Spell
+    local best, bestRank, bestLevel
+    for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
+        local info = C_SpellBook.GetSpellBookSkillLineInfo(line)
+        for i = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+            local item = C_SpellBook.GetSpellBookItemInfo(i, bank)
+            local id = item and item.name == name and (not spellType or item.itemType == spellType)
+                and not item.isPassive and not item.isOffSpec and item.spellID
+            if id then
+                local sub = C_Spell and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(id)
+                local rank = tonumber(type(sub) == "string" and sub:match("%d+") or nil) or 0
+                local level = C_Spell and C_Spell.GetSpellLevelLearned and C_Spell.GetSpellLevelLearned(id) or 0
+                if not best or rank > bestRank or (rank == bestRank and level >= bestLevel) then
+                    best, bestRank, bestLevel = id, rank, level
+                end
+            end
+        end
+    end
+    return best or fallback
 end
 
 local entries = {}
@@ -345,6 +374,7 @@ local function Rebuild()
             end
         end
     end
+    for _, e in ipairs(entries) do e.cast = ns.HotTopRank(e.name, e.id) end
     ns.ApplyHotExclusion()
 end
 
@@ -658,7 +688,7 @@ local function SlotFrame(c, i)
         cast:SetScript("OnEnter", function(b)
             if not s.entry then return end
             GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
-            GameTooltip:SetSpellByID(s.entry.id)
+            GameTooltip:SetSpellByID(s.entry.cast or s.entry.id)
             GameTooltip:Show()
         end)
         cast:SetScript("OnLeave", GameTooltip_Hide)
@@ -751,8 +781,9 @@ local function DeadOnly(s, e)
     end
 end
 
--- the slot's spell: the name casts the highest rank; in a fight the
--- attribute waits (pendingSpell), FillLine assigns again after it
+-- the slot's spell: the ID of the highest rank (e.cast, ns.HotTopRank),
+-- the name where there is none; in a fight the attribute waits
+-- (pendingSpell), FillLine assigns again after it
 local function Assign(s, e)
     s.entry = e
     cdDirty = true
@@ -777,9 +808,9 @@ local function Assign(s, e)
     end
     if s.cast then
         if InCombatLockdown() then
-            s.pendingSpell = e.name
+            s.pendingSpell = e.cast or e.name
         else
-            s.cast:SetAttribute("spell", e.name)
+            s.cast:SetAttribute("spell", e.cast or e.name)
             DeadOnly(s, e)
             s.pendingSpell = nil
         end
@@ -1740,6 +1771,41 @@ function ns.SetHotTracker(on)
     end
 end
 
+-------------------------------------------------------------------
+-- What padheal.lua (Deck Heal) asks of this file
+-------------------------------------------------------------------
+-- the line of a unit token (player, party1-4), nil before the factory ran
+function ns.HotLine(unit) return byUnit[unit] end
+
+-- The spells Deck Heal casts when the player named none: your HoTs, then
+-- your direct heals - the later of the list first, they are the stronger
+-- ones (a priest's Flash Heal before Lesser Heal) - then your cures. Only
+-- what the character knows, each name once, `max` at most.
+function ns.HotLayerSpells(max)
+    local list, seen = {}, {}
+    local function Take(id)
+        if #list >= max then return end
+        local n = Known(id) and SpellName(id)
+        if n and not seen[n] then
+            seen[n] = true
+            list[#list + 1] = { name = n, id = id, icon = SpellIcon(id), cast = ns.HotTopRank(n, id) }
+        end
+    end
+    local key = ListKey()
+    for _, e in ipairs(LISTS[key] or {}) do
+        if Known(e.known or e.id) then Take(e.id) end
+    end
+    local casts = CASTS[key] or {}
+    for i = #casts, 1, -1 do
+        local e = casts[i]
+        if not e.need and e.layer ~= false then Take(e.id) end
+    end
+    for _, e in ipairs(casts) do
+        if e.need == "cure" then Take(e.id) end
+    end
+    return list
+end
+
 oUF:Factory(function()
     D.MakeMovable(holder, "HoTs", DeckUIForeverOrbsDB)
     loadedSize = Size()
@@ -1791,7 +1857,10 @@ function ns.HotDebug()
         print("  your own list, not known to the game: " .. table.concat(customUnknown, ", "))
     end
     for _, e in ipairs(LISTS[ListKey()] or {}) do
-        print(("  list %d %s: known %s"):format(e.id, tostring(SpellName(e.id)), tostring(Known(e.known or e.id))))
+        local top = ns.HotTopRank(SpellName(e.id), e.id)
+        print(("  list %d %s: known %s, casts %s %s"):format(e.id, tostring(SpellName(e.id)),
+            tostring(Known(e.known or e.id)), tostring(top),
+            tostring(C_Spell and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(top) or "")))
     end
     for i, e in ipairs(entries) do
         local ids = {}

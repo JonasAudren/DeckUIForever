@@ -10,7 +10,8 @@ local D = DeckUIForever
 -- potion in combat, selling at a merchant, posting at the auction house,
 -- depositing at the bank, splitting stacks - and it only stays untainted
 -- because it learns its bag through an attribute (SetBagID) rather than
--- a field we write. So we never set a click script of our own on them;
+-- a field we write. So we never set an OnClick of our own on them (a
+-- PreClick is there since 2026-11-11, for the deposit at the bank);
 -- we only fill in what they show. Bank tabs are ordinary bag IDs, so the
 -- same template serves the bank.
 -------------------------------------------------------------------
@@ -97,6 +98,12 @@ local function NewButton(grid, bag)
     b.DeckFreeKind = b:CreateFontString(nil, "OVERLAY")
     b.DeckFreeKind:SetFont(D.FONT, 9, "OUTLINE")
     b.DeckFreeKind:SetPoint("BOTTOM", 0, 3)
+    -- At the bank a right click deposits, and that part is ours (bank.lua's
+    -- header has the why). PreClick is a script of its own: it runs before
+    -- the template's OnClick and leaves that one untouched and secure.
+    b:SetScript("PreClick", function(self, mouse)
+        if ns.BankDeposit then ns.BankDeposit(self, mouse) end
+    end)
     return b
 end
 

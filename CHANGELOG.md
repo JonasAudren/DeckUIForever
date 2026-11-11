@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.5.0
+
+- Deck Heal (new page under "Your HoTs", off until you tick it): heal
+  with the controller, without mouse or target change. Bind a key under
+  Key Bindings, AddOns, "Deck Heal: healing layer" - on the Steam Deck a
+  back paddle works well. While you hold it, D-pad up, right, down, left
+  picks party member 1 to 4 and A, X, Y, B cast four spells on the picked
+  member; it starts on you, and the picked member's direction again goes
+  back to you. Let go and every key is back to normal. The four spells
+  are your HoTs and heals, or a list of your own. A small bar shows who
+  is picked and what each button casts, and the member's line in the HoT
+  window gets a gold frame; both can be switched off, and the key can
+  switch the layer instead of holding it. /orbs deckheal prints what the
+  layer sees.
+- Screen: a button "Camera: maximum distance". The camera then zooms out
+  further than the game's own slider allows, and does so at once; the
+  same button puts the game's default limit back. /df camera prints the
+  value.
+- Bags: no more "DeckUIForever_Bags tried to call UseContainerItem()" on
+  a right click at the bank. The bank window no longer writes into
+  Blizzard's bank frame; a right click on a bag item at the bank now
+  puts the item into the bank on show itself - onto a matching stack
+  with room, else into the first free slot.
+- Your HoTs: with "Click to cast" on, a click now casts the highest rank
+  you know - it could cast a lower one. Deck Heal does the same; give a
+  spell ID in its list if you want one fixed rank. `/orbs hots` names the
+  rank each spell casts.
+- Party and raid frames: no more "tried to call SetSize /
+  RegisterForClicks" when a member joins during a fight. The new
+  member's frame is finished when the fight ends; until then a left
+  click on it targets, the right-click menu waits.
+- Nameplates: with the Final Fantasy XIV nameplates on, friends now get
+  the same look in green - until now only enemies did, so the friend
+  your next heal would go to (the soft friendly target) showed
+  Blizzard's nameplate. "Friendly nameplates too" on the Targets page
+  switches it off.
+- A new page "Hidden settings" under General: settings the game has but
+  does not show in its own menu, as switches, sliders and buttons with a
+  short explanation each - healing without a target on the friend you
+  face, always comparing items, leaving a form or a mount to cast, the
+  controller's camera speed and vibration, the over-the-shoulder camera,
+  looting speed, nameplate distance and spacing, the combat numbers, the
+  glow and weather effects, and two helpers for bug reports. Only what
+  this game knows is listed; one button puts them all back to the game's
+  defaults. /df cvars prints every name and value.
+
 ## 1.4.1
 
 - Bags: no more error from Blizzard's bank code (BankFrame.lua:43,

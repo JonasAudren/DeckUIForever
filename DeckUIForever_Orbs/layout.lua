@@ -82,6 +82,12 @@ ns.DEFAULTS = {
     hotWarn         = false,       -- a HoT in its last seconds blinks
     hotWarnSound    = false,       -- and plays a sound
     hotWarnAt       = 3,           -- seconds before the end
+    -- Deck Heal (padheal.lua, 2026-11-11): the healing layer for the controller
+    padHeal         = false,       -- the layer itself; off, nothing of it exists
+    padHealToggle   = false,       -- the key switches the layer on and off instead of holding it
+    padHealSpells   = "",          -- up to four spells, names or IDs between commas; empty = the class's
+    padHealBar      = true,        -- the small bar with the picked member and the four spells
+    padHealFrame    = true,        -- a gold frame around the picked member's line in the HoT window
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
     buffBar         = false,       -- own buff bar in FF style (buffs.lua), replaces Blizzard's; /reload
     -- the buff bar's switches (Buff bar page, 2026-10-30), live but for the two look ones
@@ -395,9 +401,32 @@ end
 
 ns.OutOfCombat = OutOfCombat
 
+-- A group header makes a member's button the moment the member joins - in
+-- a fight too (owner 2026-11-11: a fourth party member mid-fight, "tried
+-- to call SetSize / RegisterForClicks" from party.lua's style function).
+-- The header's own secure snippet has sized the button already
+-- (oUF-initialConfigFunction); the size and the clicks from our side wait
+-- for the end of the fight, quietly. Until then the button takes a left
+-- click (the game's default), which targets.
+local lateRows = {}
+function ns.RowSetup(frame, w, h)
+    local function Setup()
+        frame:SetSize(w, h)
+        frame:RegisterForClicks("AnyUp")
+    end
+    if InCombatLockdown() then
+        lateRows[#lateRows + 1] = Setup
+    else
+        Setup()
+    end
+end
+
 local regen = CreateFrame("Frame")
 regen:RegisterEvent("PLAYER_REGEN_ENABLED")
 regen:SetScript("OnEvent", function()
+    local rows = lateRows
+    lateRows = {}
+    for _, fn in ipairs(rows) do fn() end
     for kind, fn in pairs(deferred) do
         deferred[kind] = nil
         fn()
@@ -793,6 +822,9 @@ SlashCmdList.DECKORBS = function(msg)
     elseif msg == "hots" then
         -- the HoT window's list and which unit it shows (hots.lua)
         ns.HotDebug()
+    elseif msg == "deckheal" then
+        -- the controller's healing layer: keys, spells, what it saw (padheal.lua)
+        ns.PadHealDebug()
     elseif msg == "bosses" then
         -- what the boss frames see: the units, our frames, Blizzard's
         print(("DeckUIForever Orbs bosses: style %s, show %s, frames %d, holder %s"):format(

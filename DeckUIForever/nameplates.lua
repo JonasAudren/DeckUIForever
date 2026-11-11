@@ -27,6 +27,13 @@ local BAR_ENEMY = { 0.9, 0.25, 0.25 }
 -- neutral creatures (reaction 4) are yellow, as the game draws them
 local NAME_NEUTRAL = { 1, 0.9, 0.4 }
 local BAR_NEUTRAL = { 0.95, 0.8, 0.2 }
+-- friends (owner 2026-11-11: the soft friendly target for heals showed
+-- Blizzard's plate - only enemies were ever covered): green, as the HoT
+-- window's health capsule. DeckUIForeverDB.xivPlatesFriendly, on.
+local NAME_FRIEND = { 0.6, 0.95, 0.6 }
+local BAR_FRIEND = { 0.3, 0.82, 0.3 }
+local TRACK_ENEMY = { 0.2, 0.05, 0.05 }
+local TRACK_FRIEND = { 0.05, 0.16, 0.05 }
 local TAPPED = { 0.55, 0.55, 0.55 }
 local LEVEL_PLAIN = { 0.9, 0.85, 0.7 }
 local LEVEL_SKULL = { 1, 0.1, 0.1 }
@@ -66,7 +73,7 @@ local function NewPlate()
     local track = bar:CreateTexture(nil, "BACKGROUND", nil, -7)
     track:SetAllPoints()
     track:SetColorTexture(0.2, 0.05, 0.05, 0.85)
-    f.bar = bar
+    f.bar, f.track = bar, track
 
     -- level small, then marker and name, all left above the bar
     local level = Text(f, 10)
@@ -95,7 +102,7 @@ end
 local function Release(f)
     f:Hide()
     f:ClearAllPoints()
-    f.unit, f.plate = nil, nil
+    f.unit, f.plate, f.friend = nil, nil, nil
     pool[#pool + 1] = f
 end
 
@@ -144,10 +151,13 @@ local function Fill(f)
     f.bar:SetValue(UnitHealth(unit))
     local tapped = Ask(UnitIsTapDenied(unit))
     local neutral = Ask(UnitReaction(unit, "player")) == 4
-    local c = tapped and TAPPED or neutral and BAR_NEUTRAL or BAR_ENEMY
+    local friend = f.friend
+    local c = friend and BAR_FRIEND or tapped and TAPPED or neutral and BAR_NEUTRAL or BAR_ENEMY
     f.bar:SetStatusBarColor(c[1], c[2], c[3])
-    local n = tapped and TAPPED or neutral and NAME_NEUTRAL or NAME_ENEMY
+    local n = friend and NAME_FRIEND or tapped and TAPPED or neutral and NAME_NEUTRAL or NAME_ENEMY
     f.name:SetTextColor(n[1], n[2], n[3])
+    local t = friend and TRACK_FRIEND or TRACK_ENEMY
+    f.track:SetColorTexture(t[1], t[2], t[3], 0.85)
 
     local index = Ask(GetRaidTargetIndex(unit))
     f.name:ClearAllPoints()
@@ -181,9 +191,21 @@ end
 local function Add(unit)
     Remove(unit)
     local plate = C_NamePlate.GetNamePlateForUnit(unit)
-    if not plate or not Enemy(unit) then return end
+    if not plate then return end
+    -- a friend's plate - a party member's, or the one the game shows for
+    -- the soft friendly target - is covered only when asked for
+    local enemy = Enemy(unit)
+    if not enemy then
+        if DeckUIForeverDB.xivPlatesFriendly == false then return end
+        -- only someone you could help: a herb, a chest or a quest object
+        -- under the interact target has a plate too and is neither friend
+        -- nor foe (owner 2026-11-11: "Mageroyal" twice - our plate under
+        -- the interact target's name)
+        if UnitIsGameObject and Ask(UnitIsGameObject(unit)) then return end
+        if Ask(UnitCanAssist("player", unit)) ~= true then return end
+    end
     local f = Acquire()
-    f.unit, f.plate = unit, plate
+    f.unit, f.plate, f.friend = unit, plate, not enemy
     f:SetPoint("CENTER", plate, "CENTER", 0, 0)
     Fill(f)
     f:Show()
@@ -274,7 +296,7 @@ function D.ApplyPlates()
                              "RAID_TARGET_UPDATE", "UNIT_CLASSIFICATION_CHANGED" }) do
             if not C_EventUtils or C_EventUtils.IsEventValid(e) then ev:RegisterEvent(e) end
         end
-        All(Add)
+        All(Add)   -- Add drops a plate that is no longer wanted (the friends' switch)
     else
         ev:UnregisterAllEvents()
         for unit in pairs(active) do Remove(unit) end

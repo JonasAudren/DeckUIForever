@@ -9,13 +9,22 @@ local D = DeckUIForever
 -- AccountBankTab_1..5 (12-16). The old Bank (-1), BankBag_1..7 and the
 -- reagent bank are gone. Read in Blizzard's 12.1.0 source, 2026-09-29.
 --
--- Blizzard's BankFrame cannot simply be replaced: a right click on a bag
--- item at the bank deposits into BankFrame:GetActiveBankType(), which is
--- nil unless the frame and its BankPanel are shown. So the frame is parked
--- like the bag frames - shown, under a hidden parent - and we write the
--- bank type we display into BankPanel.bankType. The same thing Inventorian
--- does. Setting it through BankPanel:SetBankType() instead would rebuild
--- Blizzard's whole (invisible) panel on every switch.
+-- Blizzard's BankFrame cannot simply be replaced: it is a UI panel the
+-- game shows and hides, so it is parked like the bag frames - shown, under
+-- a hidden parent.
+--
+-- A right click on a bag item at the bank: Blizzard's click handler calls
+-- UseContainerItem(bag, slot, nil, BankFrame:GetActiveBankType(), ...)
+-- (Mainline/ContainerFrame.lua:1611), and GetActiveBankType is
+-- "BankPanel:IsShown() and BankPanel.bankType". Until 1.4.1 we showed the
+-- panel and wrote the bank type we display into BankPanel.bankType (what
+-- Inventorian does). A field written by an addon is tainted, the click
+-- read it, and the protected UseContainerItem was refused: "DeckUIForever_
+-- Bags tried to call UseContainerItem()" (owner 2026-11-11). Nothing of
+-- ours can write that field cleanly, so now nothing writes it: the panel
+-- stays hidden, GetActiveBankType is a clean nil, and the deposit is ours
+-- (ns.BankDeposit below, from the item button's PreClick): the item is
+-- picked up and put into the bank we show, before Blizzard's handler runs.
 --
 -- The window shows one bank tab at a time, like Blizzard's: a tab holds
 -- 98 slots, and six of them in one grid would be 2000 pixels tall.
@@ -346,8 +355,7 @@ window.OnRefresh = ns.RefreshBankChrome
 
 SetType = function(bankType)
     activeType = bankType
-    -- what a right click on a bag item deposits into; see the note on top
-    BankFrame.BankPanel.bankType = bankType
+    -- BankPanel.bankType is never written: see the note on top
     if not InCombatLockdown() then
         purchase:SetAttribute("overrideBankType", bankType)
     end
@@ -420,9 +428,10 @@ end
 
 local function OpenBank(interaction)
     atBank = true
-    -- Blizzard's OnShow never runs under the hidden parent, so the two
-    -- things it would do are done here: show the panel, open the bags.
-    BankFrame.BankPanel:Show()
+    -- Blizzard's OnShow never runs under the hidden parent, so what it
+    -- would do is done here: open the bags. The panel stays hidden (the
+    -- note on top).
+    BankFrame.BankPanel:Hide()
     local prefer = interaction == Enum.PlayerInteractionType.AccountBanker and ACCOUNT or activeType
     SetType(FirstViewable(prefer))
     window:Show()
@@ -434,19 +443,63 @@ local function CloseBank()
     atBank = false
     window:Hide()
     BankFrame.BankPanel:Hide()
-    -- Blizzard reads the bank type two ways: BankPanel.bankType directly,
-    -- and through BankFrame:GetActiveBankType(), which is nil while the
-    -- panel is hidden. The bag-cost money display (BankPanel.MoneyDisplay)
-    -- was seen listening to PLAYER_MONEY with the panel hidden (1.4.0,
-    -- 2026-11-09): its Refresh reads the first, passes, triggers
-    -- ShowOrHideBagCost, which reads the second and hands Blizzard's own
-    -- code a nil (Camelot/BankFrame.lua:43). Leave the type as it is in
-    -- Blizzard's own closed bank, nil, so Refresh stops at its guard, and
-    -- drop the listener in case the hidden parent swallowed its OnHide.
-    BankFrame.BankPanel.bankType = nil
+    -- The bag-cost money display (BankPanel.MoneyDisplay) was seen
+    -- listening to PLAYER_MONEY with the panel hidden (1.4.0, 2026-11-09):
+    -- its Refresh read a bank type we had written, passed its guard and
+    -- handed Blizzard's own code a nil (Camelot/BankFrame.lua:43). The
+    -- type is no longer written at all (the note on top), so the guard
+    -- holds; the listener is still dropped in case the hidden parent
+    -- swallowed its OnHide.
     local money = BankFrame.BankPanel.MoneyDisplay
     if money then money:UnregisterEvent("PLAYER_MONEY") end
     CloseAllBags(BankFrame)
+end
+
+-- A right click on a bag item at the bank puts it into the bank we show
+-- (the note on top has the why). Called from every item button's PreClick
+-- (core.lua): our own code, so only what an addon may do - pick the item
+-- up and put it down. Onto a stack of the same item with room for all of
+-- it, else into the first free slot, the tab on show first. Blizzard's
+-- click handler runs after this and finds the slot locked or empty.
+-- Nothing happens with a modifier held (those clicks are Blizzard's:
+-- split, link, compare), with something on the cursor, at a merchant, or
+-- when the bank is full - then the click is Blizzard's alone, as before.
+local function BankPlace(bankType, itemID, amount)
+    local tabs, first = {}, SelectedTab(bankType)
+    if first then tabs[1] = first.ID end
+    for _, tab in ipairs(TabData(bankType)) do
+        if not first or tab.ID ~= first.ID then tabs[#tabs + 1] = tab.ID end
+    end
+    local max = C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(itemID) or 1
+    local freeBag, freeSlot
+    for _, bag in ipairs(tabs) do
+        for slot = 1, ns.NumSlots(bag) do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if not info then
+                if not freeBag then freeBag, freeSlot = bag, slot end
+            elseif max > 1 and info.itemID == itemID and not info.isLocked
+                and (info.stackCount or 1) + amount <= max then
+                return bag, slot
+            end
+        end
+    end
+    return freeBag, freeSlot
+end
+
+function ns.BankDeposit(button, mouse)
+    if not atBank or mouse ~= "RightButton" or IsModifiedClick() then return end
+    if GetCursorInfo() or (MerchantFrame and MerchantFrame:IsShown()) then return end
+    local bag, slot = button:GetBagID(), button:GetID()
+    local last = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4
+    if not bag or bag < 0 or bag > last then return end   -- your bags only: a bank item's click withdraws
+    if Locked(activeType) or not C_Bank.CanUseBank(activeType) then return end
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if not info or info.isLocked or not info.itemID then return end
+    local toBag, toSlot = BankPlace(activeType, info.itemID, info.stackCount or 1)
+    if not toBag then return end
+    C_Container.PickupContainerItem(bag, slot)
+    C_Container.PickupContainerItem(toBag, toSlot)
+    if GetCursorInfo() then ClearCursor() end   -- the bank did not take it: back where it was
 end
 
 -- Closing our window (X, Escape) ends the conversation with the banker;
@@ -477,6 +530,7 @@ end)
 
 function ns.InitBank()
     ParkBankFrame()
+    BankFrame.BankPanel:Hide()   -- hidden for good: GetActiveBankType then never reads a field
     D.MakeMovable(window, "Bank", DeckUIForeverBagsDB)
     D.MakeDraggable(window)
 end

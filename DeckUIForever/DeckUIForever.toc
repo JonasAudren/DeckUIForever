@@ -2,7 +2,7 @@
 ## Title: DeckUIForever
 ## Notes: Hub for the DeckUIForever modules: DeckUI for World of Warcraft: Forever - unit frames, cross hotbar and more for Steam Deck and PC
 ## Author: Gottlieb
-## Version: 1.4.1
+## Version: 1.5.0
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Curse-Project-ID: 1784984
@@ -24,6 +24,7 @@ widgets.lua
 gamepad.lua
 reputation.lua
 panel.lua
+console.lua
 actionbars.lua
 editmode.lua
 damagemeter.lua

@@ -399,6 +399,59 @@ D.RegisterModule("HoTs", {
     end,
 })
 
+-- Deck Heal (owner 2026-11-11: "als Option und Unterfenster von HoTs ...
+-- alles muss ausschaltbar sein"): healing with the controller, a held key
+-- turns the D-pad and the face buttons into a healing layer. padheal.lua.
+D.RegisterModule("DeckHeal", {
+    title = "Deck Heal",
+    build = function(c)
+        local f = D.Flow(c)
+        c.widgets = c.widgets or {}
+        f:Hint("Heal with the controller, without mouse or target change. Hold a key: the D-pad picks a party member, the four face buttons cast a spell on them. Let go and every key is back to normal.")
+        f:Label("The layer")
+        f:Checkbox("Use Deck Heal", db, "padHeal", function() ns.ApplyPadHeal() end,
+            "While you hold the Deck Heal key: D-pad up, right, down, left picks party member 1 to 4, and A, X, Y, B cast your four spells on the picked member. It always starts on you; press the picked member's direction again to go back to yourself. Your target stays as it is. Works in combat and without the HoT window. Off, nothing changes on your controller.")
+        -- made with the longer text, so the page keeps room for two lines
+        local NO_KEY = "No key yet: Options, Key Bindings, AddOns, \"Deck Heal: healing layer\"."
+        local keyHint = f:Hint(NO_KEY)
+        function keyHint:Refresh()
+            local key = ns.PadHealKey()
+            self:SetText(key and ("Deck Heal key: " .. key) or NO_KEY)
+        end
+        keyHint:Refresh()
+        table.insert(c.widgets, keyHint)
+        f:Checkbox("Press to switch instead of hold", db, "padHealToggle", function() ns.ApplyPadHeal() end,
+            "One press of the key turns the layer on, the next turns it off. For when holding a key is awkward, or if letting go is not noticed on your device.")
+        f:Label("Spells")
+        f:Hint("Up to four spells for A, X, Y, B, by name or ID, separated by commas. Empty: your HoTs first, then your heals. Press Enter to save.")
+        f:Add(30, function(parent, y)
+            local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+            edit:SetSize(300, 20)
+            edit:SetPoint("TOP", 0, y)
+            edit:SetAutoFocus(false)
+            edit:SetFontObject(ChatFontNormal)
+            edit:SetScript("OnEnterPressed", function(self)
+                DeckUIForeverOrbsDB.padHealSpells = strtrim(self:GetText() or "")
+                self:ClearFocus()
+                ns.ApplyPadHeal()
+            end)
+            edit:SetScript("OnEscapePressed", function(self)
+                self:SetText(DeckUIForeverOrbsDB.padHealSpells or "")
+                self:ClearFocus()
+            end)
+            edit:SetScript("OnShow", function(self) self:SetText(DeckUIForeverOrbsDB.padHealSpells or "") end)
+            edit:SetText(DeckUIForeverOrbsDB.padHealSpells or "")
+            D.Tip(edit, "Deck Heal spells", "For example: Renew, Power Word: Shield, Flash Heal, Dispel Magic. Only spells your character knows are taken; /orbs deckheal lists what each button casts. A change during a fight takes effect after it.")
+            return edit
+        end)
+        f:Label("What you see")
+        f:Checkbox("Bar with member and spells", db, "padHealBar", function() ns.ApplyPadHeal() end,
+            "While the layer is on, a small bar shows who is picked and which button casts which spell. Move it with Move below.")
+        f:Checkbox("Gold frame in the HoT window", db, "padHealFrame", function() ns.ApplyPadHeal() end,
+            "While the layer is on, the picked member's line in the HoT window gets a gold frame. Not in the whole-raid table.")
+    end,
+})
+
 -- The party list has a tab of its own: the Orbs tab is full, and the
 -- window cannot grow on the Deck's 800-pixel screen. The raid frames got
 -- theirs when they gained their settings (2026-10-02).

@@ -60,8 +60,8 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -- pages of a hint and six checkboxes each); the Orbs page is "Unit
 -- frames", the Overview "Modules", the Units group "Frames".
 D.PAGE_GROUPS = {
-    { title = "General",   pages = { "General", "Devices", "Screen", "Targets", "Windows" } },
-    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "Group", "Raid" } },
+    { title = "General",   pages = { "General", "Devices", "Screen", "Targets", "Windows", "Console" } },
+    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "DeckHeal", "Group", "Raid" } },
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
     { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
@@ -81,7 +81,7 @@ D.PAGE_NAMES = {
 -- target as many plus six sliders). A sub-page of a module registers with
 -- the module, so a module that is off shows only its stand-in.
 D.PAGE_PARENT = {
-    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", HoTs = "Orbs",
+    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", HoTs = "Orbs", DeckHeal = "Orbs",
     BuffBar = "Orbs", Enemies = "Orbs",
     CrossController = "Cross",
     MapWorld = "Map",
@@ -349,6 +349,7 @@ D.PAGE_FRAMES = {
     FrameTarget = { "Target", "Target (FF)" },
     Debuffs = { "Debuffs" },
     HoTs    = { "HoTs" },
+    DeckHeal = { "Deck Heal" },
     BuffBar = { "Buffs" },
     Enemies = { "Focus", "Focus (FF)", "Boss frames", "Boss frames (FF)", "Enemy list" },
     Group   = { "Party" },
@@ -380,6 +381,7 @@ local function GroupKey(k) return k == "showParty" or k:find("^party") ~= nil en
 local function RaidKey(k) return k == "showRaid" or k:find("^raid") ~= nil end
 local function DotKey(k) return k:find("^dot") ~= nil end
 local function HotKey(k) return k:find("^hot") ~= nil end
+local function PadHealKey(k) return k:find("^padHeal") ~= nil end
 local function PlayerKey(k) return k:find("^player") ~= nil end
 local function TargetKey(k) return k:find("^target") ~= nil end
 local function ToTKey(k) return k:find("^tot") ~= nil end
@@ -390,13 +392,13 @@ local function BuffBarKey(k) return BUFFBAR_KEYS[k] == true or k:find("^buffBar"
 local function EnemyKey(k) return ENEMY_KEYS[k] == true end
 -- the Overview's three sub-pages share DeckUIForeverDB with everything else of the hub
 local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true, dock = true }
-local TARGET_KEYS = { targetArrow = true, xivPlates = true, plateSpace = true, rankMarks = true,
+local TARGET_KEYS = { targetArrow = true, xivPlates = true, xivPlatesFriendly = true, plateSpace = true, rankMarks = true,
                       softTargetName = true, softTargetCast = true }
 local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow = true }
 D.PAGE_RESET = {
     Orbs    = { db = "DeckUIForeverOrbsDB", match = function(k)
         return not (GroupKey(k) or RaidKey(k) or HotKey(k) or DotKey(k) or PlayerKey(k) or TargetKey(k) or ToTKey(k)
-                    or BuffBarKey(k) or EnemyKey(k))
+                    or BuffBarKey(k) or EnemyKey(k) or PadHealKey(k))
     end },
     BuffBar = { db = "DeckUIForeverOrbsDB", match = BuffBarKey },
     Enemies = { db = "DeckUIForeverOrbsDB", match = EnemyKey },
@@ -408,6 +410,7 @@ D.PAGE_RESET = {
     FrameToT    = { db = "DeckUIForeverOrbsDB", match = ToTKey },
     Debuffs = { db = "DeckUIForeverOrbsDB", match = DotKey },
     HoTs    = { db = "DeckUIForeverOrbsDB", match = HotKey },
+    DeckHeal = { db = "DeckUIForeverOrbsDB", match = PadHealKey },
     Group   = { db = "DeckUIForeverOrbsDB", match = GroupKey },
     Raid    = { db = "DeckUIForeverOrbsDB", match = RaidKey },
     Cross   = { db = "DeckUIForeverCrossDB" },   -- phase 4: the module does not exist yet, its page is a stand-in
@@ -802,6 +805,19 @@ panel:AddTab("Screen", {
             f:Checkbox("DeckUIForever's dock", db, "dock", function() D.ApplyDock() end,
                 "A small panel with round buttons for the settings, the week overview and the quest compendium, as the modules are on. Drag it by any button, or move it with Move below.")
         end
+        if D.CameraIsMax() ~= nil then
+            f:Label("Camera")
+            local function CameraText()
+                return D.CameraIsMax() and "Camera: back to normal distance" or "Camera: maximum distance"
+            end
+            c.widgets = c.widgets or {}
+            local camBtn = f:Button(CameraText(), function()
+                D.SetCameraMax(not D.CameraIsMax())
+                D.RefreshWidgets(c)
+            end, "Lets the camera zoom out further than the game's own slider allows, and zooms out at once. Press again to go back to the game's default limit. The game remembers it; /df camera prints the value.")
+            function camBtn:Refresh() self:SetText(CameraText()) end
+            table.insert(c.widgets, camBtn)
+        end
     end,
 })
 
@@ -814,6 +830,8 @@ panel:AddTab("Targets", {
             f:Label("Nameplates")
             f:Checkbox("Enemy nameplates like Final Fantasy XIV", db, "xivPlates", function() D.ApplyPlates() end,
                 "Over each enemy only its level, marker, name and a thin red health bar. Clicking a plate still targets.")
+            f:Checkbox("Friendly nameplates too", db, "xivPlatesFriendly", function() D.ApplyPlates() end,
+                "With the Final Fantasy XIV nameplates on: friends get the same look in green - party members, and the friend your next heal would go to. Off, friends keep Blizzard's nameplate.")
             f:Checkbox("Keep the nameplates apart", db, "plateSpace", function() D.ApplyPlates() end,
                 "The game stacks the plates instead of letting them overlap.")
         end
@@ -1033,6 +1051,10 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         D.PrintDevice()
     elseif msg == "sync" then
         D.PrintSync()
+    elseif msg == "camera" then
+        D.PrintCamera()
+    elseif msg == "cvars" then
+        if D.PrintCVars then D.PrintCVars() end
     elseif msg == "build" then
         D.PrintBuild()
     elseif DEBUG_COMMANDS[msg] then
