@@ -868,3 +868,10 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    Seen in game before by the owner (screenshots): the health capsule, the pet lines, the cure and resurrection
    conditions ("schon sehr gut"), the MP5 line. Not seen: the MP5 five-second clock's last fix (mana drop / cached
    costs), the cooldown timers, the auction scan's wait, the sync switch.
+   **Released**: v1.5.0 on 2026-11-11 (Deck Heal, the "Hidden settings" page, the camera button, friendly
+   FFXIV nameplates, the highest rank on the HoT window's cast buttons, the bank's UseContainerItem fix, the
+   party/raid frame setup after a fight; tag push, Release workflow run 43055679670, CurseForge file id 9559840,
+   game version id 17053). Seen in game before by the owner: only the friendly nameplates (a screenshot). Not
+   seen: Deck Heal, the hidden settings (`/df cvars` says which Forever knows), the camera limit, the bank's
+   own deposit on a right click (and withdrawing with a nil bank type), the rank fix (`/orbs hots` prints the
+   rank), the late frame setup.
