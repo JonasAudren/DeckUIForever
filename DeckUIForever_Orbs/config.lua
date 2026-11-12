@@ -441,7 +441,9 @@ D.RegisterModule("DeckHeal", {
         f:Checkbox("Press to switch instead of hold", db, "padHealToggle", function() ns.ApplyPadHeal() end,
             "One press of the key turns the layer on, the next turns it off. For when holding a key is awkward, or if letting go is not noticed on your device.")
         f:Label("Spells")
-        f:Hint("Up to four spells for A, X, Y, B, by name or ID, separated by commas. Empty: your HoTs first, then your heals. Press Enter to save.")
+        f:Checkbox("Second set of spells with R", db, "padHealSecond", function() ns.ApplyPadHeal() end,
+            "Four more spells: while you hold the Deck Heal key, hold R as well and A, X, Y, B cast spells five to eight. Let go of R and the first four are back. Without the Deck Heal key, R does what it always does.")
+        f:Hint("Up to four spells for A, X, Y, B - eight with the second set - by name or ID, separated by commas. Empty: your HoTs first, then your heals from the weakest to the strongest, then your cures. Press Enter to save.")
         f:Add(30, function(parent, y)
             local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
             edit:SetSize(300, 20)
@@ -459,7 +461,7 @@ D.RegisterModule("DeckHeal", {
             end)
             edit:SetScript("OnShow", function(self) self:SetText(DeckUIForeverOrbsDB.padHealSpells or "") end)
             edit:SetText(DeckUIForeverOrbsDB.padHealSpells or "")
-            D.Tip(edit, "Deck Heal spells", "For example: Renew, Power Word: Shield, Flash Heal, Dispel Magic. Only spells your character knows are taken; /orbs deckheal lists what each button casts. A change during a fight takes effect after it.")
+            D.Tip(edit, "Deck Heal spells", "For example: Renew, Power Word: Shield, Flash Heal, Dispel Magic. With the second set the fifth to eighth spell are the ones on R. Only spells your character knows are taken; /orbs deckheal lists what each button casts. A change during a fight takes effect after it.")
             return edit
         end)
         f:MoreSection("What you see")

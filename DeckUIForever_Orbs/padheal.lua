@@ -42,18 +42,29 @@ local oUF = ns.oUF
 --
 -- Keys, all off or harmless until padHeal is ticked: padHeal (the layer
 -- itself; off, nothing is even created), padHealToggle (press to switch
--- instead of hold), padHealSpells (up to four names or IDs between commas;
--- empty: ns.HotLayerSpells picks), padHealBar, padHealFrame,
+-- instead of hold), padHealSpells (up to four names or IDs between commas,
+-- eight with padHealSecond; empty: ns.HotLayerSpells picks), padHealBar, padHealFrame,
 -- padHealModifier (on: in the gamepad style the friend-targeting button,
 -- L, is the layer's key - see `hold` below).
 -- /orbs deckheal prints what the layer saw.
+--
+-- A second set of four (padHealSecond, off; owner 2026-11-12 after the
+-- first Deck test: "die restlichen Heilungen auch noch drauf bekommen",
+-- R as the switch). Eight cast buttons instead of four; while the layer is
+-- on, the other shoulder button (R, Blizzard's enemy-target modifier)
+-- clicks DeckHealShift, a SecureHandlerClickTemplate whose snippet lays
+-- A, X, Y, B on the casts 5-8 while it is held and back on 1-4 when it
+-- is let go. The bindings are the layer's, so letting go of L clears them
+-- all; every start of the layer is the first set. Without L, R is the
+-- game's as ever.
 --
 -- UNTESTED IN GAME, and three things only the game answers: whether
 -- Forever lets a secure handler set bindings in a fight, whether a
 -- priority override binding beats Blizzard's gamepad action bar, and
 -- whether the binding's key-up reaches the handler (if not: padHealToggle).
 -------------------------------------------------------------------
-local SLOTS = 4
+local SLOTS = 4         -- the face buttons, and the spells of one set
+local SETS = 2          -- with padHealSecond: a second set while R is held
 local BINDING = "CLICK DeckHealLayer:LeftButton"
 local ICON, NAME_W, PAD, GAP = 26, 92, 6, 8
 local GOLD = { 1, 0.82, 0.3 }
@@ -102,6 +113,7 @@ local holdKeys = {}
 local TEST_HOLD = "TAB"
 local TEST_PICKS = { "UP", "RIGHT", "DOWN", "LEFT" }
 local TEST_CASTS = { "1", "2", "3", "4" }
+local TEST_SHIFT = "5"
 
 local function GamepadStyle()
     return InputUtil and InputUtil.IsGamepadUIEnabled and InputUtil.IsGamepadUIEnabled() or false
@@ -112,6 +124,16 @@ local function FriendKeys()
     swapped = ok and swapped and true or false
     local a, b = GetBindingKey(swapped and "GAMEPADRIGHTTARGETMODIFIER" or "GAMEPADLEFTTARGETMODIFIER")
     if not a then a = swapped and "PADRSHOULDER" or "PADLSHOULDER" end
+    return a, b
+end
+
+-- the button that switches to the second set while the layer is on: the
+-- other target modifier (R; L with the modifiers swapped)
+local function ShiftKeys()
+    local ok, swapped = pcall(C_CVar.GetCVarBool, "GamepadSwapTargetModifiers")
+    swapped = ok and swapped and true or false
+    local a, b = GetBindingKey(swapped and "GAMEPADLEFTTARGETMODIFIER" or "GAMEPADRIGHTTARGETMODIFIER")
+    if not a then a = swapped and "PADLSHOULDER" or "PADRSHOULDER" end
     return a, b
 end
 
@@ -162,6 +184,13 @@ bar.name:SetWordWrap(false)
 bar.name:SetPoint("LEFT", PAD, 0)
 bar.name:SetWidth(NAME_W)
 bar.name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+-- with the second set: which four are on the buttons right now
+bar.page = bar:CreateFontString(nil, "OVERLAY")
+bar.page:SetFont(ns.FONT, 9, "OUTLINE")
+bar.page:SetJustifyH("LEFT")
+bar.page:SetPoint("BOTTOMLEFT", PAD, 4)
+bar.page:SetWidth(NAME_W)
+bar.page:Hide()
 
 bar.slots = {}
 for i, def in ipairs(CASTS) do
@@ -201,8 +230,17 @@ local function PaintBar(unit)
         name = UnitName(unit) or unit
     end
     bar.name:SetText(name)
+    local second = DeckUIForeverOrbsDB.padHealSecond and true or false
+    local page = second and layer and layer:GetAttribute("page") or 1
+    bar.name:ClearAllPoints()
+    bar.name:SetPoint("LEFT", PAD, second and 5 or 0)
+    bar.page:SetShown(second)
+    if second then
+        bar.page:SetText(page == 2 and "second set" or "hold R: second set")
+        bar.page:SetTextColor(page == 2 and GOLD[1] or 0.6, page == 2 and GOLD[2] or 0.6, page == 2 and GOLD[3] or 0.6)
+    end
     for i, s in ipairs(bar.slots) do
-        local spell = spells[i]
+        local spell = spells[(page - 1) * SLOTS + i]
         s.icon:SetTexture(spell and spell.icon or 134400)
         s.icon:SetDesaturated(not spell)
         s:SetAlpha(spell and 1 or 0.35)
@@ -274,6 +312,21 @@ local LAYER_CLICK = [[
     self:SetAttribute("active", on)
     if on then
         self:SetAttribute("unit", "player")
+        self:SetAttribute("page", 1)
+        for i = 5, 8 do
+            self:GetFrameRef("cast" .. i):SetAttribute("unit", "player")
+        end
+        -- the second set's switch (R), where the option gave it a key
+        local sn = self:GetFrameRef("shift"):GetName()
+        for i = 1, 2 do
+            local sk = self:GetAttribute("shiftkey" .. i)
+            if sk then
+                self:SetBindingClick(true, sk, sn)
+                self:SetBindingClick(true, "CTRL-" .. sk, sn)
+                self:SetBindingClick(true, "SHIFT-" .. sk, sn)
+                self:SetBindingClick(true, "ALT-" .. sk, sn)
+            end
+        end
         for i = 1, 4 do
             local cast = self:GetFrameRef("cast" .. i)
             cast:SetAttribute("unit", "player")
@@ -313,10 +366,32 @@ local PICK_CLICK = [[
         return
     end
     layer:SetAttribute("unit", unit)
-    for i = 1, 4 do
+    for i = 1, 8 do
         layer:GetFrameRef("cast" .. i):SetAttribute("unit", unit)
     end
     self:CallMethod("Picked")
+]]
+
+-- R while the layer is on: down lays the face buttons on the casts 5-8,
+-- up back on 1-4. The bindings stay the layer's own.
+local SHIFT_CLICK = [[
+    local layer = self:GetFrameRef("layer")
+    if not layer:GetAttribute("active") then return end
+    local page = down and 2 or 1
+    if layer:GetAttribute("page") == page then return end
+    layer:SetAttribute("page", page)
+    for i = 1, 4 do
+        local ck = layer:GetAttribute("castkey" .. i)
+        local cn = layer:GetFrameRef("cast" .. ((page - 1) * 4 + i)):GetName()
+        layer:SetBindingClick(true, ck, cn)
+        layer:SetBindingClick(true, "CTRL-" .. ck, cn)
+        layer:SetBindingClick(true, "SHIFT-" .. ck, cn)
+        layer:SetBindingClick(true, "ALT-" .. ck, cn)
+        if layer:GetAttribute("test") then
+            layer:SetBindingClick(true, layer:GetAttribute("casttest" .. i), cn)
+        end
+    end
+    self:CallMethod("PageChanged")
 ]]
 
 -- out of a fight only
@@ -334,7 +409,8 @@ local function Setup()
         end
         Refresh()
     end
-    for i, def in ipairs(CASTS) do
+    -- eight cast buttons: 1-4 the first set, 5-8 the second (padHealSecond)
+    for i = 1, SLOTS * SETS do
         local b = CreateFrame("Button", "DeckHealCast" .. i, UIParent, "SecureActionButtonTemplate")
         b:RegisterForClicks("AnyDown", "AnyUp")   -- the template keeps the one the key-down setting wants
         b:SetAttribute("type", "spell")
@@ -342,10 +418,22 @@ local function Setup()
         b:HookScript("PostClick", function() seen.casts = seen.casts + 1 end)
         casts[i] = b
         layer:SetFrameRef("cast" .. i, b)
+    end
+    for i, def in ipairs(CASTS) do
         layer:SetAttribute("castkey" .. i, def.key)
         layer:SetAttribute("casttest" .. i, TEST_CASTS[i])
         layer:SetAttribute("picktest" .. i, TEST_PICKS[i])
     end
+    local shift = CreateFrame("Button", "DeckHealShift", UIParent, "SecureHandlerClickTemplate")
+    shift:RegisterForClicks("AnyDown", "AnyUp")
+    shift:SetFrameRef("layer", layer)
+    shift:SetAttribute("_onclick", SHIFT_CLICK)
+    function shift:PageChanged()
+        seen.shifts = (seen.shifts or 0) + 1
+        Refresh()
+    end
+    layer:SetFrameRef("shift", shift)
+    layer:SetAttribute("page", 1)
     for i, def in ipairs(PICKS) do
         local b = CreateFrame("Button", "DeckHealPick" .. i, UIParent, "SecureHandlerClickTemplate")
         b:RegisterForClicks("AnyDown")
@@ -371,6 +459,7 @@ end
 local function ReadSpells()
     wipe(spells)
     wipe(unknown)
+    local max = SLOTS * (Opt("padHealSecond") and SETS or 1)
     local text = DeckUIForeverOrbsDB.padHealSpells
     if type(text) == "string" and strtrim(text) ~= "" then
         for token in text:gmatch("[^,;\n]+") do
@@ -378,7 +467,7 @@ local function ReadSpells()
             if token ~= "" then
                 local id = tonumber(token)
                 local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(id or token)
-                if info and info.name and #spells < SLOTS then
+                if info and info.name and #spells < max then
                     -- a name casts its highest rank; an ID is the rank the player picked
                     spells[#spells + 1] = { name = info.name, id = info.spellID, icon = info.iconID,
                         cast = id or (ns.HotTopRank and ns.HotTopRank(info.name, info.spellID)) }
@@ -390,7 +479,7 @@ local function ReadSpells()
         if #spells > 0 then return end
     end
     if ns.HotLayerSpells then
-        for i, spell in ipairs(ns.HotLayerSpells(SLOTS)) do spells[i] = spell end
+        for i, spell in ipairs(ns.HotLayerSpells(max)) do spells[i] = spell end
     end
 end
 
@@ -424,7 +513,19 @@ function ns.ApplyPadHeal()
         if on then MakeRings() end
         layer:SetAttribute("enabled", on)
         layer:SetAttribute("toggle", Opt("padHealToggle"))
-        layer:SetAttribute("test", D.DeckTestOn and D.DeckTestOn() or false)
+        local test = D.DeckTestOn and D.DeckTestOn() or false
+        layer:SetAttribute("test", test)
+        -- the second set's switch: R, and "5" while the hub's Deck test runs
+        local k1, k2
+        if on and Opt("padHealSecond") then
+            if GamepadStyle() then k1, k2 = ShiftKeys() end
+            if test then
+                if not k1 then k1 = TEST_SHIFT else k2 = TEST_SHIFT end
+            end
+        end
+        layer:SetAttribute("shiftkey1", k1)
+        layer:SetAttribute("shiftkey2", k2)
+        layer:SetAttribute("page", 1)
         layer:SetAttribute("active", false)
         layer:SetAttribute("unit", "player")
         ClearOverrideBindings(layer)
@@ -492,11 +593,20 @@ function ns.PadHealDebug()
     print(("  bar %s, frame in the HoT window %s (%d lines framed)"):format(
         Wanted("padHealBar") and "on" or "off", Wanted("padHealFrame") and "on" or "off",
         (function() local n = 0 for _ in pairs(rings) do n = n + 1 end return n end)()))
-    for i, def in ipairs(CASTS) do
-        local spell = spells[i]
-        print(("  %s (%s): %s%s"):format(def.short, def.key, spell and spell.name or "nothing",
-            casts[i] and (", button casts " .. tostring(casts[i]:GetAttribute("spell")) ..
-                " on " .. tostring(casts[i]:GetAttribute("unit"))) or ""))
+    local second = Opt("padHealSecond")
+    print(("  second set with R: %s, switch keys %s %s, switched %d times, set now: %s"):format(
+        second and "on" or "off", tostring(layer and layer:GetAttribute("shiftkey1") or "-"),
+        tostring(layer and layer:GetAttribute("shiftkey2") or ""), seen.shifts or 0,
+        tostring(layer and layer:GetAttribute("page") or "-")))
+    for set = 1, second and SETS or 1 do
+        for i, def in ipairs(CASTS) do
+            local n = (set - 1) * SLOTS + i
+            local spell = spells[n]
+            print(("  %s%s (%s): %s%s"):format(set == 2 and "R + " or "", def.short, def.key,
+                spell and spell.name or "nothing",
+                casts[n] and (", button casts " .. tostring(casts[n]:GetAttribute("spell")) ..
+                    " on " .. tostring(casts[n]:GetAttribute("unit"))) or ""))
+        end
     end
     for i, def in ipairs(PICKS) do
         print(("  %s: %s, %s"):format(def.key, def.unit,

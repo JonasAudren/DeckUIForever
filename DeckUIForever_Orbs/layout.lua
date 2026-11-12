@@ -87,6 +87,7 @@ ns.DEFAULTS = {
     padHealToggle   = false,       -- the key switches the layer on and off instead of holding it
     padHealModifier = true,        -- gamepad style: the friend-targeting button (L) is the layer's key
     padHealSpells   = "",         -- up to four spells, names or IDs between commas; empty = the class's
+    padHealSecond   = false,       -- a second set of four spells while R is held with the layer on
     padHealBar      = true,        -- the small bar with the picked member and the four spells
     padHealFrame    = true,        -- a gold frame around the picked member's line in the HoT window
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload

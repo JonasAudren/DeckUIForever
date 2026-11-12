@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.2
+
+- Deck Heal: a second set of spells. New switch "Second set of spells
+  with R" on the Deck Heal page (off): while you hold the Deck Heal key,
+  hold R as well and A, X, Y, B cast spells five to eight; let go of R
+  and the first four are back. The spell list takes up to eight names,
+  and the small bar shows which set is on the buttons.
+- Deck Heal: without a list of your own, the heals after your HoTs now
+  come from the weakest to the strongest, each in its highest rank - a
+  priest's Lesser Heal, Flash Heal, Heal, Greater Heal. Until now the
+  strongest came first.
+
 ## 1.5.1
 
 - The settings window is easier to find your way in:

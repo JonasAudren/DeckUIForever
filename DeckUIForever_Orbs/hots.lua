@@ -191,20 +191,23 @@ local BUFFS = {
 -- etwas debuffen kann und Resurrect nur bei Toten"): "cure" while the
 -- member carries a debuff you can remove (types: the kinds this spell
 -- takes), "dead" while the member is dead. The heals are always there.
+-- power: how much a heal heals next to the class's others, 1 the least -
+-- Deck Heal fills its buttons in that order (ns.HotLayerSpells); the
+-- order here is the HoT window's.
 local MAGIC, CURSE, DISEASE, POISON = "Magic", "Curse", "Disease", "Poison"
 local function Cure(id, ...) return { id = id, need = "cure", types = { ... } } end
 local function Res(id) return { id = id, need = "dead" } end
 local CASTS = {
-    PRIEST  = { { id = 2050 }, { id = 2054 }, { id = 2060 }, { id = 2061 },   -- Lesser Heal, Heal, Greater Heal, Flash Heal
+    PRIEST  = { { id = 2050, power = 1 }, { id = 2054, power = 3 }, { id = 2060, power = 4 }, { id = 2061, power = 2 },   -- Lesser Heal, Heal, Greater Heal, Flash Heal
                 Cure(527, MAGIC), Cure(528, DISEASE), Cure(552, DISEASE),     -- Dispel Magic, Cure Disease, Abolish Disease
                 Res(2006) },                                                  -- Resurrection
     DRUID   = { { id = 5185 },                                                -- Healing Touch
                 Cure(2782, CURSE), Cure(8946, POISON), Cure(2893, POISON),    -- Remove Curse, Cure Poison, Abolish Poison
                 Res(20484) },                                                 -- Rebirth
-    PALADIN = { { id = 635 }, { id = 19750 },                                 -- Holy Light, Flash of Light
+    PALADIN = { { id = 635, power = 2 }, { id = 19750, power = 1 },           -- Holy Light, Flash of Light
                 Cure(4987, MAGIC, POISON, DISEASE), Cure(1152, POISON, DISEASE),   -- Cleanse, Purify
                 { id = 633, layer = false }, Res(7328) },                     -- Lay on Hands (never a Deck Heal default), Redemption
-    SHAMAN  = { { id = 331 }, { id = 8004 }, { id = 1064 },                   -- Healing Wave, Lesser Healing Wave, Chain Heal
+    SHAMAN  = { { id = 331, power = 2 }, { id = 8004, power = 1 }, { id = 1064, power = 3 },   -- Healing Wave, Lesser Healing Wave, Chain Heal
                 Cure(526, POISON), Cure(2870, DISEASE), Res(2008) },          -- Cure Poison, Cure Disease, Ancestral Spirit
     MAGE    = { Cure(475, CURSE) },                                           -- Remove Lesser Curse
 }
@@ -1860,9 +1863,12 @@ end
 function ns.HotLine(unit) return byUnit[unit] end
 
 -- The spells Deck Heal casts when the player named none: your HoTs, then
--- your direct heals - the later of the list first, they are the stronger
--- ones (a priest's Flash Heal before Lesser Heal) - then your cures. Only
--- what the character knows, each name once, `max` at most.
+-- your direct heals from the weakest to the strongest (owner 2026-11-12,
+-- after the first Deck test: "vom schwächsten zum stärksten, aber immer
+-- mit dem höchsten Rang" - a priest's Lesser Heal, Flash Heal, Heal,
+-- Greater Heal; CASTS' power, the list's order without it), then your
+-- cures. Only what the character knows, each name once in its highest
+-- rank, `max` at most.
 function ns.HotLayerSpells(max)
     local list, seen = {}, {}
     local function Take(id)
@@ -1878,10 +1884,15 @@ function ns.HotLayerSpells(max)
         if Known(e.known or e.id) then Take(e.id) end
     end
     local casts = CASTS[key] or {}
-    for i = #casts, 1, -1 do
-        local e = casts[i]
-        if not e.need and e.layer ~= false then Take(e.id) end
+    local heals = {}
+    for i, e in ipairs(casts) do
+        if not e.need and e.layer ~= false then heals[#heals + 1] = { id = e.id, power = e.power or i, i = i } end
     end
+    table.sort(heals, function(a, b)
+        if a.power ~= b.power then return a.power < b.power end
+        return a.i < b.i
+    end)
+    for _, e in ipairs(heals) do Take(e.id) end
     for _, e in ipairs(casts) do
         if e.need == "cure" then Take(e.id) end
     end

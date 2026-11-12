@@ -220,8 +220,18 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   and a gold frame per member line of the HoT window (`MakeRings`: a child of `ns.HotLine(unit)` made out of
   combat, alpha only afterwards; not for the raid table's lines).
 - Spells: `padHealSpells` (names or IDs between commas, four at most) or `ns.HotLayerSpells(4)` in hots.lua -
-  the class's `LISTS`, then `CASTS` without `need` from the end of the list (Lay on Hands carries
-  `layer = false`), then the cures.
+  the class's `LISTS`, then `CASTS` without `need` from the weakest to the strongest (the entries' `power`,
+  the list's order without it; owner's wish after the first Deck test 2026-11-12, for 1.5.2 - before that the
+  end of the list came first; Lay on Hands carries `layer = false`), then the cures. The owner reported the
+  same day that Deck Heal "scheint gut zu gehen" on the Deck.
+- **Second set (2026-11-12, owner: "ja bau das so mit R als Umschalter", for 1.5.2; untested)**: option
+  `padHealSecond` (off). Eight cast buttons `DeckHealCast1-8`; `DeckHealShift` (SecureHandlerClickTemplate,
+  `SHIFT_CLICK`) is bound by the layer's own snippet to the other target modifier (`ShiftKeys`: R, attributes
+  `shiftkey1/2`, "5" in the hub's Deck test) and re-lays A/X/Y/B on casts 5-8 while held (`page` attribute on
+  the layer). `padHealSpells` and `ns.HotLayerSpells` then take eight; the bar paints the set on show and says
+  "hold R: second set". `/orbs deckheal` prints the switch keys, how often it switched and all eight buttons.
+  Open for the Deck test: whether R's key-up reaches the handler while L is held (else the set sticks until L
+  is let go), and whether R held turns A into a modifier combination (the snippet binds CTRL/SHIFT/ALT too).
 - Keys (layout.lua): `padHeal` (off), `padHealToggle` (off), `padHealSpells` (""), `padHealBar` (on),
   `padHealFrame` (on); every switch calls `ns.ApplyPadHeal`, which also drops a layer that is on. Page
   `DeckHeal` ("Deck Heal", config.lua) after HoTs under Orbs; `PAGE_FRAMES.DeckHeal`, `PAGE_RESET.DeckHeal`
