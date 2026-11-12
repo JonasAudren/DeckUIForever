@@ -962,3 +962,6 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    by the owner: the settings window opens and looks right (after the `insert` fix). Not seen: the presets, the
    search, "All options" on every page, the bank fix, the name-only plates, the role order (does Forever hand
    out roles?), the buff check.
+   **Released**: v1.5.2 on 2026-11-12 (Deck Heal's second set of spells on R, the heals weakest first; commit
+   83f5891, Release workflow run 43319871985, CurseForge file id 9582528). Seen on the Deck before by the owner:
+   Deck Heal itself ("scheint gut zu gehen", 1.5.1). Not seen: the second set, the new order.
