@@ -391,3 +391,174 @@ function Flow:Hint(text)
     self.y = self.y - fs:GetStringHeight() - 10
     return fs
 end
+
+-------------------------------------------------------------------
+-- Flow: the important options first, the fine-tuning on request
+-------------------------------------------------------------------
+-- The third menu review (owner 2026-11-12: "einsteigerfreundlicher, etwas
+-- geführter - es kommen sehr viele Optionen dazu, da verliert man den
+-- Überblick"). A page marks where its fine-tuning starts:
+--   f:More()               from here to the next Label: fine-tuning
+--   f:MoreSection("Look")  a whole section of fine-tuning, heading included
+--   f:Basic()              important again, before the next Label
+-- A Label ends it. While DeckUIForeverDB.showAllOptions is off, the
+-- fine-tuning is hidden and the page closes up over it; a line at the
+-- page's end says how many options wait and shows them (D.SetShowAll).
+--
+-- For that every Flow call is recorded as an item: the frames and font
+-- strings it added to the page (whatever is new among the page's children
+-- and regions), their place relative to the item's top, its height, and -
+-- for the search (panel.lua) - its text and explanation. Relayout walks
+-- the items and stacks the visible ones again. Only what hangs on the page
+-- by a single point moves; a widget anchored to another follows that one.
+-- A page that never calls More is laid out exactly as before.
+local RECORDED = { "Label", "Checkbox", "Slider", "Button", "Pair", "Cycles", "Add", "Hint" }
+
+local function Count(...) return select("#", ...) end
+
+local function Collect(item, parent, from, ...)
+    for i = from + 1, select("#", ...) do
+        local r = select(i, ...)
+        local o = { r = r }
+        if r:GetNumPoints() == 1 then
+            local point, rel, relPoint, x, y = r:GetPoint(1)
+            if rel == parent or rel == nil then
+                o.point, o.relPoint, o.x, o.dy = point, relPoint, x, y - item.y0
+            end
+        end
+        item.objs[#item.objs + 1] = o
+    end
+end
+
+-- what the search finds an item by: { text, tip } per option in it
+local function Texts(name, ...)
+    local a, b, c = ...
+    if name == "Checkbox" then return { { a, (select(5, ...)) } } end
+    if name == "Slider" then return { { a, (select(9, ...)) } } end
+    if name == "Button" then return { { a, c } } end
+    if name == "Pair" or name == "Cycles" then
+        local list = {}
+        for _, def in ipairs({ a, b }) do
+            if type(def) == "table" then list[#list + 1] = { def.title or def.label or def.text, def.tip } end
+        end
+        return list
+    end
+    return nil
+end
+
+for _, name in ipairs(RECORDED) do
+    local raw = Flow[name]
+    Flow[name] = function(self, ...)
+        if self.inside then return raw(self, ...) end   -- Cycles builds on Pair
+        if name == "Label" then
+            self.more = self.nextMore or false
+            self.nextMore = nil
+            self.section = (...)
+        end
+        local parent = self.parent
+        local children, regions = Count(parent:GetChildren()), Count(parent:GetRegions())
+        local item = { y0 = self.y, objs = {}, more = self.more, section = self.section,
+                       texts = Texts(name, ...), kind = name }
+        self.inside = true
+        local r1, r2 = raw(self, ...)
+        self.inside = false
+        item.h = item.y0 - self.y
+        Collect(item, parent, children, parent:GetChildren())
+        Collect(item, parent, regions, parent:GetRegions())
+        self.items[#self.items + 1] = item
+        -- one value where the call gave one: table.insert(t, f:Add(...))
+        -- takes a second value, even nil, for a position (owner's error
+        -- 2026-11-12, panel.lua "bad argument #2 to 'insert'")
+        if r2 == nil then return r1 end
+        return r1, r2
+    end
+end
+
+local rawGap = Flow.Gap
+function Flow:Gap(n)
+    local y0 = self.y
+    rawGap(self, n)
+    self.items[#self.items + 1] = { y0 = y0, h = y0 - self.y, objs = {}, more = self.more, kind = "Gap" }
+end
+
+function Flow:More() self.more = true end
+-- back to the important options before the next Label (a loop that mixes both)
+function Flow:Basic() self.more = false end
+
+function Flow:MoreSection(text, size)
+    self.nextMore = true
+    return self:Label(text, size)
+end
+
+local rawFlow = D.Flow
+function D.Flow(parent, y)
+    local f = rawFlow(parent, y)
+    f.items, f.top, f.more = {}, f.y, false
+    parent.flows = parent.flows or {}
+    table.insert(parent.flows, f)
+    return f
+end
+
+-- the line under a page with fine-tuning: shows or hides it
+local function MoreLine(self)
+    if self.moreLine then return self.moreLine end
+    local b = CreateFrame("Button", nil, self.parent)
+    b:SetSize(300, 22)
+    b.text = b:CreateFontString(nil, "OVERLAY")
+    b.text:SetFont(D.FONT, 12, "OUTLINE")
+    b.text:SetPoint("CENTER")
+    b.text:SetTextColor(1, 0.82, 0)
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+    b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
+    b:SetScript("OnClick", function() D.SetShowAll(not DeckUIForeverDB.showAllOptions) end)
+    D.Tip(b, "Fine-tuning", "Every page shows its important options first. The rest - sizes, looks, special cases - is the fine-tuning. This switch is for all pages; \"All options\" at the bottom of the window does the same.")
+    self.moreLine = b
+    return b
+end
+
+-- stacks the page again: `all` shows the fine-tuning too
+function Flow:Relayout(all)
+    local y, waiting = self.top, 0
+    for _, it in ipairs(self.items) do
+        local show = all or not it.more
+        if it.more and it.texts then waiting = waiting + #it.texts end
+        if show ~= (not it.hidden) then
+            it.hidden = not show
+            for _, o in ipairs(it.objs) do
+                if show then
+                    o.r:SetShown(o.shown)
+                else
+                    o.shown = o.r:IsShown()
+                    o.r:Hide()
+                end
+            end
+        end
+        if show then
+            for _, o in ipairs(it.objs) do
+                if o.point then o.r:SetPoint(o.point, self.parent, o.relPoint, o.x, y + o.dy) end
+            end
+            it.at = y
+            y = y - it.h
+        else
+            it.at = nil
+        end
+    end
+    if waiting > 0 then
+        local line = MoreLine(self)
+        line:ClearAllPoints()
+        line:SetPoint("TOP", self.parent, "TOP", 0, y - 6)
+        line.text:SetText(all and ("Hide the fine-tuning (%d options)"):format(waiting)
+            or ("+ %d more options: show the fine-tuning"):format(waiting))
+        line:Show()
+    elseif self.moreLine then
+        self.moreLine:Hide()
+    end
+    return waiting
+end
+
+-- a page's Flows in the mode that is set; reveal: this page shows all
+function D.ApplyOptionMode(content)
+    if not content.flows then return end
+    local all = DeckUIForeverDB.showAllOptions or content.reveal
+    for _, f in ipairs(content.flows) do f:Relayout(all and true or false) end
+end

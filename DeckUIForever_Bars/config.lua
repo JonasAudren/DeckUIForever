@@ -21,6 +21,7 @@ D.RegisterModule("Bars", {
             ns.DeviceDB().barScale = v
             apply()
         end)
+        f:More()
         f:Slider("Opacity", 0.1, 1, 0.05, pct, db, "barAlpha", function(v)
             DeckUIForeverBarsDB.barAlpha = v
             ns.ApplyBarAlpha()
@@ -43,9 +44,11 @@ D.RegisterModule("Bars", {
         end
         for n = 1, 8 do
             local bar = function() return ns.BarSettings(n) end
+            f:Basic()
             f:Checkbox("Action Bar " .. n, bar, "shown", apply,
                 n == 1 and "The main bar with its pages: stances, forms, vehicles."
                 or ("Blizzard's Action Bar " .. n .. ", as Edit Mode numbers it."))
+            f:More()
             f:Cycles({ label = "Layout", values = ns.BAR_LAYOUTS, names = names,
                        get = function() return ns.BarSettings(n).perRow end,
                        set = function(v) ns.BarSettings(n).perRow = v; apply() end })

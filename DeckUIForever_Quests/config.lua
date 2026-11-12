@@ -38,12 +38,13 @@ D.RegisterModule("Quests", {
         f:Label("Tracker (this device)")
         f:Slider("Width", 180, 400, 10, px, device, "width", Store("width"))
         f:Slider("Size", 0.6, 1.4, 0.05, pct, device, "scale", Store("scale"))
+        f:More()
         f:Slider("Text size", 9, 16, 1, px, device, "textSize", Store("textSize"))
         f:Slider("Height limit", 150, 900, 10, px, device, "maxHeight", Store("maxHeight"),
             "Taller than this, the tracker scrolls with the mouse wheel.")
 
         if ns.ShowJourney then
-            f:Label("Delves and the hunt")
+            f:MoreSection("Delves and the hunt")
             f:Checkbox("Take a single power automatically", db, "autoDelvePower", nothing,
                 "A treasure or rare that offers just one power needs no choice: it is taken and named in the chat.")
             f:Checkbox("Show Delver's Journey progress", db, "journeyBar", nothing,

@@ -91,7 +91,7 @@ D.PAGE_PARENT = {
 -- Sidebar
 -------------------------------------------------------------------
 local sideBox = CreateFrame("Frame", nil, panel)
-sideBox:SetPoint("TOPLEFT", 8, -40)
+sideBox:SetPoint("TOPLEFT", 8, -68)   -- the search field sits above it
 sideBox:SetPoint("BOTTOMLEFT", 8, 8)
 sideBox:SetWidth(SIDE_W)
 D.FlatBox(sideBox, 0.6, 0.2)
@@ -261,7 +261,12 @@ local function LayoutSidebar()
     local function Group(name, keys)
         local any = false
         for _, key in ipairs(keys) do
-            if panel.tabs[key] and not placed[key] and SubShown(key) then
+            -- a module that is off has only its stand-in page: it is
+            -- listed on the Start page, not here (owner 2026-11-12: the
+            -- sidebar shows what you use) - except while it is on show
+            local content = panel.contents[key]
+            local off = content and content.def.stub and panel.current ~= key
+            if panel.tabs[key] and not placed[key] and SubShown(key) and not off then
                 if not any then
                     Heading(name, y)
                     y = y - 16
@@ -392,7 +397,7 @@ local function BuffBarKey(k) return BUFFBAR_KEYS[k] == true or k:find("^buffBar"
 local function EnemyKey(k) return ENEMY_KEYS[k] == true end
 -- the Overview's three sub-pages share DeckUIForeverDB with everything else of the hub
 local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true, dock = true }
-local TARGET_KEYS = { targetArrow = true, xivPlates = true, xivPlatesFriendly = true, plateSpace = true, rankMarks = true,
+local TARGET_KEYS = { targetArrow = true, xivPlates = true, xivPlatesFriendly = true, xivPlatesNameOnly = true, plateSpace = true, rankMarks = true,
                       softTargetName = true, softTargetCast = true }
 local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow = true }
 D.PAGE_RESET = {
@@ -449,9 +454,9 @@ footer:SetPoint("BOTTOMLEFT", SIDE_W + 16, 8)
 footer:SetPoint("BOTTOMRIGHT", -8, 8)
 footer:SetHeight(26)
 
-local function FooterButton(text, x)
+local function FooterButton(text, x, width)
     local b = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
-    b:SetSize(76, 22)
+    b:SetSize(width or 76, 22)
     b:SetPoint("LEFT", x, 0)
     b:SetText(text)
     b:GetFontString():SetFont(D.FONT, 12, "OUTLINE")
@@ -471,8 +476,20 @@ local function PageFrames(key)
     return any and set or nil
 end
 
-local moveBtn = FooterButton("Move", 0)
-local defaultsBtn = FooterButton("Defaults", 80)
+local moveBtn = FooterButton("Move", 0, 60)
+local defaultsBtn = FooterButton("Defaults", 64, 70)
+-- the fine-tuning of every page, shown or folded away (widgets.lua, Flow:More)
+local allBtn = FooterButton("All options", 138, 96)
+
+-- does the page on show have fine-tuning at all?
+local function HasMore(content)
+    for _, f in ipairs(content and content.flows or {}) do
+        for _, it in ipairs(f.items) do
+            if it.more and it.texts then return true end
+        end
+    end
+    return false
+end
 
 function D.UpdateFooter()
     local key = panel.current
@@ -481,7 +498,28 @@ function D.UpdateFooter()
     moveBtn:SetShown(frames ~= nil and not stub)
     moveBtn:SetText(D.unlocked and "Lock" or "Move")
     defaultsBtn:SetShown(key and D.PAGE_RESET[key] ~= nil and not stub and _G[D.PAGE_RESET[key].db] ~= nil)
+    allBtn:SetShown(not panel.searching and key and HasMore(panel.contents[key]) or false)
+    allBtn:SetText(DeckUIForeverDB.showAllOptions and "Fewer options" or "All options")
+    if panel.searching then
+        moveBtn:Hide()
+        defaultsBtn:Hide()
+    end
 end
+
+function D.SetShowAll(on)
+    DeckUIForeverDB.showAllOptions = on and true or false
+    local content = panel.current and panel.contents[panel.current]
+    if content and content:IsShown() then
+        content.reveal = nil
+        D.ApplyOptionMode(content)
+        D.RefreshWidgets(content)
+        C_Timer.After(0, function() Measure(content) end)
+    end
+    D.UpdateFooter()
+end
+
+allBtn:SetScript("OnClick", function() D.SetShowAll(not DeckUIForeverDB.showAllOptions) end)
+D.Tip(allBtn, "All options", "Every page shows its important options first. This shows the fine-tuning as well - sizes, looks, special cases - on all pages, or folds it away again.")
 
 moveBtn:SetScript("OnClick", function()
     if D.unlocked then
@@ -508,7 +546,7 @@ D.Tip(defaultsBtn, "Defaults", "Puts this page's settings back as they were at i
 
 -- changes that wait for a /reload, by key, with a button that does it
 local reloadBtn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
-reloadBtn:SetSize(70, 22)
+reloadBtn:SetSize(84, 22)
 reloadBtn:SetPoint("RIGHT")
 reloadBtn:SetText("Reload")
 reloadBtn:GetFontString():SetFont(D.FONT, 12, "OUTLINE")
@@ -528,7 +566,9 @@ function D.NeedReload(key, on)
     pendingReload[key] = (on ~= false) or nil
     local n = 0
     for _ in pairs(pendingReload) do n = n + 1 end
-    reloadText:SetText(n == 1 and "1 change needs a reload" or ("%d changes need a reload"):format(n))
+    -- short: the footer holds three buttons on the left since the "All options" switch
+    reloadText:SetText("Needs a reload:")
+    reloadBtn:SetText(("Reload (%d)"):format(n))
     reloadText:SetShown(n > 0)
     reloadBtn:SetShown(n > 0)
 end
@@ -558,6 +598,7 @@ function panel:AddTab(key, def)
             if c.def.build then c.def.build(c) end
         end
         D.RefreshWidgets(c)
+        D.ApplyOptionMode(c)   -- the important options, or all of them (widgets.lua)
         -- the widgets have their places only after this frame is drawn
         C_Timer.After(0, function() Measure(c) end)
     end)
@@ -577,8 +618,12 @@ end
 
 function panel:ShowTab(key)
     if not self.contents[key] then key = "General" end
+    if self.EndSearch then self.EndSearch() end
     for k, content in pairs(self.contents) do
         local on = k == key
+        -- a search result opens its page with everything on show; that
+        -- ends when the page is left
+        if not on or self.revealFor ~= key then content.reveal = nil end
         if on then scroll:SetScrollChild(content) end
         content:SetShown(on)
         local b = self.tabs[k]
@@ -591,10 +636,255 @@ function panel:ShowTab(key)
     scroll:SetVerticalScroll(0)
     pageTitle:SetText(PageName(key))
     self.current = key
+    self.revealFor = nil
     LayoutSidebar()   -- this page's sub-pages unfold, the others' fold
     if D.UpdateModuleSwitch then D.UpdateModuleSwitch() end
     D.UpdateFooter()
 end
+
+-------------------------------------------------------------------
+-- Search: any option of any page by a word
+-------------------------------------------------------------------
+-- Owner 2026-11-12 (the third menu review: some 240 options on 30 pages,
+-- "da verliert man den Überblick"). A field above the sidebar; while it
+-- holds text the page area lists every option whose name, explanation,
+-- page or section holds all the words typed. A click opens the page,
+-- scrolls to the option and marks it for a moment - with the fine-tuning
+-- on show for that visit if the option is part of it.
+--
+-- The index is read from what the Flows recorded (widgets.lua): pages
+-- build on their first show, so the first search builds the ones not
+-- seen yet. A module that is off has no page - its stand-in is found by
+-- the module's name and description.
+local searchBox = CreateFrame("EditBox", "DeckUIForeverPanelSearch", panel)
+searchBox:SetPoint("TOPLEFT", 8, -40)
+searchBox:SetSize(SIDE_W, 24)
+D.FlatBox(searchBox, 0.6, 0.2)
+searchBox:SetAutoFocus(false)
+searchBox:SetFont(D.FONT, 12, "OUTLINE")
+searchBox:SetTextInsets(8, 24, 0, 0)
+searchBox:SetMaxLetters(40)
+local searchHint = searchBox:CreateFontString(nil, "OVERLAY")
+searchHint:SetFont(D.FONT, 12, "OUTLINE")
+searchHint:SetPoint("LEFT", 8, 0)
+searchHint:SetTextColor(0.5, 0.5, 0.5)
+searchHint:SetText("Search options ...")
+local searchClear = CreateFrame("Button", nil, searchBox)
+searchClear:SetSize(20, 20)
+searchClear:SetPoint("RIGHT", -2, 0)
+searchClear.text = searchClear:CreateFontString(nil, "OVERLAY")
+searchClear.text:SetFont(D.FONT, 12, "OUTLINE")
+searchClear.text:SetPoint("CENTER")
+searchClear.text:SetTextColor(0.7, 0.7, 0.7)
+searchClear.text:SetText("x")
+searchClear:Hide()
+
+local results = CreateFrame("Frame", nil, scroll)
+results:SetSize(PAGE_W, 10)
+results:Hide()
+local resultRows = {}
+local resultNote = results:CreateFontString(nil, "OVERLAY")
+resultNote:SetFont(D.FONT, 12, "OUTLINE")
+resultNote:SetPoint("TOP", 0, -8)
+resultNote:SetWidth(PAGE_W - 40)
+resultNote:SetTextColor(0.7, 0.7, 0.7)
+local MAX_RESULTS = 40
+
+-- the gold mark on the option a result led to
+local flash = CreateFrame("Frame", nil, panel)
+flash:Hide()
+local flashTex = flash:CreateTexture(nil, "BACKGROUND")
+flashTex:SetAllPoints()
+flashTex:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.22)
+local flashAnim = flash:CreateAnimationGroup()
+local fade = flashAnim:CreateAnimation("Alpha")
+fade:SetFromAlpha(1)
+fade:SetToAlpha(0)
+fade:SetStartDelay(0.8)
+fade:SetDuration(1.2)
+flashAnim:SetScript("OnFinished", function() flash:Hide() end)
+
+local function Jump(content, item)
+    if not (content:IsShown() and item.at) then return end
+    local max = math.max(0, content:GetHeight() - scroll:GetHeight())
+    scroll:SetVerticalScroll(math.min(max, math.max(0, -item.at - 30)))
+    flashAnim:Stop()
+    flash:SetParent(content)
+    flash:ClearAllPoints()
+    flash:SetPoint("TOPLEFT", content, "TOPLEFT", 4, item.at + 2)
+    flash:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, item.at + 2)
+    flash:SetHeight(math.max(20, item.h))
+    flash:SetFrameLevel(content:GetFrameLevel())
+    flash:SetAlpha(1)
+    flash:Show()
+    flashAnim:Play()
+end
+
+-- where a page lives, as the sidebar shows it: "Unit frames > Your HoTs"
+local function PagePath(key)
+    local parent = D.PAGE_PARENT[key]
+    return parent and (PageName(parent) .. " > " .. PageName(key)) or PageName(key)
+end
+
+local function Index()
+    local list = {}
+    for _, key in ipairs(panel.tabOrder) do
+        local c = panel.contents[key]
+        if c.def.stub then
+            list[#list + 1] = { page = key, text = PageName(key), tip = D.MODULE_DESCRIPTIONS[key],
+                                where = "Module, switched off" }
+        else
+            if not c.built then
+                c.built = true
+                if c.def.build then xpcall(c.def.build, geterrorhandler(), c) end
+            end
+            list[#list + 1] = { page = key, text = PageName(key), where = "Page",
+                                tip = D.MODULE_DESCRIPTIONS[key] }
+            for _, f in ipairs(c.flows or {}) do
+                for _, it in ipairs(f.items) do
+                    for _, t in ipairs(it.texts or {}) do
+                        if type(t[1]) == "string" then
+                            list[#list + 1] = { page = key, text = t[1], tip = t[2], item = it,
+                                                where = PagePath(key) .. (it.section and (" > " .. it.section) or "") }
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return list
+end
+
+local function Matches(query)
+    local words = {}
+    for w in query:lower():gmatch("%S+") do words[#words + 1] = w end
+    local found = {}
+    for order, e in ipairs(Index()) do
+        local name = e.text:lower()
+        local all = name .. " " .. (e.tip or ""):lower() .. " " .. e.where:lower()
+        local inAll, inName = true, true
+        for _, w in ipairs(words) do
+            if not all:find(w, 1, true) then inAll = false break end
+            if not name:find(w, 1, true) then inName = false end
+        end
+        if inAll then
+            e.rank = (inName and 0 or 1) * 10000 + order   -- the name first, then the explanation
+            found[#found + 1] = e
+        end
+    end
+    table.sort(found, function(a, b) return a.rank < b.rank end)
+    return found
+end
+
+local function ResultRow(i)
+    local b = resultRows[i]
+    if b then return b end
+    b = CreateFrame("Button", nil, results)
+    b:SetSize(PAGE_W - 12, 36)
+    b:SetPoint("TOPLEFT", 6, -6 - (i - 1) * 38)
+    D.FlatBox(b, 0.5, 0.2)
+    b:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+    b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
+    b.title = b:CreateFontString(nil, "OVERLAY")
+    b.title:SetFont(D.FONT, 13, "OUTLINE")
+    b.title:SetPoint("TOPLEFT", 8, -4)
+    b.title:SetPoint("RIGHT", -8, 0)
+    b.title:SetJustifyH("LEFT")
+    b.title:SetWordWrap(false)
+    b.where = b:CreateFontString(nil, "OVERLAY")
+    b.where:SetFont(D.FONT, 11, "OUTLINE")
+    b.where:SetPoint("TOPLEFT", 8, -20)
+    b.where:SetPoint("RIGHT", -8, 0)
+    b.where:SetJustifyH("LEFT")
+    b.where:SetWordWrap(false)
+    b.where:SetTextColor(0.6, 0.6, 0.6)
+    b:SetScript("OnClick", function(self)
+        local e = self.entry
+        local content = panel.contents[e.page]
+        if e.item and e.item.more and not DeckUIForeverDB.showAllOptions then
+            content.reveal = true
+            panel.revealFor = e.page
+        end
+        panel:ShowTab(e.page)
+        if e.item then
+            C_Timer.After(0.05, function() Jump(content, e.item) end)
+        end
+    end)
+    b:SetScript("OnEnter", function(self)
+        local e = self.entry
+        if not (e and e.tip) then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(e.text, 1, 0.82, 0)
+        GameTooltip:AddLine(e.tip, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", GameTooltip_Hide)
+    resultRows[i] = b
+    return b
+end
+
+local function ShowSearch(query)
+    panel.searching = true
+    for _, content in pairs(panel.contents) do content:Hide() end
+    scroll:SetScrollChild(results)
+    results:Show()
+    scroll:SetVerticalScroll(0)
+    pageTitle:SetText("Search")
+    local found = Matches(query)
+    local n = math.min(#found, MAX_RESULTS)
+    for i = 1, n do
+        local b = ResultRow(i)
+        b.entry = found[i]
+        b.title:SetText(found[i].text)
+        b.where:SetText(found[i].where)
+        b:Show()
+    end
+    for i = n + 1, #resultRows do resultRows[i]:Hide() end
+    resultNote:ClearAllPoints()
+    resultNote:SetPoint("TOP", 0, -10 - n * 38)
+    if #found == 0 then
+        resultNote:SetText(("Nothing found for \"%s\". Try a shorter word - the names are English, such as \"buff\", \"size\" or \"raid\"."):format(query))
+    elseif #found > MAX_RESULTS then
+        resultNote:SetText(("%d more - add a word to narrow it down."):format(#found - MAX_RESULTS))
+    else
+        resultNote:SetText("Click a line to go there.")
+    end
+    results:SetHeight(n * 38 + 60)
+    if D.UpdateModuleSwitch then D.UpdateModuleSwitch() end
+    D.UpdateFooter()
+end
+
+-- back to the pages; ShowTab calls this before it shows one
+function panel.EndSearch()
+    if not panel.searching then return end
+    panel.searching = false
+    results:Hide()
+    searchBox:SetText("")
+    searchBox:ClearFocus()
+end
+
+searchBox:SetScript("OnTextChanged", function(self)
+    local text = strtrim(self:GetText() or "")
+    searchHint:SetShown(text == "")
+    searchClear:SetShown(text ~= "")
+    if text ~= "" then
+        ShowSearch(text)
+    elseif panel.searching then
+        panel.searching = false
+        results:Hide()
+        panel:ShowTab(panel.current)
+    end
+end)
+searchBox:SetScript("OnEscapePressed", function(self)
+    self:SetText("")
+    self:ClearFocus()
+end)
+searchBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+searchClear:SetScript("OnClick", function()
+    searchBox:SetText("")
+    searchBox:ClearFocus()
+end)
+panel:HookScript("OnHide", function() panel.EndSearch() end)
 
 panel:SetScript("OnShow", function(self)
     self:ShowTab(self.current or "General")
@@ -661,7 +951,7 @@ switch:Hide()
 
 function D.UpdateModuleSwitch()
     local key = panel.current
-    if not (key and D.MODULE_ADDONS[key]) then
+    if panel.searching or not (key and D.MODULE_ADDONS[key]) then
         switch:Hide()
         return
     end
@@ -707,54 +997,253 @@ local function StubPage(key)
 end
 
 -------------------------------------------------------------------
--- "General": the modules at a glance, and what belongs to no module
+-- "Start": a guided first page - presets, the modules with their switches, help
 -------------------------------------------------------------------
-D.PAGE_NAMES.General = "Modules"
+D.PAGE_NAMES.General = "Start"
 
+-- one line per module for the Start page; MODULE_DESCRIPTIONS has the long one
+D.MODULE_SHORT = {
+    Orbs     = "Health and resources of you, your target, party and raid - as orbs or Final Fantasy bars.",
+    Cross    = "Two crosses of action buttons for a controller's triggers.",
+    Bars     = "The action bars in the Final Fantasy XIV look, for keyboard and mouse.",
+    Pad      = "Blizzard's controller bar on the Steam Deck in the same look.",
+    Spec     = "A small bar to switch between your talent groups.",
+    Bags     = "All bags in one sorted window, and the bank to match.",
+    Quests   = "A cleaner quest tracker in place of Blizzard's.",
+    Questing = "Quest help: dialogs on autopilot, the best reward marked, a quest compendium.",
+    Map      = "A square or round minimap and a tidier world map.",
+    Tooltip  = "The tooltip in the same look, with a few extra lines.",
+    Nav      = "A compass, the distance to your goal and /way waypoints.",
+    Week     = "Lockouts and weekly goals of all your characters.",
+}
+
+-- the modules by what they are for, in the order a new player meets them
+local START_GROUPS = {
+    { "Frames",           { "Orbs" } },
+    { "Action bars",      { "Bars", "Pad", "Cross", "Spec" } },
+    { "Quests and world", { "Quests", "Questing", "Map", "Nav" } },
+    { "Bags and info",    { "Bags", "Tooltip", "Week" } },
+}
+
+local function ToggleModule(key)
+    local on = not DeckUIForeverDB.modules[key]
+    D.SetModuleEnabled(key, on)
+    -- a module once loaded stays until the reload
+    D.NeedReload("module:" .. key, not on and ModuleLoaded(key))
+end
+
+-- A module on the Start page: the switch, the name, one line on what it
+-- does. A click on the row opens the module's page.
 local function ModuleRow(c, y, key)
     local row = CreateFrame("Button", nil, c)
-    row:SetSize(300, 22)
+    row:SetSize(380, 44)
     row:SetPoint("TOP", 0, y)
     D.FlatBox(row, 0.5, 0.2)
     row:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
     row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
+    local toggle = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    toggle:SetSize(50, 22)
+    toggle:SetPoint("LEFT", 8, 0)
+    toggle:GetFontString():SetFont(D.FONT, 12, "OUTLINE")
+    D.FlattenButton(toggle)
     local name = row:CreateFontString(nil, "OVERLAY")
     name:SetFont(D.FONT, 13, "OUTLINE")
-    name:SetPoint("LEFT", 8, 0)
+    name:SetPoint("TOPLEFT", 68, -5)
     name:SetText(D.PAGE_NAMES[key] or key)
     local state = row:CreateFontString(nil, "OVERLAY")
-    state:SetFont(D.FONT, 12, "OUTLINE")
-    state:SetPoint("RIGHT", -8, 0)
+    state:SetFont(D.FONT, 11, "OUTLINE")
+    state:SetPoint("LEFT", name, "RIGHT", 8, 0)
+    state:SetTextColor(1, 0.82, 0)
+    local desc = row:CreateFontString(nil, "OVERLAY")
+    desc:SetFont(D.FONT, 11, "OUTLINE")
+    desc:SetPoint("TOPLEFT", 68, -21)
+    desc:SetWidth(304)
+    desc:SetJustifyH("LEFT")
+    desc:SetJustifyV("TOP")
+    desc:SetHeight(22)
+    desc:SetTextColor(0.7, 0.7, 0.7)
+    desc:SetText(D.MODULE_SHORT[key] or D.MODULE_DESCRIPTIONS[key] or "")
     row:SetScript("OnClick", function() panel:ShowTab(key) end)
     D.Tip(row, D.PAGE_NAMES[key] or key, D.MODULE_DESCRIPTIONS[key])
+    toggle:SetScript("OnClick", function()
+        ToggleModule(key)
+        D.RefreshWidgets(c)
+    end)
+    D.Tip(toggle, D.PAGE_NAMES[key] or key, "Switches the module on or off. On, it loads at once; off, it goes with the next reload.")
     function row:Refresh()
         local text = ModuleState(key)
-        state:SetText((DeckUIForeverDB.modules[key] and "|cff33ff33" or "|cff888888") .. text .. "|r")
+        local on = DeckUIForeverDB.modules[key]
+        toggle:SetText(on and "|cff33ff33On|r" or "|cff888888Off|r")
+        toggle:SetEnabled(D.ModuleExists(key))
+        -- only what On and Off do not say already
+        state:SetText((text == "On" or text == "Off") and "" or text)
+        name:SetTextColor(on and 1 or 0.6, on and 1 or 0.6, on and 1 or 0.6)
     end
     return row
 end
 
+-- Presets (owner 2026-11-12: "ja, mit Rückfrage"): a way of playing in one
+-- click. modules: what goes on and off, everything not named stays; orbs:
+-- settings of the unit frames written as they are (the module fills the
+-- rest with its defaults); deckOrbs: the same, on the Steam Deck only. The
+-- dialog lists what would change; accepting applies it and reloads.
+local PRESETS = {
+    keyboard = {
+        text = "Keyboard and mouse",
+        tip = "Unit frames, the action bars in the Final Fantasy XIV look, bags, quest tracker, maps and tooltip. The controller bars go off.",
+        modules = { Orbs = true, Bars = true, Bags = true, Quests = true, Map = true, Tooltip = true,
+                    Cross = false, Pad = false },
+    },
+    deck = {
+        text = "Steam Deck",
+        tip = "Unit frames, Blizzard's controller bar in our look, bags, quest tracker, maps and tooltip. The keyboard's action bars and the cross hotbar go off.",
+        modules = { Orbs = true, Pad = true, Bags = true, Quests = true, Map = true, Tooltip = true,
+                    Bars = false, Cross = false },
+    },
+    healer = {
+        text = "I am a healer",
+        tip = "Adds the healer's tools to whatever you have: the HoT window with click to cast, health bars, debuffs you can remove, missing buffs and your heals as buttons. On the Steam Deck also Deck Heal.",
+        modules = { Orbs = true },
+        orbs = { hotTracker = true, hotHealer = true, hotHealth = true, hotStatus = true, hotRange = true,
+                 hotDispel = true, hotBuffSlots = true, hotCastSlots = true },
+        orbsText = "On the \"Your HoTs\" page: the HoT window with click to cast, health bars, dead and offline marks, range, debuffs you can remove, missing buffs and your heals as buttons.",
+        deckOrbs = { padHeal = true },
+        deckText = "On this Steam Deck also Deck Heal: hold L, pick a friend with the D-pad, heal with A, X, Y, B.",
+    },
+}
+
+-- what a preset would change right now, as the dialog's text; nil when nothing
+local function PresetChanges(p)
+    local on, off = {}, {}
+    for _, key in ipairs(D.MODULE_ORDER) do
+        local want = p.modules[key]
+        if want ~= nil and D.ModuleExists(key) and (DeckUIForeverDB.modules[key] and true or false) ~= want then
+            table.insert(want and on or off, D.PAGE_NAMES[key] or key)
+        end
+    end
+    local lines = {}
+    if #on > 0 then lines[#lines + 1] = "Switches on: " .. table.concat(on, ", ") .. "." end
+    if #off > 0 then lines[#lines + 1] = "Switches off: " .. table.concat(off, ", ") .. "." end
+    local function Differs(keys)
+        local odb = DeckUIForeverOrbsDB
+        for k, v in pairs(keys or {}) do
+            if not odb or odb[k] ~= v then return true end
+        end
+        return false
+    end
+    if Differs(p.orbs) then lines[#lines + 1] = p.orbsText end
+    if D.IsDeck() and Differs(p.deckOrbs) then lines[#lines + 1] = p.deckText end
+    if #lines == 0 then return nil end
+    return table.concat(lines, "\n\n")
+end
+
+local function ApplyPreset(p)
+    if InCombatLockdown() then
+        print("DeckUIForever: not in combat - try again after the fight.")
+        return
+    end
+    for _, key in ipairs(D.MODULE_ORDER) do
+        local want = p.modules[key]
+        if want ~= nil and D.ModuleExists(key) and (DeckUIForeverDB.modules[key] and true or false) ~= want then
+            D.SetModuleEnabled(key, want)
+        end
+    end
+    if p.orbs or p.deckOrbs then
+        -- the module fills what is missing with its defaults as it loads
+        DeckUIForeverOrbsDB = DeckUIForeverOrbsDB or {}
+        for k, v in pairs(p.orbs or {}) do DeckUIForeverOrbsDB[k] = v end
+        if D.IsDeck() then
+            for k, v in pairs(p.deckOrbs or {}) do DeckUIForeverOrbsDB[k] = v end
+        end
+    end
+    C_UI.Reload()
+end
+
+local function PresetButton(id)
+    local p = PRESETS[id]
+    return { text = p.text, title = p.text, tip = p.tip, onClick = function()
+        local changes = PresetChanges(p)
+        if not changes then
+            D.Dialog({ width = 360, accept = OKAY or "OK",
+                       text = ("\"%s\" is set up already - nothing to change."):format(p.text) })
+            return
+        end
+        D.Dialog({
+            width = 360, accept = "Apply and reload",
+            text = ("%s\n\n%s\n\nEverything else stays as it is. The game reloads to apply it."):format(p.text, changes),
+            onAccept = function() ApplyPreset(p) end,
+        })
+    end }
+end
+
 panel:AddTab("General", {
-    title = "General",
+    title = "Start",
     build = function(c)
         local db = function() return DeckUIForeverDB end
         local f = D.Flow(c)
         c.widgets = c.widgets or {}
 
-        f:Label("Modules")
-        for _, key in ipairs(D.MODULE_ORDER) do
-            table.insert(c.widgets, f:Add(24, function(parent, y) return ModuleRow(parent, y, key) end))
-        end
+        f:Hint("DeckUIForever is a set of modules. Switch on what you want and leave the rest off. Three steps get you started.")
+
         f:Gap(4)
-        f:Hint("Click a module to open its page. Switch it on or off with the button at the top right of that page.")
+        f:Label("1. How do you play?")
+        f:Pair(PresetButton("keyboard"), PresetButton("deck"))
+        f:Pair(PresetButton("healer"))
+        f:Hint("Each button shows what it would change and asks first. You can change every bit of it afterwards.")
+
+        f:Gap(4)
+        f:Label("2. Your modules")
+        f:Hint("On or Off switches a module. Click its row to open its page. Only modules that are on are listed on the left.")
+        local listed = {}
+        local function Group(title, keys)
+            local any = false
+            for _, key in ipairs(keys) do
+                if D.MODULE_ADDONS[key] and not listed[key] then
+                    if not any then
+                        any = true
+                        f:Add(18, function(parent, y)
+                            local fs = parent:CreateFontString(nil, "OVERLAY")
+                            fs:SetFont(D.FONT, 11, "OUTLINE")
+                            fs:SetPoint("TOPLEFT", 8, y - 2)
+                            fs:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+                            fs:SetText(title:upper())
+                            return fs
+                        end)
+                    end
+                    listed[key] = true
+                    table.insert(c.widgets, f:Add(48, function(parent, y) return ModuleRow(parent, y, key) end))
+                end
+            end
+        end
+        for _, group in ipairs(START_GROUPS) do Group(group[1], group[2]) end
+        Group("More", D.MODULE_ORDER)   -- a module no group names
 
         f:Gap(8)
-        f:Label("Hub")
+        f:Label("3. Make it yours")
+        local moveAll, allOptions = f:Pair(
+            { text = "Move frames", title = "Move frames",
+              tip = "Unlocks every frame of DeckUIForever to drag it to a new place; click again to lock. A page's own frames: the Move button at the bottom of that page.",
+              onClick = function(b)
+                  D.SetUnlocked(not D.unlocked)
+                  b:SetText(D.unlocked and "Lock frames" or "Move frames")
+                  D.UpdateFooter()
+              end },
+            { text = "All options", title = "All options",
+              tip = "Every page shows its important options first. This shows the fine-tuning as well - sizes, looks, special cases - or folds it away again.",
+              onClick = function(b)
+                  D.SetShowAll(not DeckUIForeverDB.showAllOptions)
+                  b:SetText(DeckUIForeverDB.showAllOptions and "Fewer options" or "All options")
+              end })
+        function moveAll:Refresh() self:SetText(D.unlocked and "Lock frames" or "Move frames") end
+        function allOptions:Refresh() self:SetText(DeckUIForeverDB.showAllOptions and "Fewer options" or "All options") end
+        table.insert(c.widgets, moveAll)
+        table.insert(c.widgets, allOptions)
+        f:Hint("Looking for something? Type a word into the search field at the top left, for example \"buff\" or \"size\". Screen pieces, nameplates and Blizzard's windows have pages of their own under General.")
+
+        f:Gap(8)
+        f:Label("Help")
         f:Checkbox("Minimap button", db, "showMinimap", function(v) D.SetMinimapShown(v) end,
             "Left click opens these settings, Shift-click the week overview.")
-        f:Hint("Screen pieces, nameplates and Blizzard's windows have their own pages in this group.")
-
-        f:Gap(8)
         -- the error collector (errors.lua), with how many it holds
         local errBtn = f:Button("Lua errors", function() D.ShowErrors() end,
             "Every Lua error since login, from any addon, ready to copy. Also /df errors.")
@@ -784,6 +1273,7 @@ panel:AddTab("Screen", {
                          get = function() return D.InfoParts()[key] end,
                          set = function(v) D.InfoParts()[key] = v; D.ApplyInfoBars() end }
             end
+            f:More()
             for i = 1, #D.INFO_PARTS, 2 do
                 f:Cycles(Part(D.INFO_PARTS[i]), Part(D.INFO_PARTS[i + 1]))
             end
@@ -792,6 +1282,7 @@ panel:AddTab("Screen", {
                 "The gold you carry, with a coin. Hover it for the exact amount.")
             f:Checkbox("Bag overview", db, "infoBags", function() D.ApplyInfoBars() end,
                 "A block of dots per bag, bright for a used slot, and the number of free slots. Click it to open your bags.")
+            f:More()
             f:Checkbox("Hide Blizzard's bag buttons", db, "hideBagBar", function() D.ApplyInfoBars() end,
                 "The backpack and bag slots at the bottom right go away; the bag overview takes their place. Your bag key still opens the bags.")
         end
@@ -832,10 +1323,14 @@ panel:AddTab("Targets", {
                 "Over each enemy only its level, marker, name and a thin red health bar. Clicking a plate still targets.")
             f:Checkbox("Friendly nameplates too", db, "xivPlatesFriendly", function() D.ApplyPlates() end,
                 "With the Final Fantasy XIV nameplates on: friends get the same look in green - party members, and the friend your next heal would go to. Off, friends keep Blizzard's nameplate.")
+            f:More()
+            f:Checkbox("In dungeons: friends as names only", db, "xivPlatesNameOnly", function() D.ApplyPlates() end,
+                "In dungeons and raids the game lets no addon touch a friend's nameplate, so ours cannot be drawn there. On, Blizzard's plate shrinks to the name alone - no bar, frame or level. Outside, your own setting returns.")
             f:Checkbox("Keep the nameplates apart", db, "plateSpace", function() D.ApplyPlates() end,
                 "The game stacks the plates instead of letting them overlap.")
         end
         if D.ApplyRankMarks then
+            f:Basic()
             f:Checkbox("Elite, rare and boss marks", db, "rankMarks", function() D.ApplyRankMarks() end,
                 "A diamond before the name: gold for an elite, silver with a star for a rare, red with a crown for a boss. On the nameplates, the enemy list and the target bar.")
         end
@@ -848,6 +1343,7 @@ panel:AddTab("Targets", {
             f:Label("Interact target")
             f:Checkbox("Name of the interact target", db, "softTargetName", D.SetSoftTargetName,
                 "The chest, ore or herb your interact key would use gets its name below the game's icon: gold in reach, grey out of it. Needs the interact key on in the game's controls.")
+            f:More()
             f:Checkbox("Ring while casting on it", db, "softTargetCast", function() end,
                 "A ring fills around the icon while you cast or gather.")
         end
@@ -895,6 +1391,7 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
                 "Grey items are sold when a merchant opens.")
             f:Checkbox("Repair", db, "autoRepair", nothing,
                 "Everything is repaired when a merchant can repair.")
+            f:More()
             f:Checkbox("Repair with guild funds first", db, "repairGuild", nothing,
                 "Uses the guild bank where you may; your own gold covers the rest.")
 
@@ -914,6 +1411,7 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
             f:Checkbox("DeckUIForever's loot rolls", db, "lootRolls", function() D.ApplyLootRolls() end,
                 "Group rolls as one list: each item with its time left and Need, Greed and Pass. Move it with Move below.")
 
+            f:More()
             if D.ApplyRestock then
                 f:Checkbox("Restock at merchants", db, "restock", function() D.ApplyRestock() end,
                     "A small list beside the merchant of things to keep stocked - arrows, reagents, water, food. Drop an item on it and set how many; every visit buys what is missing. Per character.")
@@ -925,7 +1423,7 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
 
             if D.PrintAuction then
                 f:Gap(8)
-                f:Label("Auction house")
+                f:MoreSection("Auction house")
                 f:Checkbox("Scan button at the auction house", db, "ahScan", function() end,
                     "A Scan button below the auction house reads all prices, at most every 15 minutes. Tooltips and the bags then show them.")
                 f:Checkbox("Auction house window in DeckUIForever's look", db, "ahStyle", function(v)
@@ -966,9 +1464,25 @@ panel:AddTab("Devices", {
         devBtn:GetFontString():SetFont(D.FONT, 12, "OUTLINE")
         function devBtn:Refresh() self:SetText(D.DeviceText()) end
         table.insert(c.widgets, devBtn)
+        local function TestText()
+            return D.DeckTestOn() and "End the Steam Deck test" or "Test the Steam Deck here"
+        end
+        f:More()
+        local testBtn = f:Button(TestText(), function()
+            local on = not D.DeckTestOn()
+            D.Dialog({
+                text = on and "Start the Steam Deck test? This device then counts as the Steam Deck and the game switches to its controller interface, so you see what the Deck shows. Deck Heal also listens to the keyboard: hold Tab, pick with the arrow keys, heal with 1 to 4. The game reloads."
+                    or "End the Steam Deck test? Device and interface go back to what they were. The game reloads.",
+                accept = on and "Start and reload" or "End and reload",
+                onAccept = function() D.SetDeckTest(on) end,
+            })
+        end, "For trying the Steam Deck's side at the PC. A real controller plugged into the PC works as on the Deck. /df decktest says what is set.")
+        testBtn:SetWidth(300)
+        function testBtn:Refresh() self:SetText(TestText()) end
+        table.insert(c.widgets, testBtn)
 
         f:Gap(4)
-        f:Label("UI scale")
+        f:MoreSection("UI scale")
         f:Checkbox("Set Blizzard's UI scale per device at login", db, "applyUiScale", function(v)
             if v then D.ApplyUiScale() end
         end, "One scale for the Deck's small screen, one for the PC. Off, the scale stays as it is.")
@@ -1001,7 +1515,7 @@ panel:AddTab("Devices", {
         end, "Only this device's places.")
 
         f:Gap(4)
-        f:Label("Keep on this device")
+        f:MoreSection("Keep on this device")
         local keepTip = "Blizzard keeps this on its server, so every device gets the same. Tick it on each device to keep that device's own."
         local function SyncText()
             return D.SyncIsOff() and "Sync UI and keys again" or "Stop syncing UI and keys"
@@ -1049,6 +1563,12 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         D.ResetPositions()
     elseif msg == "device" then
         D.PrintDevice()
+    elseif msg == "decktest on" then
+        D.SetDeckTest(true)
+    elseif msg == "decktest off" then
+        D.SetDeckTest(false)
+    elseif msg == "decktest" then
+        D.PrintDeckTest()
     elseif msg == "sync" then
         D.PrintSync()
     elseif msg == "camera" then
@@ -1063,16 +1583,22 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         -- the Bars module adds its own lines to /df bars
         if msg == "bars" and D.PrintModuleBars then D.PrintModuleBars() end
     elseif msg == "questing" then
-        if D.PrintQuesting then D.PrintQuesting() else print("DeckUIForever: switch on the Questing module (General tab) for /df questing.") end
+        if D.PrintQuesting then D.PrintQuesting() else print("DeckUIForever: switch on the Questing module (/df, Start page) for /df questing.") end
     elseif msg == "pad" then
         -- the Pad module's report on Blizzard's controller bar
-        if D.PrintPad then D.PrintPad() else print("DeckUIForever: switch on the Pad module (General tab) for /df pad.") end
+        if D.PrintPad then D.PrintPad() else print("DeckUIForever: switch on the Pad module (/df, Start page) for /df pad.") end
     elseif msg == "errors" then
         D.ShowErrors()
     elseif msg == "deck" or msg == "pc" or msg == "auto" then
         D.SetDevice(msg)
     elseif msg == "" then
         D.ToggleConfig()
+    elseif msg == "start" or msg == "modules" or msg == "general" then
+        D.ToggleConfig("General")
+    elseif msg == "all" then
+        -- every page with its fine-tuning, or the important options only
+        D.SetShowAll(not DeckUIForeverDB.showAllOptions)
+        print("DeckUIForever: the settings show " .. (DeckUIForeverDB.showAllOptions and "all options." or "the important options."))
     else
         -- /df raid, /df bags, ...: open that page
         local page = D.FindPage(msg)

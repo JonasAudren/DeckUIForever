@@ -85,7 +85,8 @@ ns.DEFAULTS = {
     -- Deck Heal (padheal.lua, 2026-11-11): the healing layer for the controller
     padHeal         = false,       -- the layer itself; off, nothing of it exists
     padHealToggle   = false,       -- the key switches the layer on and off instead of holding it
-    padHealSpells   = "",          -- up to four spells, names or IDs between commas; empty = the class's
+    padHealModifier = true,        -- gamepad style: the friend-targeting button (L) is the layer's key
+    padHealSpells   = "",         -- up to four spells, names or IDs between commas; empty = the class's
     padHealBar      = true,        -- the small bar with the picked member and the four spells
     padHealFrame    = true,        -- a gold frame around the picked member's line in the HoT window
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload

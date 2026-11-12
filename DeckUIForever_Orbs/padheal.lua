@@ -43,7 +43,9 @@ local oUF = ns.oUF
 -- Keys, all off or harmless until padHeal is ticked: padHeal (the layer
 -- itself; off, nothing is even created), padHealToggle (press to switch
 -- instead of hold), padHealSpells (up to four names or IDs between commas;
--- empty: ns.HotLayerSpells picks), padHealBar, padHealFrame.
+-- empty: ns.HotLayerSpells picks), padHealBar, padHealFrame,
+-- padHealModifier (on: in the gamepad style the friend-targeting button,
+-- L, is the layer's key - see `hold` below).
 -- /orbs deckheal prints what the layer saw.
 --
 -- UNTESTED IN GAME, and three things only the game answers: whether
@@ -84,6 +86,53 @@ local unknown = {}     -- what of padHealSpells the game did not know
 local rings = {}       -- the gold frames in the HoT window, by unit token
 local seen = { down = 0, up = 0, picks = 0, casts = 0 }   -- for /orbs deckheal
 local previewing = false
+
+-- The friend-targeting button as the layer's key (padHealModifier, on;
+-- owner's first Deck test 2026-11-12: no key of his own bound, he held L -
+-- Blizzard's friendly target modifier - used the D-pad and found "die Heal
+-- Tasten gehen nicht": under that modifier A/X/Y/B are Blizzard's target
+-- self / pet / assist / marker). The modifier is a plain binding
+-- (GAMEPADLEFTTARGETMODIFIER in Blizzard_Gamepad/Bindings.xml), so a
+-- priority override on its key clicks our layer instead and Blizzard's
+-- friendly targeting bar never opens while Deck Heal is on. `hold` owns
+-- that override: the layer's own ClearBindings must not take it away.
+local hold = CreateFrame("Frame")
+local holdKeys = {}
+-- the keyboard's stand-ins while the hub's Deck test runs (D.DeckTestOn)
+local TEST_HOLD = "TAB"
+local TEST_PICKS = { "UP", "RIGHT", "DOWN", "LEFT" }
+local TEST_CASTS = { "1", "2", "3", "4" }
+
+local function GamepadStyle()
+    return InputUtil and InputUtil.IsGamepadUIEnabled and InputUtil.IsGamepadUIEnabled() or false
+end
+
+local function FriendKeys()
+    local ok, swapped = pcall(C_CVar.GetCVarBool, "GamepadSwapTargetModifiers")
+    swapped = ok and swapped and true or false
+    local a, b = GetBindingKey(swapped and "GAMEPADRIGHTTARGETMODIFIER" or "GAMEPADLEFTTARGETMODIFIER")
+    if not a then a = swapped and "PADRSHOULDER" or "PADLSHOULDER" end
+    return a, b
+end
+
+-- out of a fight only
+local function ApplyHold(on)
+    ClearOverrideBindings(hold)
+    wipe(holdKeys)
+    if not on then return end
+    local keys = {}
+    if Wanted("padHealModifier") and GamepadStyle() then keys = { FriendKeys() } end
+    -- the hub's Deck test at the PC: Tab stands in for the button
+    if D.DeckTestOn and D.DeckTestOn() then keys[#keys + 1] = TEST_HOLD end
+    for _, key in ipairs(keys) do
+        SetOverrideBindingClick(hold, true, key, "DeckHealLayer", "LeftButton")
+        holdKeys[#holdKeys + 1] = key
+    end
+end
+
+function ns.PadHealActive()
+    return layer and layer:GetAttribute("active") and true or false
+end
 
 -------------------------------------------------------------------
 -- The bar: who is picked, which key casts what
@@ -202,6 +251,8 @@ local function Refresh()
     local show = previewing or (active and Wanted("padHealBar"))
     if show then PaintBar(unit) end
     bar:SetShown(show)
+    -- the key pictures before the HoT window's names light up with the layer
+    if DeckUIForeverOrbsDB.hotTracker and ns.ApplyHotHints then ns.ApplyHotHints() end
 end
 
 -------------------------------------------------------------------
@@ -226,8 +277,22 @@ local LAYER_CLICK = [[
         for i = 1, 4 do
             local cast = self:GetFrameRef("cast" .. i)
             cast:SetAttribute("unit", "player")
-            self:SetBindingClick(true, self:GetAttribute("castkey" .. i), cast:GetName())
-            self:SetBindingClick(true, self:GetAttribute("pickkey" .. i), self:GetFrameRef("pick" .. i):GetName())
+            -- the plain key and the key with a modifier: a held shoulder or
+            -- paddle may count as Ctrl, Shift or Alt
+            local ck, cn = self:GetAttribute("castkey" .. i), cast:GetName()
+            local pk, pn = self:GetAttribute("pickkey" .. i), self:GetFrameRef("pick" .. i):GetName()
+            self:SetBindingClick(true, ck, cn)
+            self:SetBindingClick(true, "CTRL-" .. ck, cn)
+            self:SetBindingClick(true, "SHIFT-" .. ck, cn)
+            self:SetBindingClick(true, "ALT-" .. ck, cn)
+            self:SetBindingClick(true, pk, pn)
+            self:SetBindingClick(true, "CTRL-" .. pk, pn)
+            self:SetBindingClick(true, "SHIFT-" .. pk, pn)
+            self:SetBindingClick(true, "ALT-" .. pk, pn)
+            if self:GetAttribute("test") then
+                self:SetBindingClick(true, self:GetAttribute("casttest" .. i), cn)
+                self:SetBindingClick(true, self:GetAttribute("picktest" .. i), pn)
+            end
         end
     else
         self:ClearBindings()
@@ -262,6 +327,11 @@ local function Setup()
     layer:SetAttribute("active", false)
     function layer:LayerChanged(down)
         if down then seen.down = seen.down + 1 else seen.up = seen.up + 1 end
+        -- what A and D-pad up really run now: ours, or did the game's win?
+        if self:GetAttribute("active") then
+            seen.face = GetBindingAction(CASTS[1].key, true)
+            seen.dpad = GetBindingAction(PICKS[1].key, true)
+        end
         Refresh()
     end
     for i, def in ipairs(CASTS) do
@@ -273,6 +343,8 @@ local function Setup()
         casts[i] = b
         layer:SetFrameRef("cast" .. i, b)
         layer:SetAttribute("castkey" .. i, def.key)
+        layer:SetAttribute("casttest" .. i, TEST_CASTS[i])
+        layer:SetAttribute("picktest" .. i, TEST_PICKS[i])
     end
     for i, def in ipairs(PICKS) do
         local b = CreateFrame("Button", "DeckHealPick" .. i, UIParent, "SecureHandlerClickTemplate")
@@ -344,6 +416,7 @@ function ns.ApplyPadHeal()
     ns.OutOfCombat("padHeal", function()
         local on = Opt("padHeal")
         if on and not layer then Setup() end
+        ApplyHold(on)
         if not layer then
             Refresh()
             return
@@ -351,6 +424,7 @@ function ns.ApplyPadHeal()
         if on then MakeRings() end
         layer:SetAttribute("enabled", on)
         layer:SetAttribute("toggle", Opt("padHealToggle"))
+        layer:SetAttribute("test", D.DeckTestOn and D.DeckTestOn() or false)
         layer:SetAttribute("active", false)
         layer:SetAttribute("unit", "player")
         ClearOverrideBindings(layer)
@@ -361,8 +435,13 @@ end
 
 -- the key the layer is bound to, for the page; nil when none
 function ns.PadHealKey()
-    local key = GetBindingKey(BINDING)
-    return key and (GetBindingText and GetBindingText(key) or key) or nil
+    local list = {}
+    local function Add(key)
+        if key then list[#list + 1] = GetBindingText and GetBindingText(key) or key end
+    end
+    for _, key in ipairs(holdKeys) do Add(key) end
+    Add((GetBindingKey(BINDING)))
+    return #list > 0 and table.concat(list, ", ") or nil
 end
 
 local watch = CreateFrame("Frame")
@@ -370,6 +449,9 @@ watch:SetScript("OnEvent", function(_, event)
     if not (DeckUIForeverOrbsDB and DeckUIForeverOrbsDB.padHeal) then return end
     if event == "GROUP_ROSTER_UPDATE" then
         Refresh()   -- the picked token may be someone else now
+    elseif event == "INPUT_DEVICE_INTERFACE_TRANSITION" or event == "PLAYER_ENTERING_WORLD" then
+        -- the friend-targeting button is ours in the gamepad style only
+        C_Timer.After(0.5, ns.ApplyPadHeal)
     else
         ApplySpells()
     end
@@ -378,7 +460,8 @@ end)
 oUF:Factory(function()
     D.MakeMovable(bar, "Deck Heal", DeckUIForeverOrbsDB)
     for _, e in ipairs({ "SPELLS_CHANGED", "PLAYER_TALENT_UPDATE", "ACTIVE_TALENT_GROUP_CHANGED",
-                         "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE" }) do
+                         "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE",
+                         "INPUT_DEVICE_INTERFACE_TRANSITION" }) do
         if not C_EventUtils or C_EventUtils.IsEventValid(e) then watch:RegisterEvent(e) end
     end
     ns.ApplyPadHeal()
@@ -399,6 +482,13 @@ function ns.PadHealDebug()
         tostring(InCombatLockdown())))
     print(("  seen since login: key down %d, key up %d, picks %d, casts %d; picked now: %s"):format(
         seen.down, seen.up, seen.picks, seen.casts, layer and tostring(layer:GetAttribute("unit")) or "-"))
+    print(("  friend-targeting button as the key: %s, gamepad style: %s"):format(
+        Wanted("padHealModifier") and "on" or "off", tostring(GamepadStyle())))
+    for _, key in ipairs(holdKeys) do
+        print(("    %s runs: %s"):format(key, tostring(GetBindingAction(key, true))))
+    end
+    print(("  while the layer was last on, A ran: %s, D-pad up ran: %s"):format(
+        tostring(seen.face or "-"), tostring(seen.dpad or "-")))
     print(("  bar %s, frame in the HoT window %s (%d lines framed)"):format(
         Wanted("padHealBar") and "on" or "off", Wanted("padHealFrame") and "on" or "off",
         (function() local n = 0 for _ in pairs(rings) do n = n + 1 end return n end)()))

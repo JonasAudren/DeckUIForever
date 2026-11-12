@@ -44,7 +44,7 @@ D.RegisterModule("Bags", {
         f:Checkbox("Item level on gear", db, "itemLevel", Refresh)
         f:Checkbox("Coin on junk (grey items)", db, "markJunk", Refresh)
 
-        f:Label("Auction prices")
+        f:MoreSection("Auction prices")
         local gold = function(v) return v .. "g" end
         f:Checkbox("Value of the window in its footer", db, "ahValue", Refresh,
             "What everything in the window would sell for at the auction house, from your last scan there.")

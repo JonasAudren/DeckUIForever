@@ -90,21 +90,21 @@ function D.ToggleCompendium()
     if D.compendiumToggle then
         D.compendiumToggle()
     else
-        print("DeckUIForever: switch on the Questing module (General tab) for the quest compendium.")
+        print("DeckUIForever: switch on the Questing module (/df, Start page) for the quest compendium.")
     end
 end
 function D.ToggleWeek()
     if D.weekToggle then
         D.weekToggle()
     else
-        print("DeckUIForever: switch on the Week module (General tab) for the week overview.")
+        print("DeckUIForever: switch on the Week module (/df, Start page) for the week overview.")
     end
 end
 function D.NavStep(dir)
     if D.navStep then
         D.navStep(dir)
     else
-        print("DeckUIForever: switch on the Nav module (General tab) to step through quests.")
+        print("DeckUIForever: switch on the Nav module (/df, Start page) to step through quests.")
     end
 end
 
@@ -203,6 +203,69 @@ function D.PrintDevice()
     print("DeckUIForever: key bindings " .. (D.bindingsCVar.localOnly
         and "stay on this device (synchronizeBindings 0)"
         or "are synced with the server (synchronizeBindings 1)"))
+end
+
+-------------------------------------------------------------------
+-- Deck test at the PC (owner 2026-11-12: "einen Testmodus, in dem ich auf
+-- dem PC die Steam-Deck-Sachen testen kann")
+-------------------------------------------------------------------
+-- One switch for the two things that make the Deck the Deck for us: the
+-- device override "deck" (per-device places, sizes, options) and the
+-- game's controller interface, CVar InputDeviceInterfaceStyle - what the
+-- checkbox "Enable Gamepad UI" of Blizzard's Gamepad options sets
+-- (Blizzard_SettingsDefinitions_Shared/Gamepad.lua). What was there before
+-- is kept in DeckUIForeverDB.deckTest and put back when the test ends. The
+-- game reloads either way: the modules read the device at load. Modules
+-- ask D.DeckTestOn() for keyboard stand-ins of the pad keys (Deck Heal:
+-- Tab, the arrow keys, 1 to 4).
+D.STYLE_CVAR = "InputDeviceInterfaceStyle"
+
+function D.DeckTestOn()
+    return DeckUIForeverDB and DeckUIForeverDB.deckTest and true or false
+end
+
+local function SetStyle(value)
+    if value == nil or C_CVar.GetCVar(D.STYLE_CVAR) == nil then return false end
+    return pcall(C_CVar.SetCVar, D.STYLE_CVAR, value) and true or false
+end
+
+function D.SetDeckTest(on)
+    if InCombatLockdown() then
+        print("DeckUIForever: not in combat.")
+        return
+    end
+    if on and not D.DeckTestOn() then
+        DeckUIForeverDB.deckTest = {
+            device = DeckUIForeverDB.device or "auto",
+            style = C_CVar.GetCVar(D.STYLE_CVAR),
+        }
+        DeckUIForeverDB.device = "deck"
+        local pad = Enum.InputDeviceInterfaceType and Enum.InputDeviceInterfaceType.Gamepad
+        if not SetStyle(pad) then
+            print("DeckUIForever: this client has no controller interface to switch on; the Deck's settings and the keyboard stand-ins still apply.")
+        end
+    elseif not on and D.DeckTestOn() then
+        local was = DeckUIForeverDB.deckTest
+        DeckUIForeverDB.deckTest = nil
+        DeckUIForeverDB.device = was.device or "auto"
+        SetStyle(was.style)
+    else
+        return
+    end
+    ReloadUI()
+end
+
+function D.PrintDeckTest()
+    local t = DeckUIForeverDB.deckTest
+    print(("DeckUIForever: Deck test %s. %s, %s = %s."):format(t and "ON" or "off", D.DeviceText(),
+        D.STYLE_CVAR, tostring(C_CVar.GetCVar(D.STYLE_CVAR))))
+    if t then
+        print(("  before the test: device %s, %s = %s. /df decktest off ends it."):format(
+            tostring(t.device), D.STYLE_CVAR, tostring(t.style)))
+        print("  Deck Heal on the keyboard: hold Tab, arrow keys up/right/down/left pick party member 1-4, keys 1 2 3 4 are A X Y B.")
+    else
+        print("  /df decktest on starts it (the game reloads).")
+    end
 end
 
 -- Key bindings per device. WoW keeps them on the server, so every machine
@@ -669,6 +732,8 @@ local DEFAULTS = {
     targetArrow   = false,   -- FFXIV's arrow over the target's nameplate (targetarrow.lua)
     xivPlates     = false,   -- enemy nameplates as FFXIV draws them (nameplates.lua)
     xivPlatesFriendly = true, -- with xivPlates: friends' plates too, in green (the soft friendly target's among them)
+    showAllOptions = false,   -- the settings window: every page with its fine-tuning (panel.lua, widgets.lua Flow:More)
+    xivPlatesNameOnly = true, -- in instances, where friends' plates are the game's alone: Blizzard's plate as a bare name
     plateSpace    = true,    -- and wider spacing between them (nameplates.lua sets the CVars)
     infoServer    = false,   -- FFXIV's server info: realm, mail, latency, time (infobars.lua)
     infoGold      = false,   -- the gold you carry, with a coin

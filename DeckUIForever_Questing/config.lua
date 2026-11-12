@@ -22,14 +22,17 @@ D.RegisterModule("Questing", {
         end
         f:Checkbox("Take the quests an NPC offers", db, "autoAccept", nothing,
             "Talking to a quest giver accepts the quest without a click. Grey quests are left unless the next switch is on.")
+        f:More()
         f:Checkbox("Grey quests too", db, "acceptTrivial", nothing,
             "Quests far below your level are taken as well.")
         f:Checkbox("Shared and escort quests", db, "acceptShared", nothing,
             "A quest a party member shares, or an escort a party member starts, is accepted.")
+        f:Basic()
         f:Checkbox("Hand in finished quests", db, "autoTurnIn", nothing,
             "A finished quest is handed in, and the reward taken when there is nothing to choose. With a choice the window stays open.")
         f:Checkbox("Skip the small talk", db, "autoGossip", nothing,
             "An NPC with one line of talk and no quest is talked to without a click. Vendors, trainers, flight masters and bankers are left alone.")
+        f:More()
         f:Checkbox("Share new quests with the party", db, "autoShare", nothing,
             "Every quest you take is offered to your party.")
         f:Checkbox("Say what was done in the chat", db, "announce", nothing)
@@ -43,12 +46,14 @@ D.RegisterModule("Questing", {
         f:Label("The reward")
         f:Checkbox("Mark the reward worth taking", db, "rewardMarks", nothing,
             "With a choice of rewards, a coin marks the one that sells for the most and a green arrow one that would be an upgrade. The vendor price stands in the corner.")
+        f:More()
         f:Checkbox("Take the most valuable when nothing is an upgrade", db, "rewardAuto", nothing,
             "With no upgrade among the choices, the quest is handed in and the coin's item taken. Needs the hand-in switch above.")
 
         f:Label("The tracker")
         f:Checkbox("Track the quests of the zone you enter", db, "zoneTrack", function() ns.TrackZone(false) end,
             "Entering a zone, every quest in your log with something to do here goes into the tracker.")
+        f:More()
         f:Checkbox("And stop tracking the others", db, "zoneUntrack", nothing,
             "Quests with nothing to do in this zone leave the tracker. The navigation target always stays.")
         f:Checkbox("Level in front of the title", db, "titleLevels", function() ns.RedrawTracker() end,
@@ -57,6 +62,7 @@ D.RegisterModule("Questing", {
         f:Label("The quest item key")
         f:Checkbox("Quest item button", db, "questItem", function() ns.ApplyQuestItem() end,
             "A button with the quest item that matters now: the navigation target's, else the nearest tracked quest's. Bind a key under Keybindings > AddOns > DeckUIForever. Move it with Move below.")
+        f:More()
         f:Slider("Button size (this device)", 0.7, 1.6, 0.05, pct, device, "itemScale", function(v)
             ns.DeviceDB().itemScale = v
             ns.ApplyQuestItemScale()
@@ -65,12 +71,13 @@ D.RegisterModule("Questing", {
         f:Label("The compendium")
         f:Button("Open the compendium", function() ns.ToggleCompendium() end,
             "Every quest by zone, dungeon, class, profession and chain, with what you have done, where each starts and what it needs. Also /compendium, or a key under Keybindings.")
+        f:More()
         f:Slider("Window size (this device)", 0.6, 1.3, 0.05, pct, device, "scale", function(v)
             ns.DeviceDB().scale = v
             ns.ApplyCompendiumScale()
         end)
 
-        f:Label("Your quest data")
+        f:MoreSection("Your quest data")
         f:Hint("The game lists no quest it has not shown you, so the module keeps its own record, shared by all your characters. Questie, when installed, adds everything it knows on top - or once, through the import below, for good.")
         f:Checkbox("Record what you see", db, "record", nothing,
             "Every quest an NPC offers or takes back, its giver and place, its objectives, and which quest follows which. Grows while you play.")

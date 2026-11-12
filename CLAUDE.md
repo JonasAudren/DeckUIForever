@@ -227,6 +227,27 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   `DeckHeal` ("Deck Heal", config.lua) after HoTs under Orbs; `PAGE_FRAMES.DeckHeal`, `PAGE_RESET.DeckHeal`
   (`^padHeal`, left out of the Orbs page's reset). `/orbs deckheal` (`ns.PadHealDebug`) prints the key, the
   counts of key down / key up / picks / casts since login and each button's spell and unit.
+- **Owner's first Deck test, 2026-11-12** ("die Heal-Tasten gehen nicht", and the key pictures lay on the health
+  bar): he had bound no key and held L, Blizzard's friendly target modifier - under it the D-pad and A/X/Y/B are
+  Blizzard's friendly targeting bar (`InputBindingStack`: `SetOverrideBindingClick(UIParent, true, ...)` for every
+  pad key), so our layer never ran. For 1.5.1 (CHANGELOG section exists, uncommitted, untested): `padHealModifier`
+  (on) - in the gamepad style `ApplyHold` lays a priority override of the frame `hold` on the key of
+  `GAMEPADLEFTTARGETMODIFIER` (RIGHT with CVar `GamepadSwapTargetModifiers`; fallback PADLSHOULDER) that clicks
+  `DeckHealLayer`; the modifier is a plain binding, so Blizzard's bar no longer opens while Deck Heal is on. The
+  layer also binds the CTRL-/SHIFT-/ALT- variants of its eight keys, the HoT window's glyphs light with the layer
+  (`ns.PadHealActive`), and `PlaceTitle` in hots.lua moves both health bars behind the glyph. `/orbs deckheal`
+  prints what L runs and what A and D-pad up ran while the layer was last on (`GetBindingAction(key, true)`) -
+  if those are not `CLICK DeckHealCast1/Pick1`, Blizzard's core set won the keys and another way is needed.
+- **Deck test at the PC (2026-11-12, owner: "einen Testmodus, in dem ich auf dem PC die Steam-Deck-Sachen testen
+  kann")**: `D.SetDeckTest(on)` / `D.DeckTestOn()` / `D.PrintDeckTest()` in the hub's core.lua, button "Test the
+  Steam Deck here" on the Devices page, `/df decktest [on|off]`. On: `DeckUIForeverDB.deckTest = { device, style }`
+  keeps the old values, the device override becomes "deck" and CVar `InputDeviceInterfaceStyle` becomes
+  `Enum.InputDeviceInterfaceType.Gamepad` (what Blizzard's "Enable Gamepad UI" checkbox sets; there is no other
+  setter), then `ReloadUI`; off puts both back. Modules ask `D.DeckTestOn()` for keyboard stand-ins: Deck Heal
+  binds Tab as the layer's key (`ApplyHold`) and, while the layer is on, the arrow keys as the D-pad and 1-4 as
+  A/X/Y/B (layer attribute `test`, `picktestN`/`casttestN`). Blizzard's own controller bars have no keyboard
+  stand-in - a real pad at the PC drives them. **Untested in game**: whether the CVar switches the style on a PC
+  without a pad and whether the style survives mouse and keyboard input.
 - **Untested in game.** Three things only the game answers, in this order: does the key's down *and* up reach
   the handler (counts in `/orbs deckheal`; if no up, `padHealToggle`), may a secure handler set bindings in a
   fight in Forever (the probe's wrap-script test was inconclusive), and does a priority override binding beat
@@ -736,6 +757,26 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   (Bags, Loot), Info (Tooltip with the extra lines on it, Week). The pages `MapMinimap` and `TooltipExtras`
   are gone (their keys reset with the parent: `PAGE_RESET.Map` matches everything but the world map's keys,
   `PAGE_RESET.Tooltip` the whole DB); `/df overview` is `/df modules`.
+- **Third menu review (2026-11-12, owner: "einsteigerfreundlicher, etwas geführter ... da verliert man den
+  Überblick"; picked all four ideas and presets "mit Rückfrage"). Untested in game.**
+  - **Start page** (key still `General`, name "Start", `/df start`): presets (`PRESETS` in panel.lua: keyboard,
+    deck, healer - `modules` on/off, `orbs` keys written into DeckUIForeverOrbsDB, `deckOrbs` on the Deck only;
+    `PresetChanges` lists the difference in `D.Dialog`, `ApplyPreset` applies and reloads, never in combat), the
+    modules as rows with an On/Off switch (`ModuleRow`, `D.MODULE_SHORT`, `START_GROUPS`), Move frames, All
+    options, Minimap button, Lua errors. A new module needs a `MODULE_SHORT` line and a place in `START_GROUPS`
+    (else it lands under "More").
+  - **Important options first** (`DeckUIForeverDB.showAllOptions`, off; footer button "All options", the gold
+    line at a page's end, `/df all`, `D.SetShowAll`): widgets.lua wraps every Flow call and records it as an item
+    (the frames/regions it added, height, texts); `f:More()` marks the rest of a section as fine-tuning,
+    `f:MoreSection("X")` a whole section, `f:Basic()` switches back inside a section; `Flow:Relayout` hides the
+    fine-tuning and restacks. **Rule for new options: put the one or two switches a new player needs first in
+    their section, the rest after `f:More()`.** A page must move the cursor only through Flow calls (never
+    `f.y = ...`), and must not show/hide its own widgets by hand (Relayout restores the state it saw).
+  - **Search** (field above the sidebar): `Index()` reads the recorded items of every page (builds unseen pages
+    hidden) plus one entry per page and per switched-off module; all words must match name, tip, page or
+    section. A click opens the page (`content.reveal` shows the fine-tuning for that visit), scrolls and flashes.
+  - **Short sidebar**: `LayoutSidebar` leaves out stand-in pages (modules that are off) unless on show.
+  - The footer's reload notice is "Needs a reload:" + "Reload (n)" to make room for the third button.
 - Texts: a label is a few words, an explanation two or three plain sentences about what the player sees;
   "Needs a reload." closes it where it does; no engine words (secure, state driver, CVar, taint) and no
   Final Fantasy lore beyond what names the look. Keep that style for new options.
@@ -776,6 +817,29 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   Blizzard's look as before. A friend is only a unit `UnitCanAssist` says true for and no game object: the
   first build also covered the interact target's herb ("Mageroyal" twice, under softtarget.lua's name; owner's
   screenshot the same day). **The fix is untested in game.**
+  **HoT window order (owner 2026-11-12: "die Reihenfolge soll immer Tank, Healer, DD sein")**: hots.lua's `Rows`
+  puts the role before the group order (`RoleRank`: `UnitGroupRolesAssigned`, TANK 1, HEALER 2, everything else
+  3 - NONE counts as damage, so a group without roles keeps the old order), the raid table sorts each group the
+  same way; `PLAYER_ROLES_ASSIGNED` restacks; no option (the owner said "immer"). In the healer mode the rows
+  move only out of combat, as before. `/orbs hots` prints each line's role. **Untested in game** - open: whether
+  Forever's groups carry roles at all (the Stockade group of the screenshot would say).
+  **Missing-buff slots (owner 2026-11-12: "erkennt nicht richtig ob Buffs auf den Spielern sind" - a missing buff
+  without an icon and a present one with it, "immer")**: `BuffMissing` trusted `GetAuraDataBySpellName` alone;
+  that call answers nil for an aura the game keeps secret (`RequiresNonSecretAura`), which read as missing out of
+  a fight, and in a fight the answer of before stood (reset to "not missing" by every Rebuild). Now `BuffState`
+  (hots.lua): found by name = there; else the unit's HELPFUL list by index - a name kept from us = unknown, a
+  list fully in the clear without the buff = missing (in a fight only with at least one buff read). Unknown keeps
+  the last answer for the same GUID (`s.missingFor`); Assign keeps it across a Rebuild. `/orbs hots` prints per
+  member and buff: state, buffs read, buffs kept from us. **A guess at the cause, untested in game** - the saved
+  settings were read (hotBuffSlots on, hotCustom empty); if it is still wrong, that printout is the next evidence.
+  **Dungeons (owner's Stockade screenshot 2026-11-12: the friendly target kept Blizzard's plate)**: Forever has
+  retail's forbidden plates (`FORBIDDEN_NAME_PLATE_UNIT_ADDED`, `GetNamePlateForUnit(unit, issecure())` in
+  Blizzard_NamePlates.lua) - a friend's plate in an instance cannot be faded or anchored to, so no FF plate there.
+  `ApplyNameOnly` (nameplates.lua, option `xivPlatesNameOnly`, on, Targets page) sets Blizzard's CVar
+  `nameplateShowOnlyNameForFriendlyPlayerUnits` to 1 while in an instance (PLAYER_ENTERING_WORLD, not in combat)
+  and restores the player's value outside (`DeckUIForeverDB.plateNameOnly`). Friendly players only (Blizzard's
+  `UpdateShowOnlyName`: IsFriend and IsPlayer); pets and NPCs keep the plate. **Untested in game**: whether the
+  CVar exists in the live client and acts on forbidden plates - the plates debug print shows both.
 
 - **Two fixes from the owner's /df errors of 2026-11-11 (1.4.1), both untested in game.**
   (1) `ADDON_ACTION_FORBIDDEN ... UseContainerItem` at `Mainline/ContainerFrame.lua:1611`: the click passes
@@ -787,6 +851,12 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   or the first free slot of the bank type on show (`BankPlace`). Open: what the engine's
   `UseContainerItem(bag, slot, nil, nil)` does afterwards on the locked slot (a red "item is locked" line would be
   the sign), and whether a withdraw (right click in the bank window) works with a nil bank type.
+  **Follow-up 2026-11-12 (owner's /df error on 1.5.0, 14x `Camelot/BankFrame.lua:43` FetchNumPurchasedBankTabs(nil)):**
+  `BankPanel.MoneyDisplay:Refresh` guards with the panel's bare `bankType` field (Blizzard's own SetBankType fills
+  it) and then triggers `BankFrame:OnShowOrHideBagCost`, which reads `BankFrame:GetActiveBankType()` - nil with the
+  panel hidden. The display listens to PLAYER_MONEY from OnLoad (SmallMoneyFrame_OnLoad) and every OnShow.
+  `ns.QuietBagCost` (bank.lua; InitBank, OpenBank, CloseBank) drops the event, hooks OnShow to drop it again and
+  unregisters BankFrame's `BankPanelMixin.ShowOrHideBagCost` callback from EventRegistry. Untested in game.
   (2) `ADDON_ACTION_BLOCKED` in party.lua's style function: a group header makes a member's button in a fight;
   `ns.RowSetup(frame, w, h)` (layout.lua; party.lua `BuildRow`, raid.lua `BuildTile`) does `SetSize` and
   `RegisterForClicks("AnyUp")` out of combat or at PLAYER_REGEN_ENABLED (`lateRows`) - the header's

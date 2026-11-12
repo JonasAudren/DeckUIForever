@@ -17,9 +17,9 @@ local D = DeckUIForever
 --
 -- Secret values: name, level and health go to SetText and the StatusBar
 -- as they are. Whether a unit can be attacked may be secret; then it is
--- treated as an enemy. Plates the game keeps to itself (in some
+-- treated as an enemy. Plates the game keeps to itself (friends in
 -- instances) are not handed out by GetNamePlateForUnit, so they keep
--- Blizzard's look.
+-- Blizzard's look - reduced to the name, see ApplyNameOnly.
 -------------------------------------------------------------------
 local W, BAR_H = 120, 4
 local NAME_ENEMY = { 1, 0.45, 0.45 }
@@ -287,8 +287,39 @@ local function ApplySpacing(on)
     end
 end
 
+-- Friends in a dungeon or raid (owner's screenshot 2026-11-12: the heal
+-- target in the Stockade kept Blizzard's plate, bar, frame and level).
+-- There the game hands a friend's plate to nobody: it is a "forbidden"
+-- plate (FORBIDDEN_NAME_PLATE_UNIT_ADDED, GetNamePlateForUnit answers nil
+-- to addon code), so it can be neither faded nor used as an anchor - an FF
+-- plate of ours is not possible there. What Blizzard itself offers is the
+-- CVar nameplateShowOnlyNameForFriendlyPlayerUnits (Blizzard_NamePlates/
+-- Blizzard_NamePlateUnitFrame.lua, UpdateShowOnlyName): a friendly
+-- player's plate then is the name alone - no bar, frame, cast bar or
+-- level. With DeckUIForeverDB.xivPlatesNameOnly (on) and the friends'
+-- plates ours, it is set while you are in an instance and the player's own
+-- value goes back outside (kept in DeckUIForeverDB.plateNameOnly until
+-- then). Never in combat: it waits for the fight's end.
+local NAME_ONLY = "nameplateShowOnlyNameForFriendlyPlayerUnits"
+
+local function ApplyNameOnly()
+    if GetCVar(NAME_ONLY) == nil then return end
+    if InCombatLockdown() then return end   -- PLAYER_REGEN_ENABLED comes back here
+    local db = DeckUIForeverDB
+    local want = db.xivPlates and db.xivPlatesFriendly ~= false and db.xivPlatesNameOnly ~= false
+        and IsInInstance() and true or false
+    if want then
+        if db.plateNameOnly == nil then db.plateNameOnly = GetCVar(NAME_ONLY) end
+        if GetCVar(NAME_ONLY) ~= "1" then SetCVar(NAME_ONLY, "1") end
+    elseif db.plateNameOnly ~= nil then
+        SetCVar(NAME_ONLY, db.plateNameOnly)
+        db.plateNameOnly = nil
+    end
+end
+
 function D.ApplyPlates()
     if DeckUIForeverDB.plateSpace == nil then DeckUIForeverDB.plateSpace = true end
+    ApplyNameOnly()
     ApplySpacing(DeckUIForeverDB.xivPlates and DeckUIForeverDB.plateSpace and true or false)
     if DeckUIForeverDB.xivPlates then
         for _, e in ipairs({ "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "UNIT_HEALTH",
@@ -305,7 +336,11 @@ end
 
 local login = CreateFrame("Frame")
 login:RegisterEvent("PLAYER_LOGIN")
-login:SetScript("OnEvent", function() D.ApplyPlates() end)
+login:RegisterEvent("PLAYER_ENTERING_WORLD")   -- into or out of an instance
+login:RegisterEvent("PLAYER_REGEN_ENABLED")
+login:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_LOGIN" then D.ApplyPlates() else ApplyNameOnly() end
+end)
 D.OnRankMarks(function() for _, f in pairs(active) do Fill(f) end end)
 
 function D.PlatesDebug()
@@ -321,5 +356,13 @@ function D.PlatesDebug()
         local yours = DeckUIForeverDB.plateCVars and DeckUIForeverDB.plateCVars[k]
         cvars[#cvars + 1] = ("%s %s%s"):format(k, tostring(GetCVar(k)), yours and (" (yours " .. yours .. ")") or "")
     end
+    -- plates the game keeps to itself: a nameplate unit without a plate for us
+    local kept = 0
+    All(function(unit)
+        if not C_NamePlate.GetNamePlateForUnit(unit) then kept = kept + 1 end
+    end)
+    print(("  in an instance: %s, %d plates kept by the game, friends as names only: %s (%s = %s, yours %s)"):format(
+        tostring(IsInInstance()), kept, tostring(DeckUIForeverDB.xivPlatesNameOnly ~= false),
+        NAME_ONLY, tostring(GetCVar(NAME_ONLY)), tostring(DeckUIForeverDB.plateNameOnly)))
     print(("  spacing %s: %s"):format(DeckUIForeverDB.plateSpace and "on" or "off", table.concat(cvars, ", ")))
 end

@@ -2,7 +2,7 @@
 ## Title: DeckUIForever Spec
 ## Notes: DeckUIForever module: one-click talent group switcher (dual talents)
 ## Author: Gottlieb
-## Version: 1.5.0
+## Version: 1.5.1
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Category: Class

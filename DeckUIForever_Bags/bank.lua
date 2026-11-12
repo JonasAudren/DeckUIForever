@@ -432,7 +432,8 @@ local function OpenBank(interaction)
     -- would do is done here: open the bags. The panel stays hidden (the
     -- note on top).
     BankFrame.BankPanel:Hide()
-    local prefer = interaction == Enum.PlayerInteractionType.AccountBanker and ACCOUNT or activeType
+    ns.QuietBagCost()
+    local prefer =interaction == Enum.PlayerInteractionType.AccountBanker and ACCOUNT or activeType
     SetType(FirstViewable(prefer))
     window:Show()
     ns.Flush(window)
@@ -443,16 +444,36 @@ local function CloseBank()
     atBank = false
     window:Hide()
     BankFrame.BankPanel:Hide()
-    -- The bag-cost money display (BankPanel.MoneyDisplay) was seen
-    -- listening to PLAYER_MONEY with the panel hidden (1.4.0, 2026-11-09):
-    -- its Refresh read a bank type we had written, passed its guard and
-    -- handed Blizzard's own code a nil (Camelot/BankFrame.lua:43). The
-    -- type is no longer written at all (the note on top), so the guard
-    -- holds; the listener is still dropped in case the hidden parent
-    -- swallowed its OnHide.
-    local money = BankFrame.BankPanel.MoneyDisplay
-    if money then money:UnregisterEvent("PLAYER_MONEY") end
+    ns.QuietBagCost()
     CloseAllBags(BankFrame)
+end
+
+-- The bag-cost money display (BankPanel.MoneyDisplay) and the hidden panel
+-- do not go together (Camelot/BankFrame.lua, read 2026-11-12): its Refresh
+-- guards with BankPanel:GetActiveBankType() - the bare field, which
+-- Blizzard's own SetBankType fills - and then triggers
+-- BankFrame:OnShowOrHideBagCost, which asks BankFrame:GetActiveBankType():
+-- nil while the panel is hidden, and C_Bank.FetchNumPurchasedBankTabs(nil)
+-- throws (line 43; 14 times in a session, owner 2026-11-12, 1.5.0). The
+-- display listens to PLAYER_MONEY from its OnLoad on (SmallMoneyFrame_
+-- OnLoad) and again from every OnShow, so dropping the event once when the
+-- bank closes (1.4.1) was too late and did not last. Now: the event is
+-- dropped at login, at every bank visit and after every OnShow, and
+-- BankFrame's callback for the bag cost is taken out of the registry - we
+-- draw our own "Buy tab" button, nothing of Blizzard's bag cost is on show.
+local bagCostHooked
+function ns.QuietBagCost()
+    local money = BankFrame.BankPanel and BankFrame.BankPanel.MoneyDisplay
+    if money then
+        money:UnregisterEvent("PLAYER_MONEY")
+        if not bagCostHooked then
+            bagCostHooked = true
+            money:HookScript("OnShow", function(self) self:UnregisterEvent("PLAYER_MONEY") end)
+        end
+    end
+    if EventRegistry and EventRegistry.UnregisterCallback then
+        pcall(EventRegistry.UnregisterCallback, EventRegistry, "BankPanelMixin.ShowOrHideBagCost", BankFrame)
+    end
 end
 
 -- A right click on a bag item at the bank puts it into the bank we show
@@ -531,6 +552,7 @@ end)
 function ns.InitBank()
     ParkBankFrame()
     BankFrame.BankPanel:Hide()   -- hidden for good: GetActiveBankType then never reads a field
+    ns.QuietBagCost()
     D.MakeMovable(window, "Bank", DeckUIForeverBagsDB)
     D.MakeDraggable(window)
 end

@@ -50,6 +50,7 @@ D.RegisterModule("Orbs", {
               end })
         table.insert(c.widgets, Refreshing(hpBtn, HpLabel))
         table.insert(c.widgets, Refreshing(styleBtn, StyleLabel))
+        f:More()
         f:Checkbox("Final Fantasy XIV: your cast in the middle", db, "xivCastCenter", function(v)
             D.NeedReload("orbs:xivCast", (v and true or false) ~= loaded.xivCast)
         end, "In the Final Fantasy XIV style your cast shows in the middle of the screen instead of under your bar. Needs a reload.")
@@ -58,6 +59,7 @@ D.RegisterModule("Orbs", {
         f:Label("On the frames")
         f:Checkbox("Cast in the orb", db, "showCast", ns.SetCastShown)
         f:Checkbox("Buffs and debuffs", db, "showAuras", ns.SetAurasShown)
+        f:More()
         f:Checkbox("Only your own debuffs on the target", db, "ownDebuffsOnly", ns.SetOwnDebuffsOnly)
         f:Checkbox("Class resource dots on the player", db, "showClassPower", ns.SetClassPowerShown,
             "Combo points and the like as dots on your frame.")
@@ -101,6 +103,7 @@ D.RegisterModule("BuffBar", {
         end
         f:Checkbox("Own buff bar in Final Fantasy style", db, "buffBar", Rebuild("buffBar"),
             "Replaces Blizzard's buffs at the top right: buffs from the right, debuffs from the left, the time under each icon. Right click cancels a buff. Needs a reload; move it with Move below.")
+        f:More()
         f:Slider("Icon size (this device)", 18, 40, 1, px, ns.DeviceDB, "buffSize", function(v)
             ns.DeviceDB().buffSize = v
             D.NeedReload("orbs:buffSize", v ~= loaded.buffSize)
@@ -116,6 +119,7 @@ D.RegisterModule("BuffBar", {
         f:Checkbox("Debuffs", db, "buffBarDebuffs", live, "Your debuffs, from the left edge.")
         f:Checkbox("Weapon enchants", db, "buffBarEnchants", live,
             "Oils, stones and imbues, with their time left, before the buffs.")
+        f:More()
         f:Checkbox("Keep the bar in combat", db, "buffBarCombatKeep", live,
             "In combat the bar stays as it is out of combat; the two limits below are ignored.")
         f:Slider("In combat: buffs up to", 0, 600, 10, seconds, db, "buffBarCombatMax", Live("buffBarCombatMax"),
@@ -130,7 +134,7 @@ D.RegisterModule("BuffBar", {
             "0 for none.")
 
         f:Gap(4)
-        f:Label("Look")
+        f:MoreSection("Look")
         f:Checkbox("Time below the icons", db, "buffBarTime", Rebuild("buffBarTime"),
             "The time left under each icon. Needs a reload.")
         f:Checkbox("Dispel colour above debuffs", db, "buffBarDispel", Rebuild("buffBarDispel"),
@@ -151,6 +155,7 @@ D.RegisterModule("Enemies", {
         f:Checkbox("Focus frame", db, "showFocus", ns.SetFocusShown)
         f:Checkbox("Boss frames (hide Blizzard's)", db, "showBoss", ns.SetBossShown)
         loaded.bossStyle = loaded.bossStyle or DeckUIForeverOrbsDB.bossStyle or "auto"
+        f:More()
         f:Cycles({ label = "Boss look", values = { "auto", "orbs", "ff", "xiv" },
             names = { auto = "Follows the style", orbs = "Orbs", ff = "Final Fantasy", xiv = "Final Fantasy XIV" },
             tip = "Orbs, dark panels or Final Fantasy XIV's capsules for the bosses. Needs a reload.",
@@ -224,6 +229,7 @@ D.RegisterModule("FramePlayer", {
                 "Your buffs above the bar, below the cast, or off. The buff bar replaces them while it is on."),
             Side("Debuffs", "playerDebuffs",
                 "Your debuffs above the bar, below the cast, or off."))
+        f:More()
         f:Checkbox("Buffs from the right edge", db, "playerBuffsRight", function(v) Need("playerBuffsRight", v) end,
             "The buffs start at the right edge and grow left, so they share a line with the debuffs. Needs a reload.")
         f:Checkbox("Final Fantasy XIV shapes", db, "playerAuraShapes", function(v) Need("playerAuraShapes", v) end,
@@ -247,6 +253,7 @@ D.RegisterModule("FrameTarget", {
         f:Cycles(
             Side("Debuffs", "targetDebuffs", "Its debuffs below the cast, above the bar, or off."),
             Side("Buffs", "targetBuffs", "Its buffs below the cast, above the bar, or off."))
+        f:More()
         f:Checkbox("Buffs from the right edge", db, "targetBuffsRight", function(v) Need("targetBuffsRight", v) end,
             "The buffs start at the right edge and grow left, so they share a line with the debuffs. Needs a reload.")
         f:Slider("Icon size", 14, 32, 1, px, db, "targetAuraSize", Plain("targetAuraSize"), "Needs a reload.")
@@ -281,6 +288,7 @@ D.RegisterModule("Debuffs", {
         f:Checkbox("Round icons instead of capsules", db, "dotIcons", function(v)
             D.NeedReload("orbs:dotIcons", (v and true or false) ~= loaded.dotIcons)
         end, "The look of the HoT window: the name, then one round icon per debuff with a clock that closes as it runs out, then your other debuffs as icons. Needs a reload.")
+        f:More()
         f:Slider("Width, or icon size (this device)", 50, 175, 5, pct, ns.DeviceDB, "dotScale", function(v)
             ns.DeviceDB().dotScale = v
             ns.ApplyDotWidth()
@@ -291,7 +299,7 @@ D.RegisterModule("Debuffs", {
             "Out of combat, a dimmed empty capsule (or icon) for every debuff you have not cast. Off, only running debuffs show - nothing at all when none runs.")
         f:Checkbox("Keep enemies you switch away from", db, "dotKeep", nil,
             "An enemy you stop targeting keeps a small column while your debuffs run on it, up to four. Needs its nameplate on screen. Window only.")
-        f:Label("Place")
+        f:MoreSection("Place")
         f:Checkbox("At the target frame instead of a window", db, "dotAttach", function() ns.ApplyDotLayout() end,
             "The rows hang at your target frame, the focus column at your focus frame. Off, the debuffs have a window of their own - move it with Move below.")
         f:Checkbox("Above the frame instead of below", db, "dotAbove", function() ns.ApplyDotLayout() end,
@@ -318,11 +326,12 @@ D.RegisterModule("HoTs", {
         f:Checkbox("Click to cast (healer mode)", db, "hotHealer", function(v)
             D.NeedReload("orbs:hotHealer", (v and true or false) ~= loaded.hotHealer)
         end, "Click a HoT icon to cast it on that member; click the name to target them. Works in combat. In this mode the window stays frozen during a fight and sorts itself again when the fight ends. Needs a reload.")
+        f:More()
         f:Checkbox("Controller keys at the names (Steam Deck)", db, "hotPadHints", function() ns.ApplyHotHints() end,
             "Shows which controller key targets each member while you hold the target modifier: the D-pad for party members 1 to 4, the bottom face button for you. Only in the gamepad style, not in a raid.")
         if loaded.hotPets == nil then loaded.hotPets = DeckUIForeverOrbsDB.hotPets and true or false end
         if loaded.hotRaid == nil then loaded.hotRaid = DeckUIForeverOrbsDB.hotRaid and true or false end
-        f:Label("Who is listed")
+        f:MoreSection("Who is listed")
         f:Checkbox("Lines for pets", db, "hotPets", function(v)
             D.NeedReload("orbs:hotPets", (v and true or false) ~= loaded.hotPets)
         end, "Your pet and your party's pets get a line each, right under their owner - smaller, stepped in and the name pale blue. Not in the raid table. Needs a reload.")
@@ -332,17 +341,18 @@ D.RegisterModule("HoTs", {
         f:Label("On each line")
         f:Checkbox("Health bar", db, "hotHealth", function() ns.ApplyHotLayout() end,
             "A thin green bar under each name shows how much health the member has left.")
+        f:Checkbox("Debuffs you can remove", db, "hotDispel", function() ns.ApplyHotLayout() end,
+            "Up to two debuffs your class can remove show with a red rim between the name and your HoTs. The icon size follows the slider after a reload.")
+        f:More()
         f:Checkbox("Health bar behind the name", db, "hotHealthBlock", function() ns.ApplyHotLayout() end,
             "With the health bar on: a flat bar behind the whole name instead of the thin one under it.")
         f:Checkbox("Dead, ghost or offline", db, "hotStatus", function() ns.ApplyHotLayout() end,
             "A member who is dead, a ghost or offline is marked in words, and their icons step back.")
         f:Checkbox("Dim members out of range", db, "hotRange", function() ns.ApplyHotLayout() end,
             "The line of a member or pet too far away for your heals is dimmed.")
-        f:Checkbox("Debuffs you can remove", db, "hotDispel", function() ns.ApplyHotLayout() end,
-            "Up to two debuffs your class can remove show with a red rim between the name and your HoTs. The icon size follows the slider after a reload.")
         f:Checkbox("Cooldown timers", db, "hotCooldown", function() ns.ApplyHotLayout() end,
             "While one of your spells is on cooldown, its spot shows the time left. A heal's button gets a dark sweep with the time in the middle; on a HoT the time sits small on the top edge, above the HoT's own clock. Not for the global cooldown.")
-        f:Label("Above the window")
+        f:MoreSection("Above the window")
         f:Checkbox("Your mana regeneration", db, "hotRegen", function() ns.ApplyHotLayout() end,
             "A small line above the window: the mana you get back every five seconds right now (MP5). For five seconds after a spell that cost mana you get less; the grey number beside it is the other rate. Not for classes without mana.")
         f:Label("More spells")
@@ -350,6 +360,7 @@ D.RegisterModule("HoTs", {
             "Buffs you can cast on others - Fortitude, Mark of the Wild, Arcane Intellect and the like - get a spot each. The icon shows only while the member lacks the buff, no matter who cast it. Not on pets. During a fight the window may not notice a buff that drops; it catches up when the fight ends.")
         f:Checkbox("Your heals as buttons (healer mode)", db, "hotCastSlots", function() ns.ApplyHotList() end,
             "With click to cast on: your direct heals, your cures and your resurrection get a button on every line. Click it to cast the spell on that member. A cure shows only while the member has a debuff you can remove, the resurrection only while the member is dead.")
+        f:More()
         f:Hint("Your own spells, by name or ID, separated by commas. Each gets a spot like a HoT. Press Enter to save.")
         f:Add(30, function(parent, y)
             local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
@@ -372,7 +383,7 @@ D.RegisterModule("HoTs", {
             D.Tip(edit, "Your own spells", "For example: Blessing of Might, Fear Ward. Only spells your character knows are taken; /orbs hots lists what was not recognised. Empty the box and press Enter to remove them.")
             return edit
         end)
-        f:Label("Warning before a HoT runs out")
+        f:MoreSection("Warning before a HoT runs out")
         f:Checkbox("Blink", db, "hotWarn", nil,
             "A HoT in its last seconds pulses red. Where the game hides the time left during a fight, nothing blinks.")
         f:Checkbox("Play a sound", db, "hotWarnSound", nil,
@@ -380,7 +391,7 @@ D.RegisterModule("HoTs", {
         f:Slider("Seconds before the end", 1, 10, 1, function(v) return v .. " s" end, db, "hotWarnAt",
             function(v) DeckUIForeverOrbsDB.hotWarnAt = v end,
             "How early the warning starts.")
-        f:Label("Buffs")
+        f:MoreSection("Buffs")
         f:Checkbox("Show every buff, not only yours", db, "hotAllBuffs", function() ns.ApplyHotBuffs() end,
             "On: every buff on the member, long ones too, up to ten. Off: only your own buffs of a minute or less, up to six.")
         f:Checkbox("Hide your HoTs from the target frame", db, "hotExclude", function() ns.ApplyHotExclusion() end,
@@ -394,6 +405,7 @@ D.RegisterModule("HoTs", {
             ns.DeviceDB().hotScale = v
             ns.ApplyHotSize()
         end, "100% is 22 pixels. The HoT icons change at once, the buff icons after a reload.")
+        f:More()
         f:Checkbox("Sample lines while moving", db, "hotPreview", nil,
             "With Move or /df unlock the window shows two example lines instead of an empty box.")
     end,
@@ -420,6 +432,12 @@ D.RegisterModule("DeckHeal", {
         end
         keyHint:Refresh()
         table.insert(c.widgets, keyHint)
+        f:Checkbox("Use the friend-targeting button (L)", db, "padHealModifier", function()
+                ns.ApplyPadHeal()
+                keyHint:Refresh()
+            end,
+            "With a controller, the button you hold to pick a friend (L) is the Deck Heal key: hold it, pick with the D-pad, heal with A, X, Y, B. The game's own friend targeting on that button rests while Deck Heal is on. Off, only a key you bind yourself opens the layer.")
+        f:More()
         f:Checkbox("Press to switch instead of hold", db, "padHealToggle", function() ns.ApplyPadHeal() end,
             "One press of the key turns the layer on, the next turns it off. For when holding a key is awkward, or if letting go is not noticed on your device.")
         f:Label("Spells")
@@ -444,7 +462,7 @@ D.RegisterModule("DeckHeal", {
             D.Tip(edit, "Deck Heal spells", "For example: Renew, Power Word: Shield, Flash Heal, Dispel Magic. Only spells your character knows are taken; /orbs deckheal lists what each button casts. A change during a fight takes effect after it.")
             return edit
         end)
-        f:Label("What you see")
+        f:MoreSection("What you see")
         f:Checkbox("Bar with member and spells", db, "padHealBar", function() ns.ApplyPadHeal() end,
             "While the layer is on, a small bar shows who is picked and which button casts which spell. Move it with Move below.")
         f:Checkbox("Gold frame in the HoT window", db, "padHealFrame", function() ns.ApplyPadHeal() end,
@@ -558,6 +576,7 @@ D.RegisterModule("Raid", {
             ns.DeviceDB().raidScale = v
             ns.ApplyRaidScale()
         end)
+        f:More()
         f:Slider("Width", 60, 140, 2, px, ns.DeviceDB, "raidW", function(v)
             ns.DeviceDB().raidW = v
             layout()
@@ -579,6 +598,7 @@ D.RegisterModule("Raid", {
         f:Label("Look")
         if loaded.groupStyle == nil then loaded.groupStyle = DeckUIForeverOrbsDB.groupStyle end
         f:Cycles(GroupLook())
+        f:More()
         f:Cycles(
             RaidSetting("Bar", "raidColor", { "ff", "class" }, { ff = "FF green", class = "Class" }, look),
             RaidSetting("Health", "raidHpText", { "none", "percent", "short" },
@@ -596,7 +616,7 @@ D.RegisterModule("Raid", {
         f:Checkbox("Role icons for tanks and healers", db, "raidRoles", look)
 
         f:Gap(4)
-        f:Label("Auras (need a reload)")
+        f:MoreSection("Auras (need a reload)")
         local counts, countNames = Counts()
         f:Cycles(
             RaidSetting("Debuffs", "raidDebuffs", counts, countNames, ReloadAfter("raidDebuffs"),

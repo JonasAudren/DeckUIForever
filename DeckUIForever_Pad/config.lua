@@ -23,6 +23,7 @@ D.RegisterModule("Pad", {
         f:Checkbox("Button glyph in every slot", db, "glyphs", function()
             ns.ApplyGlyphs()
         end, "The A, B, X, Y and D-pad glyphs small in the corner of every slot. Off, only what Blizzard shows on the bar you hold.")
+        f:More()
         f:Checkbox("Blizzard's glyph in empty slots", db, "emptyGlyph", function(v)
             D.NeedReload("pad:emptyGlyph")
         end, "Blizzard draws a big glyph as the background of an empty slot. On, it stays. Needs a reload.")

@@ -28,10 +28,11 @@ D.RegisterModule("Tooltip", {
             "Name and edge in the class colour.")
         f:Checkbox("Item level of players", db, "playerInfo", nothing,
             "Shows a moment later, never in combat.")
+        f:More()
         f:Checkbox("Whom the unit is targeting", db, "targetLine", nothing)
         f:Checkbox("IDs while Shift is held", db, "ids", nothing, "Item, spell and NPC IDs.")
 
-        f:Label("Extra lines")
+        f:MoreSection("Extra lines")
         f:Checkbox("Items that start a quest: the quest", db, "questItems", nothing)
         f:Checkbox("Profession spells: unspent knowledge", db, "knowledge", nothing,
             "Only where a profession has specialization trees.")

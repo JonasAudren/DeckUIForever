@@ -105,9 +105,10 @@ local oUF = ns.oUF
 --                the heals (an aura group with Blizzard's dispel filter)
 --   hotBuffSlots your castable buffs (BUFFS) as slots that show only while
 --                the buff is missing. Looked up by name, anyone's cast
---                counts; in a fight a lookup that finds nothing proves
---                nothing (the game may hide the aura), so the state of
---                before the fight stands until a lookup finds the buff
+--                counts; a lookup that finds nothing proves nothing (the
+--                game may hide the aura), so the unit's whole buff list
+--                is read too and only a list in the clear says missing
+--                (BuffState, 2026-11-12); else the last answer stands
 --   hotCastSlots your direct heals, dispels and resurrection (CASTS) as
 --                plain buttons - only with click to cast, there is no
 --                aura to show
@@ -588,13 +589,21 @@ local function PlaceTitle(c, withGlyph)
     c.title:ClearAllPoints()
     c.title:SetPoint("LEFT", PAD + shift, c.lifted and HEALTH_LIFT or 0)
     c.title:SetWidth(math.max(10, NAME_W - shift))
+    -- the health bars start after the glyph too (owner's Deck test
+    -- 2026-11-12: the key's picture lay on the bar); ours, never protected
+    c.health:ClearAllPoints()
+    c.health:SetPoint("BOTTOMLEFT", PAD + shift, 1)
+    c.health:SetWidth(math.max(10, NAME_W - shift))
+    c.healthBlock:ClearAllPoints()
+    c.healthBlock:SetPoint("LEFT", shift > 0 and (PAD + shift - 2) or 0, 0)
+    c.healthBlock:SetWidth(shift > 0 and math.max(10, NAME_W - shift + 4) or (PAD + NAME_W + 2))
 end
 
 -- alpha only: a glyph is made once and never shown or hidden, so the
 -- protected lines of the healer mode are never touched in a fight
 local function UpdateHints()
     local on = HintsOn()
-    local lit = on and FriendlyModifierDown()
+    local lit = on and (FriendlyModifierDown() or (ns.PadHealActive and ns.PadHealActive()))
     for _, c in ipairs(members) do
         local key = KEYS[c.unit]
         if on and key and not c.glyph then c.glyph = Glyph(c, key) end
@@ -785,9 +794,12 @@ end
 -- the name where there is none; in a fight the attribute waits
 -- (pendingSpell), FillLine assigns again after it
 local function Assign(s, e)
+    -- a list read again (Rebuild makes new entries) keeps the buff's last
+    -- answer: in a fight it may be the only one there is
+    local old = s.entry
+    if not (old and old.kind == "buff" and e.kind == "buff" and old.name == e.name) then s.missing = nil end
     s.entry = e
     cdDirty = true
-    s.missing = nil
     SetWarn(s, false)
     s.icon:SetTexture(e.icon or 134400)
     if e.need == "cure" then
@@ -1070,10 +1082,53 @@ local function UpdateRange(c)
     end
 end
 
--- Is the buff of this slot missing on the unit? Anyone's cast counts.
--- Out of a fight the lookup by name is the truth. In a fight it can only
--- prove the buff is there - nothing found may mean hidden - so the last
--- answer stands. Never for the dead, the far away, or an NPC you target.
+-- Is the buff of this slot on the unit? "there", "missing", or nil when
+-- the game will not say. Anyone's cast counts.
+--
+-- Until 1.5.0 the lookup by name alone decided, and out of a fight
+-- "nothing found" counted as missing. But the lookup also finds nothing
+-- for an aura the game keeps secret (GetAuraDataBySpellName:
+-- RequiresNonSecretAura) - so a buff that was there read as missing, and
+-- in a fight the answer of before the fight stood, right or wrong (owner
+-- 2026-11-12: "erkennt nicht richtig ob Buffs auf den Spielern sind", both
+-- ways, always). Now nothing found is checked against the unit's whole
+-- buff list: an entry whose name is kept from us could be the buff, so
+-- the answer is "don't know"; only a list read to its end, every name in
+-- the clear and none of them ours, says missing - in a fight too, where
+-- that list must also hold at least one buff (an empty answer there may
+-- be the game's silence).
+-- the second and third value are for /orbs hots: how many buffs were read
+-- in the clear and how many were kept from us
+local function BuffState(unit, e)
+    for _, name in ipairs(e.names) do
+        local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, name, "HELPFUL")
+        if ok and data ~= nil and not Secret(data) then return "there", 0, 0 end
+    end
+    if not C_UnitAuras.GetAuraDataByIndex then return nil, 0, 0 end
+    local read, hidden = 0, 0
+    for i = 1, 40 do
+        local ok, data = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, "HELPFUL")
+        if not ok then return nil, read, hidden end
+        if data == nil then break end
+        local name = not Secret(data) and data.name
+        if Secret(data) or Secret(name) or name == nil then
+            hidden = hidden + 1
+        else
+            read = read + 1
+            for _, n in ipairs(e.names) do
+                if n == name then return "there", read, hidden end
+            end
+        end
+    end
+    if hidden > 0 then return nil, read, hidden end
+    if read == 0 and InCombatLockdown() then return nil, read, hidden end
+    return "missing", read, hidden
+end
+
+-- Is the buff of this slot missing on the unit? While the game will not
+-- say (BuffState nil), the last answer for this same person stands; for
+-- someone new behind the token there is none, and no icon. Never for the
+-- dead, the far away, or an NPC you target.
 local function BuffMissing(c, e, last)
     local unit = c.unit
     if Ask(UnitIsDeadOrGhost(unit)) == true then return false end
@@ -1085,15 +1140,10 @@ local function BuffMissing(c, e, last)
     -- for a spell that cannot go on the unit - and still let the icon
     -- through in the owner's test, so the pets are left out as a whole.
     if c.kind == "pet" then return false end
-    for _, name in ipairs(e.names) do
-        local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, name, "HELPFUL")
-        if ok then
-            if Secret(data) then return last or false end
-            if data ~= nil then return false end
-        end
-    end
-    if InCombatLockdown() then return last or false end
-    return true
+    local state = BuffState(unit, e)
+    if state == "there" then return false end
+    if state == "missing" then return true end
+    return last or false
 end
 
 -- the seconds your HoT has left on the unit, nil when it is not there or
@@ -1149,7 +1199,14 @@ local function FillLine(c)
         local s = SlotFrame(c, i)
         if not s then break end
         if s.entry ~= e or s.pendingSpell then Assign(s, e) end
-        if e.kind == "buff" then s.missing = BuffMissing(c, e, s.missing) end
+        if e.kind == "buff" then
+            -- the last answer is one person's: someone else behind the
+            -- token (or a GUID kept from us) starts without one
+            local guid = Ask(UnitGUID(c.unit))
+            if guid ~= s.missingFor then s.missing = nil end
+            s.missingFor = guid
+            s.missing = BuffMissing(c, e, s.missing)
+        end
         if e.need == "cure" and s.cure then
             -- the engine shows the button for any debuff you can remove;
             -- where the kinds can be read, a spell for another kind steps back
@@ -1200,6 +1257,21 @@ end
 -- stranger's row (in the healer mode a member who joins mid-fight lands
 -- there too, until the fight ends). UnitInRaid may hand back a secret in
 -- a fight: then the last order stands.
+--
+-- Before that order comes the role (owner 2026-11-12: "die Reihenfolge
+-- soll immer Tank, Healer, DD sein"): tanks, then healers, then everyone
+-- else, the group order within a role. The role is the group's own
+-- (UnitGroupRolesAssigned: the dungeon finder's, or what the leader set);
+-- a member without one counts as damage, so a group without roles keeps
+-- the plain group order. A secret role leaves the last order standing.
+local ROLE_RANK = { TANK = 1, HEALER = 2 }
+local function RoleRank(unit)
+    if not UnitGroupRolesAssigned then return 3 end
+    local role = UnitGroupRolesAssigned(unit)
+    if Secret(role) then return nil end
+    return ROLE_RANK[role] or 3
+end
+
 local lastRows = {}
 local function Rows()
     local present, gone, raid = {}, {}, IsInRaid()
@@ -1211,6 +1283,9 @@ local function Rows()
                 if Secret(id) then return lastRows end
                 key = id or (40 + i)
             end
+            local rank = RoleRank(c.unit)
+            if not rank then return lastRows end
+            key = rank * 100 + key
             present[#present + 1] = { c = c, key = key }
         else
             gone[#gone + 1] = c
@@ -1249,8 +1324,15 @@ local function Stack(count, extra)
                     groups[g] = {}
                     order[#order + 1] = g
                 end
+                -- tank, healer, damage within the group, raid order within a role
+                local rank = RoleRank(c.unit)
+                if not rank then return end
+                c.sortKey = rank * 100 + i
                 table.insert(groups[g], c)
             end
+        end
+        for _, list in pairs(groups) do
+            table.sort(list, function(a, b) return a.sortKey < b.sortKey end)
         end
         table.sort(order)
         local bandH = 5 * step + BAND_GAP
@@ -1693,8 +1775,8 @@ driver:SetScript("OnEvent", function(_, event, unit)
         for _, c in ipairs(lines) do
             if c ~= stranger then RefreshUnit(c) end
         end
-    elseif event == "INPUT_DEVICE_INTERFACE_TRANSITION" then
-        -- the style switch: the glyphs come or go with Update
+    elseif event == "INPUT_DEVICE_INTERFACE_TRANSITION" or event == "PLAYER_ROLES_ASSIGNED" then
+        -- the style switch: the glyphs come or go with Update; a new role: the order
     elseif event ~= "PLAYER_REGEN_ENABLED" and event ~= "PLAYER_REGEN_DISABLED" then
         Rebuild()
         UpdateOthersFilter()
@@ -1755,7 +1837,7 @@ function ns.SetHotTracker(on)
     if on then
         for _, e in ipairs({ "PLAYER_TARGET_CHANGED", "GROUP_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD",
                              "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED", "INPUT_DEVICE_INTERFACE_TRANSITION",
-                             "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_PET",
+                             "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_PET", "PLAYER_ROLES_ASSIGNED",
                              unpack(SPEC_EVENTS) }) do
             if not C_EventUtils or C_EventUtils.IsEventValid(e) then driver:RegisterEvent(e) end
         end
@@ -1832,7 +1914,7 @@ function ns.HotDebug()
     print(("DeckUIForever HoTs: %s, class %s, %d slots, buffs: %s, %s, order: %s, target line %s, icon %d px, click to cast %s, in combat: %s%s."):format(
         DeckUIForeverOrbsDB.hotTracker and "on" or "off", tostring(ListKey()), #entries,
         AllBuffs() and "every buff" or "yours up to a minute", Across() and "side by side" or "stacked",
-        IsInRaid() and "raid group" or "you first", StrangerWanted() and "on" or "off",
+        IsInRaid() and "tank, healer, damage, then raid group" or "tank, healer, damage, then you first", StrangerWanted() and "on" or "off",
         Size(), healer and "on" or "off", tostring(UnitAffectingCombat("player")),
         Locked() and " (window locked until it ends)" or ""))
     print(("  controller glyphs: option %s, gamepad style %s, party targeting %s, friendly modifier held %s"):format(
@@ -1876,12 +1958,25 @@ function ns.HotDebug()
         if c.kind ~= "raid" or UnitExists(c.unit) then
         local slots = 0
         for _, s in ipairs(c.slots) do if s:IsShown() then slots = slots + 1 end end
-        print(("  %s: %s, %s, row %s, raid index %s, slots %d%s"):format(c.unit,
+        print(("  %s: %s, %s, row %s, role %s, raid index %s, slots %d%s"):format(c.unit,
             UnitExists(c.unit) and (tostring(UnitName(c.unit)) or "?") or "none",
             c:IsShown() and "shown" or "hidden", tostring(c.row),
+            UnitGroupRolesAssigned and UnitExists(c.unit) and tostring(Ask(UnitGroupRolesAssigned(c.unit)) or "secret") or "-",
             IsInRaid() and UnitExists(c.unit) and tostring(Ask(UnitInRaid(c.unit)) or "secret") or "-", slots,
             c == stranger and (", friendly " .. tostring(Friendly("target")) .. ", in the table " ..
                 tostring(GUID("target") ~= nil and InTable(GUID("target")))) or ""))
+        -- the missing-buff slots: what the game answers for this unit right now
+        if UnitExists(c.unit) and c.kind ~= "pet" then
+            for i, e in ipairs(entries) do
+                if e.kind == "buff" then
+                    local state, read, hidden = BuffState(c.unit, e)
+                    local s = c.slots[i]
+                    print(("    %s: %s (buffs read %d, kept from us %d), icon shows missing: %s"):format(
+                        tostring(e.name), state or "the game will not say", read, hidden,
+                        tostring(s and s.missing or false)))
+                end
+            end
+        end
         end
     end
 end

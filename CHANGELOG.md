@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.5.1
+
+- The settings window is easier to find your way in:
+  - A new first page, "Start": three steps - pick how you play
+    (Keyboard and mouse, Steam Deck, I am a healer; each asks before it
+    changes anything), switch modules on and off right there with a line
+    on what each does, then move frames and find help.
+  - Every page shows its important options first. "All options" at the
+    bottom of the window, or the gold line at the end of a page, shows
+    the fine-tuning too. `/df all` does the same.
+  - A search field above the page list: type a word such as "buff" and
+    every matching option of every page is listed; a click takes you
+    there and marks it.
+  - The page list on the left shows only the modules that are on.
+- Deck Heal needs no key of its own on a controller any more: the button
+  you hold to pick a friend (L) opens the layer. Hold it, pick with the
+  D-pad, heal with A, X, Y, B. The game's own friend targeting on that
+  button rests while Deck Heal is on; the new switch "Use the
+  friend-targeting button (L)" on the Deck Heal page turns this off.
+- Devices page: "Test the Steam Deck here". This device then counts as
+  the Steam Deck and the game switches to its controller interface, so
+  the Deck's side can be tried at the PC; the button again puts
+  everything back. While it runs, Deck Heal also listens to the keyboard:
+  hold Tab, pick with the arrow keys, heal with 1 to 4. `/df decktest`.
+- Your HoTs: the controller key pictures before the names no longer lie
+  on the health bar - bar and name start after the picture.
+- Your HoTs: the lines are always sorted tank, healer, damage - by the
+  role the group gave each member, the group order within a role. A
+  group without roles keeps the old order. In the raid table the same
+  within each raid group.
+- Your HoTs, "Your buffs while they are missing": the check no longer
+  takes "the game does not say" for "missing". A buff counts as missing
+  only when the member's whole buff list could be read and it is not in
+  it - in a fight too. `/orbs hots` prints the answer for every member.
+- Nameplates: in dungeons and raids the game lets no addon touch a
+  friend's nameplate, so the Final Fantasy look cannot be drawn there.
+  New switch "In dungeons: friends as names only" (Targets page, on):
+  Blizzard's plate there shrinks to the bare name. `/df plates` says how
+  many plates the game keeps to itself.
+- Bank: the error `BankFrame.lua:43: bad argument #1 to
+  'FetchNumPurchasedBankTabs'` whenever your gold changed is gone.
+  Blizzard's hidden bag-cost display no longer listens for it.
+
 ## 1.5.0
 
 - Deck Heal (new page under "Your HoTs", off until you tick it): heal
