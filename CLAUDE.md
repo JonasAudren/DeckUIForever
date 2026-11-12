@@ -945,3 +945,10 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    seen: Deck Heal, the hidden settings (`/df cvars` says which Forever knows), the camera limit, the bank's
    own deposit on a right click (and withdrawing with a nil bank type), the rank fix (`/orbs hots` prints the
    rank), the late frame setup.
+   **Released**: v1.5.1 on 2026-11-12 (the guided settings window - Start page with presets, important options
+   first, search, short sidebar -, the HoT window's tank/healer/damage order and the new buff check, friends as
+   names only in instances, the bank's bag-cost error, Deck Heal on the friend-targeting button, the Deck test
+   on the PC; commit 41c3f7d, Release workflow run 43247349313, CurseForge file id 9575565). Seen in game before
+   by the owner: the settings window opens and looks right (after the `insert` fix). Not seen: the presets, the
+   search, "All options" on every page, the bank fix, the name-only plates, the role order (does Forever hand
+   out roles?), the buff check.
