@@ -1028,3 +1028,8 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    **Released**: v1.5.2 on 2026-11-12 (Deck Heal's second set of spells on R, the heals weakest first; commit
    83f5891, Release workflow run 43319871985, CurseForge file id 9582528). Seen on the Deck before by the owner:
    Deck Heal itself ("scheint gut zu gehen", 1.5.1). Not seen: the second set, the new order.
+   **Released**: v1.5.3 on 2026-11-16 (Deck Heal by role, the second set on by default, aiming at friends, the
+   cockpit bar, the spell icon feedback, the buff and resurrection round, the HoT window in place of the party
+   list, the mana line, `/df vibrate`; commit 51674cc, Release workflow run 43904280958, CurseForge file id
+   9650419). Seen in game before: nothing of it - the owner played a dungeon with 1.5.2 on the Deck ("läuft gut")
+   and asked for these. Not seen: all of the above; the open questions stand in the Deck Heal section.
