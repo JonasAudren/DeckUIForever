@@ -98,6 +98,9 @@ local oUF = ns.oUF
 -- alles immer als Option"), every one a switch that is off by default:
 --   hotHealth    a health capsule under each name (ns.PillBar, a StatusBar fed straight
 --                from UnitHealth - the values may be secret in a fight)
+--   hotMana      a thin blue line under the health capsule for members with
+--                mana (owner 2026-11-16: "im HoTs eine kleine Mana-Anzeige");
+--                UnitPower straight into a StatusBar, secret or not
 --   hotStatus    Dead / Ghost / Offline written over the dimmed icons
 --   hotRange     a member out of range is dimmed (UnitInRange into
 --                SetAlphaFromBoolean, as oUF's range element)
@@ -145,6 +148,9 @@ local PET ={ 0.72, 0.78, 0.86 }       -- and wears a pale blue instead of the me
 local HEALTH_H = 5                    -- the health capsule under the name
 local HEALTH_LIFT = 3                  -- the name moves up by this to make room for it
 local HEALTH = { 0.3, 0.82, 0.3 }      -- the FF frames' health green
+local MANA_H = 2                       -- the mana line at the line's foot; the capsule steps up over it
+local MANA_BLUE = { 0.3, 0.6, 1 }      -- ffstyle.lua's brighter mana blue
+local MANA_POWER = Enum.PowerType and Enum.PowerType.Mana or 0
 
 -- debuffs only you can dispel: Blizzard's own filter name where it has one (as raid.lua)
 local DISPEL_FILTER = "HARMFUL|" .. (AuraUtil and AuraUtil.AuraFilters
@@ -153,7 +159,13 @@ local DISPEL_FILTER = "HARMFUL|" .. (AuraUtil and AuraUtil.AuraFilters
 local function Secret(v) return issecretvalue and issecretvalue(v) end
 local function Ask(v) if Secret(v) then return nil end return v end
 
-local function Opt(key) return DeckUIForeverOrbsDB[key] and true or false end
+-- what a line shows whatever its own switch says while the window stands
+-- in for the party list (ns.HotAsParty)
+local AS_PARTY = { hotHealth = true, hotMana = true, hotDispel = true, hotStatus = true, hotRange = true }
+local AS_PARTY_SIZE = 1.25
+local function Opt(key)
+    return (DeckUIForeverOrbsDB[key] or (AS_PARTY[key] and ns.HotAsParty())) and true or false
+end
 
 -------------------------------------------------------------------
 -- What each healer keeps up
@@ -178,9 +190,9 @@ local LISTS = {
 local BUFFS = {
     PRIEST = { { id = 1243, also = { 21562 } },    -- Power Word: Fortitude, Prayer of Fortitude
                { id = 14752, also = { 27681 } },   -- Divine Spirit, Prayer of Spirit
-               { id = 976, also = { 27683 } } },   -- Shadow Protection, Prayer of Shadow Protection
+               { id = 976, also = { 27683 }, round = false } },   -- Shadow Protection, Prayer of Shadow Protection
     DRUID  = { { id = 1126, also = { 21849 } },    -- Mark of the Wild, Gift of the Wild
-               { id = 467 } },                     -- Thorns
+               { id = 467, round = false } },      -- Thorns (round = false: not part of Deck Heal's buff round)
     MAGE   = { { id = 1459, also = { 23028 } } },  -- Arcane Intellect, Arcane Brilliance
 }
 
@@ -196,14 +208,15 @@ local BUFFS = {
 -- order here is the HoT window's.
 local MAGIC, CURSE, DISEASE, POISON = "Magic", "Curse", "Disease", "Poison"
 local function Cure(id, ...) return { id = id, need = "cure", types = { ... } } end
-local function Res(id) return { id = id, need = "dead" } end
+-- fight: a resurrection for the fight (a long cooldown), not for the round after it
+local function Res(id, fight) return { id = id, need = "dead", fight = fight } end
 local CASTS = {
     PRIEST  = { { id = 2050, power = 1 }, { id = 2054, power = 3 }, { id = 2060, power = 4 }, { id = 2061, power = 2 },   -- Lesser Heal, Heal, Greater Heal, Flash Heal
                 Cure(527, MAGIC), Cure(528, DISEASE), Cure(552, DISEASE),     -- Dispel Magic, Cure Disease, Abolish Disease
                 Res(2006) },                                                  -- Resurrection
     DRUID   = { { id = 5185 },                                                -- Healing Touch
                 Cure(2782, CURSE), Cure(8946, POISON), Cure(2893, POISON),    -- Remove Curse, Cure Poison, Abolish Poison
-                Res(20484) },                                                 -- Rebirth
+                Res(20484, true) },                                                 -- Rebirth
     PALADIN = { { id = 635, power = 2 }, { id = 19750, power = 1 },           -- Holy Light, Flash of Light
                 Cure(4987, MAGIC, POISON, DISEASE), Cure(1152, POISON, DISEASE),   -- Cleanse, Purify
                 { id = 633, layer = false }, Res(7328) },                     -- Lay on Hands (never a Deck Heal default), Redemption
@@ -395,7 +408,8 @@ end
 
 -- the icon size per device (ns.DeviceDB().hotScale, a percentage of ICON)
 local function Size()
-    return math.max(10, math.floor(ICON * (ns.DeviceDB().hotScale or 100) / 100 + 0.5))
+    local scale = (ns.DeviceDB().hotScale or 100) / 100 * (ns.HotAsParty() and AS_PARTY_SIZE or 1)
+    return math.max(10, math.floor(ICON * scale + 0.5))
 end
 local function Slot() return Size() + SPACING end
 
@@ -471,6 +485,18 @@ local function Line(parent, unit, kind)
     block:Hide()
     c.healthBlock = block
     c.health = hb
+    -- the mana line (hotMana): flat and thin at the line's foot. Ours too.
+    local mb = CreateFrame("StatusBar", nil, c)
+    mb:SetPoint("BOTTOMLEFT", PAD, 0)
+    mb:SetSize(NAME_W, MANA_H)
+    mb:SetFrameLevel(c:GetFrameLevel() + 2)
+    mb:SetStatusBarTexture(WHITE)
+    mb:SetStatusBarColor(MANA_BLUE[1], MANA_BLUE[2], MANA_BLUE[3])
+    local mbg = mb:CreateTexture(nil, "BACKGROUND")
+    mbg:SetAllPoints(mb)
+    mbg:SetColorTexture(0, 0, 0, 0.6)
+    mb:Hide()
+    c.mana = mb
     -- the name on a layer of its own, above the bar
     local text = CreateFrame("Frame", nil, c)
     text:SetAllPoints(c)
@@ -578,6 +604,7 @@ local function Glyph(c, key)
         t:SetText(SHORT[c.unit] or "?")
     else
         g:SetInputKey(key)
+        g.key = key
     end
     g:SetSize(size, size)
     g:SetPoint("LEFT", c, "LEFT", PAD, 0)
@@ -590,13 +617,17 @@ end
 local function PlaceTitle(c, withGlyph)
     local shift = withGlyph and (Size() + 2) or 0
     c.title:ClearAllPoints()
-    c.title:SetPoint("LEFT", PAD + shift, c.lifted and HEALTH_LIFT or 0)
+    local foot = c.manaOn and MANA_H or 0   -- the mana line under it all
+    c.title:SetPoint("LEFT", PAD + shift, c.lifted and (HEALTH_LIFT + (foot > 0 and 1 or 0)) or 0)
     c.title:SetWidth(math.max(10, NAME_W - shift))
     -- the health bars start after the glyph too (owner's Deck test
     -- 2026-11-12: the key's picture lay on the bar); ours, never protected
     c.health:ClearAllPoints()
-    c.health:SetPoint("BOTTOMLEFT", PAD + shift, 1)
+    c.health:SetPoint("BOTTOMLEFT", PAD + shift, 1 + foot)
     c.health:SetWidth(math.max(10, NAME_W - shift))
+    c.mana:ClearAllPoints()
+    c.mana:SetPoint("BOTTOMLEFT", PAD + shift, 0)
+    c.mana:SetWidth(math.max(10, NAME_W - shift))
     c.healthBlock:ClearAllPoints()
     c.healthBlock:SetPoint("LEFT", shift > 0 and (PAD + shift - 2) or 0, 0)
     c.healthBlock:SetWidth(shift > 0 and math.max(10, NAME_W - shift + 4) or (PAD + NAME_W + 2))
@@ -609,8 +640,17 @@ local function UpdateHints()
     local lit = on and (FriendlyModifierDown() or (ns.PadHealActive and ns.PadHealActive()))
     for _, c in ipairs(members) do
         local key = KEYS[c.unit]
-        if on and key and not c.glyph then c.glyph = Glyph(c, key) end
-        if c.glyph then c.glyph:SetAlpha(on and (lit and LIT or DIM) or 0) end
+        -- with Deck Heal on, the D-pad key that picks this member there
+        -- (by role); `false`: none, the layer starts on this member
+        local heal = key and ns.PadHealGlyph and ns.PadHealGlyph(c.unit)
+        local shown = heal == nil and key or heal
+        if on and key and not c.glyph then c.glyph = Glyph(c, shown or key) end
+        -- the glyph is ours and unprotected: its picture may change in a fight
+        if c.glyph and shown and c.glyph.key and c.glyph.key ~= shown then
+            c.glyph:SetInputKey(shown)
+            c.glyph.key = shown
+        end
+        if c.glyph then c.glyph:SetAlpha((on and shown) and (lit and LIT or DIM) or 0) end
         if (c.titleShifted or false) ~= (on and key ~= nil) then
             c.titleShifted = on and key ~= nil
             PlaceTitle(c, c.titleShifted)
@@ -1046,6 +1086,27 @@ local function UpdateHealth(c)
     hb:Show()
 end
 
+-- the mana line (hotMana): only for a member with mana. Whether there is
+-- any is asked of the maximum; a secret one keeps the last answer, so a
+-- druid in bear form keeps the line and a warrior never gets one.
+local function UpdateMana(c)
+    local on = Opt("hotMana") and c.kind ~= "pet" and UnitExists(c.unit)
+    if on then
+        local max = UnitPowerMax(c.unit, MANA_POWER)
+        if not Secret(max) then c.hasMana = (max or 0) > 0 end
+        on = c.hasMana and true or false
+        if on then
+            c.mana:SetMinMaxValues(0, max)
+            c.mana:SetValue(UnitPower(c.unit, MANA_POWER))
+        end
+    end
+    c.mana:SetShown(on)
+    if on ~= (c.manaOn or false) then
+        c.manaOn = on
+        PlaceTitle(c, c.titleShifted)   -- the capsule and the name step up, or back
+    end
+end
+
 -- Dead / Ghost / Offline, nil while all is well (or the game will not say)
 local function Status(c)
     if c.kind == "stranger" or not Opt("hotStatus") then return nil end
@@ -1242,6 +1303,7 @@ local function FillLine(c)
         c.title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     end
     c.title:Show()
+    UpdateMana(c)
     UpdateHealth(c)
     UpdateRange(c)
     Finish(c, #entries)
@@ -1716,6 +1778,13 @@ function Update()
     UpdateHints()
 end
 
+-- the window in place of the party list, or back (device hotAsParty)
+function ns.ApplyHotAsParty()
+    if ns.ApplyPartyMerge then ns.ApplyPartyMerge() end
+    ns.ApplyHotSize()
+    ns.ApplyHotLayout()
+end
+
 function ns.ApplyHotLayout()
     cdDirty = true
     if DeckUIForeverOrbsDB.hotTracker and not preview then Update() end
@@ -1768,6 +1837,11 @@ driver:SetScript("OnEvent", function(_, event, unit)
         -- the bar alone, at once; the rest of the line waits for the tick
         local c = unit and byUnit[unit]
         if c and not preview and Opt("hotHealth") then UpdateHealth(c) end
+        return
+    end
+    if event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" or event == "UNIT_DISPLAYPOWER" then
+        local c = unit and byUnit[unit]
+        if c and not preview and Opt("hotMana") then UpdateMana(c) end
         return
     end
     if event == "PLAYER_TARGET_CHANGED" then
@@ -1837,10 +1911,12 @@ end
 
 function ns.SetHotTracker(on)
     DeckUIForeverOrbsDB.hotTracker = on and true or false
+    if ns.ApplyPartyMerge then ns.ApplyPartyMerge() end   -- the party list comes back with the window off
     if on then
         for _, e in ipairs({ "PLAYER_TARGET_CHANGED", "GROUP_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD",
                              "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED", "INPUT_DEVICE_INTERFACE_TRANSITION",
                              "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_PET", "PLAYER_ROLES_ASSIGNED",
+                             "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER",
                              unpack(SPEC_EVENTS) }) do
             if not C_EventUtils or C_EventUtils.IsEventValid(e) then driver:RegisterEvent(e) end
         end
@@ -1899,6 +1975,68 @@ function ns.HotLayerSpells(max)
     return list
 end
 
+-- for Deck Heal's bar: the filter of the debuffs you can remove, and every
+-- spell ID (all ranks) of the class's HoTs as a set
+ns.HOT_DISPEL_FILTER = DISPEL_FILTER
+function ns.HotLayerIDs()
+    local ids = {}
+    for _, e in ipairs(LISTS[ListKey()] or {}) do
+        local name = SpellName(e.id)
+        if name then
+            for id in pairs(RankIDs(e, name)) do ids[id] = true end
+        end
+    end
+    return ids
+end
+
+-- Deck Heal's round out of a fight (owner 2026-11-16: "Buff-Runde ...
+-- dasselbe fuer Wiederbeleben nach einem Wipe"): the next thing a member
+-- needs - a dead one the class's resurrection, then a living one a buff
+-- of BUFFS that the game says is missing (BuffState; "don't know" is not
+-- missing). You and party1-4, nobody far away or offline. nil: nothing.
+function ns.HotRoundNext()
+    local key = ListKey()
+    if Ask(UnitIsDeadOrGhost("player")) ~= false then return nil end
+    local units = {}
+    for _, unit in ipairs(PARTY) do
+        if unit == "player" or (UnitExists(unit) and Ask(UnitIsVisible(unit)) == true
+            and Ask(UnitIsConnected(unit)) == true) then
+            units[#units + 1] = unit
+        end
+    end
+    local function Reach(name, unit)
+        if unit == "player" or not (C_Spell and C_Spell.IsSpellInRange) then return true end
+        local ok, near = pcall(C_Spell.IsSpellInRange, name, unit)
+        return not (ok and not Secret(near) and near == false)
+    end
+    for _, e in ipairs(CASTS[key] or {}) do
+        if e.need == "dead" and not e.fight and Known(e.id) then
+            local name = SpellName(e.id)
+            for _, unit in ipairs(units) do
+                if name and unit ~= "player" and Ask(UnitIsDeadOrGhost(unit)) == true and Reach(name, unit) then
+                    return { unit = unit, name = name, icon = SpellIcon(e.id), what = "dead",
+                             cast = ns.HotTopRank(name, e.id) }
+                end
+            end
+        end
+    end
+    for _, e in ipairs(BUFFS[key] or {}) do
+        local name = e.round ~= false and Known(e.id) and SpellName(e.id)
+        if name then
+            local names = { name }
+            for _, id in ipairs(e.also or {}) do names[#names + 1] = SpellName(id) end
+            for _, unit in ipairs(units) do
+                if Ask(UnitIsDeadOrGhost(unit)) == false and Reach(name, unit)
+                    and BuffState(unit, { names = names }) == "missing" then
+                    return { unit = unit, name = name, icon = SpellIcon(e.id), what = "buff",
+                             cast = ns.HotTopRank(name, e.id) }
+                end
+            end
+        end
+    end
+    return nil
+end
+
 oUF:Factory(function()
     D.MakeMovable(holder, "HoTs", DeckUIForeverOrbsDB)
     loadedSize = Size()
@@ -1932,8 +2070,8 @@ function ns.HotDebug()
         DeckUIForeverOrbsDB.hotPadHints ~= false and "on" or "off", tostring(GamepadStyle()),
         tostring(HintsOn()), tostring(FriendlyModifierDown())))
     local function OnOff(key) return Opt(key) and "on" or "off" end
-    print(("  extras: health %s, status %s, range %s, debuffs to remove %s (%s), missing buffs %s, cast buttons %s, pets %s (loaded %s), raid table %s (loaded %s, active %s), warning blink %s sound %s at %s s"):format(
-        OnOff("hotHealth"), OnOff("hotStatus"), OnOff("hotRange"), OnOff("hotDispel"), DISPEL_FILTER,
+    print(("  extras: mana %s, health %s, status %s, range %s, debuffs to remove %s (%s), missing buffs %s, cast buttons %s, pets %s (loaded %s), raid table %s (loaded %s, active %s), warning blink %s sound %s at %s s"):format(
+        OnOff("hotMana"), OnOff("hotHealth"), OnOff("hotStatus"), OnOff("hotRange"), OnOff("hotDispel"), DISPEL_FILTER,
         OnOff("hotBuffSlots"), OnOff("hotCastSlots"), OnOff("hotPets"), tostring(petsOn),
         OnOff("hotRaid"), tostring(raidOn), tostring(RaidMode()),
         OnOff("hotWarn"), OnOff("hotWarnSound"), tostring(DeckUIForeverOrbsDB.hotWarnAt or 3)))

@@ -321,6 +321,8 @@ D.RegisterModule("HoTs", {
         f:Label("Window")
         f:Checkbox("Show the HoT window", db, "hotTracker", ns.SetHotTracker,
             "One line per party member in the order of the game's group frames: in a raid your raid group with you at your place in it, in a party you first; solo it is just you. Each line: the name, one round icon per HoT - the dark clock closes as it runs out - then the buffs on them. A HoT you have not cast is a dimmed icon with a red rim in combat. Gold means the last third: refresh now and nothing is lost. A friendly target outside your party gets its own line while you target it.")
+        f:Checkbox("In place of the party list (this device)", ns.DeviceDB, "hotAsParty", function() ns.ApplyHotAsParty() end,
+            "One window instead of two: the party list hides and this window takes over. It draws a quarter bigger, and every line shows the health bar, debuffs you can remove, dead or offline, and dims a member out of range - whatever the switches below say. During a fight the party list changes over when the fight ends. The buff icons take the new size after a reload.")
         f:Checkbox("A line for a target outside the group", db, "hotStranger", function() ns.ApplyHotStranger() end,
             "A friendly target that is not in your group - an NPC, a raid member of another group - gets a line of its own at the end while you target it, however far away it is. Off, the window shows your group alone.")
         f:Checkbox("Click to cast (healer mode)", db, "hotHealer", function(v)
@@ -341,6 +343,8 @@ D.RegisterModule("HoTs", {
         f:Label("On each line")
         f:Checkbox("Health bar", db, "hotHealth", function() ns.ApplyHotLayout() end,
             "A thin green bar under each name shows how much health the member has left.")
+        f:Checkbox("Mana bar", db, "hotMana", function() ns.ApplyHotLayout() end,
+            "A thin blue line under each name shows how much mana the member has left. Members without mana get none.")
         f:Checkbox("Debuffs you can remove", db, "hotDispel", function() ns.ApplyHotLayout() end,
             "Up to two debuffs your class can remove show with a red rim between the name and your HoTs. The icon size follows the slider after a reload.")
         f:More()
@@ -422,7 +426,7 @@ D.RegisterModule("DeckHeal", {
         f:Hint("Heal with the controller, without mouse or target change. Hold a key: the D-pad picks a party member, the four face buttons cast a spell on them. Let go and every key is back to normal.")
         f:Label("The layer")
         f:Checkbox("Use Deck Heal", db, "padHeal", function() ns.ApplyPadHeal() end,
-            "While you hold the Deck Heal key: D-pad up, right, down, left picks party member 1 to 4, and A, X, Y, B cast your four spells on the picked member. It always starts on you; press the picked member's direction again to go back to yourself. Your target stays as it is. Works in combat and without the HoT window. Off, nothing changes on your controller.")
+            "While you hold the Deck Heal key: A, X, Y, B cast your four spells on the tank (on you in a group without one). D-pad left picks the healer, up, right, down the three damage dealers; press the picked member's direction again to go back to the tank. In a group without roles it starts on you and the D-pad picks party member 1 to 4. Your target stays as it is. Works in combat and without the HoT window. Off, nothing changes on your controller.")
         -- made with the longer text, so the page keeps room for two lines
         local NO_KEY = "No key yet: Options, Key Bindings, AddOns, \"Deck Heal: healing layer\"."
         local keyHint = f:Hint(NO_KEY)
@@ -438,12 +442,14 @@ D.RegisterModule("DeckHeal", {
             end,
             "With a controller, the button you hold to pick a friend (L) is the Deck Heal key: hold it, pick with the D-pad, heal with A, X, Y, B. The game's own friend targeting on that button rests while Deck Heal is on. Off, only a key you bind yourself opens the layer.")
         f:More()
+        f:Checkbox("Aim at friends while holding the key", db, "padHealAim", function() ns.ApplyPadHeal() end,
+            "While you hold the Deck Heal key, the game picks friends as your target the way it does without Deck Heal: turn towards someone and they become your target. The heals on A, X, Y, B still go to the member picked with the D-pad, not to your target. Off, holding the key never changes your target.")
         f:Checkbox("Press to switch instead of hold", db, "padHealToggle", function() ns.ApplyPadHeal() end,
             "One press of the key turns the layer on, the next turns it off. For when holding a key is awkward, or if letting go is not noticed on your device.")
         f:Label("Spells")
-        f:Checkbox("Second set of spells with R", db, "padHealSecond", function() ns.ApplyPadHeal() end,
+        f:Checkbox("Second set of spells with R", db, "padHealR", function() ns.ApplyPadHeal() end,
             "Four more spells: while you hold the Deck Heal key, hold R as well and A, X, Y, B cast spells five to eight. Let go of R and the first four are back. Without the Deck Heal key, R does what it always does.")
-        f:Hint("Up to four spells for A, X, Y, B - eight with the second set - by name or ID, separated by commas. Empty: your HoTs first, then your heals from the weakest to the strongest, then your cures. Press Enter to save.")
+        f:Hint("Up to four spells for A, X, Y, B - eight with the second set - by name or ID, separated by commas. Buttons you leave free get your HoTs first, then your heals from the weakest to the strongest, then your cures. Press Enter to save.")
         f:Add(30, function(parent, y)
             local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
             edit:SetSize(300, 20)
@@ -464,9 +470,17 @@ D.RegisterModule("DeckHeal", {
             D.Tip(edit, "Deck Heal spells", "For example: Renew, Power Word: Shield, Flash Heal, Dispel Magic. With the second set the fifth to eighth spell are the ones on R. Only spells your character knows are taken; /orbs deckheal lists what each button casts. A change during a fight takes effect after it.")
             return edit
         end)
-        f:MoreSection("What you see")
+        f:Label("After the fight")
+        f:Checkbox("Buff and resurrection round", db, "padHealRound", function() ns.ApplyPadHeal() end,
+            "Out of combat, hold the Deck Heal key and click the right stick: it casts the next thing your group needs - first your resurrection on a dead member, then your buffs on whoever lacks one. One cast per click; a small line above the bar says what the next click does. Never in combat.")
+        f:Label("What you see")
         f:Checkbox("Bar with member and spells", db, "padHealBar", function() ns.ApplyPadHeal() end,
             "While the layer is on, a small bar shows who is picked and which button casts which spell. Move it with Move below.")
+        f:Checkbox("Health, HoTs and debuffs on the bar", db, "padHealCockpit", function() ns.ApplyPadHeal() end,
+            "The bar also shows the picked member's health under the name and, after the four spells, a debuff you can remove (red rim) and your HoTs on them with their clocks.")
+        f:Checkbox("Spell icons show what is possible", db, "padHealFeedback", function() ns.ApplyPadHeal() end,
+            "On the bar a spell on cooldown shows a closing clock with the time, a spell you lack the mana for turns grey, and a spell the picked member is too far away for turns red.")
+        f:More()
         f:Checkbox("Gold frame in the HoT window", db, "padHealFrame", function() ns.ApplyPadHeal() end,
             "While the layer is on, the picked member's line in the HoT window gets a gold frame. Not in the whole-raid table.")
     end,

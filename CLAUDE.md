@@ -258,6 +258,69 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   A/X/Y/B (layer attribute `test`, `picktestN`/`casttestN`). Blizzard's own controller bars have no keyboard
   stand-in - a real pad at the PC drives them. **Untested in game**: whether the CVar switches the style on a PC
   without a pad and whether the style survives mouse and keyboard input.
+- **Picks by role (2026-11-16, owner after his first instance on the Deck, "läuft gut": "nur L drücken der Tank,
+  ohne Tank ich; L + Dpad links Heiler, oben rechts unten die DDs 1 2 3"; for 1.5.3, untested)**: `Assign` in
+  padheal.lua reads `UnitGroupRolesAssigned` for player and party1-4 - home = first TANK, else player; left =
+  first HEALER (none: the player when a tank exists, else the fourth other member); up/right/down = the others
+  in token order, player first. `ApplyPicks` (out of combat, on GROUP_ROSTER_UPDATE / PLAYER_ROLES_ASSIGNED /
+  `ApplyPadHeal`) writes `home` on the layer and `pickunit` on `DeckHealPick1-4`; the snippets start on `home`
+  and go back to it. No roles at all = the old layout. `ns.PadHealGlyph(unit)` gives hots.lua's `UpdateHints`
+  the D-pad picture per member while Deck Heal is on (none for the home member). `/orbs deckheal` prints home,
+  each direction's member and role. A role change in a fight lands after it.
+- **Second set, 2026-11-16 (owner: "mit L + R sollten weitere dazu kommen, das passiert aber nicht"; for 1.5.3,
+  untested)**: the cause is not proven - the PC's saved settings had `padHealSecond = false` (the default), the
+  Deck's file was not seen. Three changes: the key is renamed **`padHealR`, default on** (the old key's saved
+  `false` is ignored); `BindAll` writes every key of the layer plain and under all seven modifier combinations
+  into the snippets (L and R held may be two modifiers at once); `ReadSpells` fills what the player's own list
+  leaves free from `ns.HotLayerSpells`. If L + R still does nothing on the Deck, `/orbs deckheal` says whether
+  the switch key is set ("switch keys"), how often it switched and what buttons 5-8 cast.
+- **Aiming at friends (2026-11-16, owner: "wenn man nur L oder R drückt und mit dem rechten Stick dreht auch
+  Targets aufgeschaltet werden, aber nur wenn es nichts kaputt macht"; for 1.5.3, untested)**: Blizzard's target
+  modifiers run `GamepadTargetLogicMixin:BeginTargeting/EndTargeting` (Blizzard_GamepadTargeting/TargetLogic.lua):
+  `C_GamepadTargeting.SetFilter(Enum.GamepadTargetingFilters.Friendly|Hostile)` + `Enable()` while held,
+  `Disable()` on release (returns targetAlreadySelected; a tap without a pick runs `TargetNearestFriend/Enemy`,
+  CVars `GamepadTabFriendlyTargetAction`/`GamepadTabHostileTargetAction`). The right stick has no target binding
+  of its own in the Lua (only camera zoom under the HUD modifier = both held) - how the engine picks is not in
+  the source. The three calls carry no protected flag in GamepadTargetingDocumentation.lua. R alone is still
+  Blizzard's; L clicks our layer, so `Aim(on)` in padheal.lua makes the calls from `LayerChanged` (`padHealAim`,
+  on; gamepad style only; not while the hostile modifier is down; pcall). The tap is not copied.
+  `/orbs deckheal` prints the count and a caught error. **If Forever blocks the calls from addon code in a
+  fight, an "action blocked" error would be the sign - then the switch goes off by default.**
+- **Mana line in the HoT window (2026-11-16, owner: "im HoTs eine kleine Mana-Anzeige einbauen"; for 1.5.3,
+  untested)**: `hotMana` (on by default, owner the same day; also in `AS_PARTY`), checkbox "Mana bar" on the HoTs page. `c.mana`, a flat StatusBar
+  `MANA_H` 2 high at the line's foot; `UpdateMana` shows it only where `UnitPowerMax(unit, Mana) > 0` (a secret
+  maximum keeps the last answer, `c.hasMana`), not on pets; `PlaceTitle` steps the capsule and the name up while
+  `c.manaOn`. Events UNIT_POWER_UPDATE / UNIT_MAXPOWER / UNIT_DISPLAYPOWER. Open: whether Forever hands out other
+  members' mana in a fight at all, and whether 2 px is readable on the Deck.
+- **HoT window in place of the party list (2026-11-16, owner: "als Option verheiraten ... HoTs etwas vergrößern und
+  dafür Gruppe rausnehmen, denke auch an dispellable Debuffs"; for 1.5.3, untested)**: device key `hotAsParty`
+  (off; `ns.HotAsParty()` in layout.lua = the key and `hotTracker`). hots.lua's `Opt` answers true for
+  `hotHealth`, `hotDispel`, `hotStatus`, `hotRange` while it holds (`AS_PARTY`), `Size()` multiplies by
+  `AS_PARTY_SIZE` 1.25; party.lua's header visibility is "hide" (`ns.ApplyPartyMerge`, out of combat; Blizzard's
+  party frames stay disabled). `ns.ApplyHotAsParty` is the checkbox's callback (HoTs page, Window section);
+  `SetHotTracker` re-applies the party list. The "others" and dispel icons were sized at creation: reload flag
+  through `ApplyHotSize`. Open: whether the dispel container, made lazily, may be created in a fight in healer mode.
+- **Cockpit, icon feedback, round (2026-11-16, owner picked ideas 1-3: "bau 1, 2 und 3"; for 1.5.3, untested)**,
+  all in padheal.lua, keys `padHealCockpit`, `padHealFeedback`, `padHealRound` (all on). **Cockpit**: `Cockpit()`
+  makes, the first time the bar paints, a `ns.PillBar` under the name and two engine aura containers on the bar
+  (`bar.dispel`: one icon on `ns.HOT_DISPEL_FILTER`; `bar.hots`: three on `HELPFUL|PLAYER` with
+  `ns.HotLayerIDs()` = every rank of the class's `LISTS`); `CockpitUnit` moves them to the picked token
+  (`SetUnit`), the bar widens by `COCKPIT_W`. **Feedback**: a Cooldown frame per bar slot (`SlotCooldown`, the
+  HoT window's `EntryCooldown` logic, only when `cdDirty`), `Feedback` every 0.2 s from the bar's OnUpdate -
+  `C_Spell.IsSpellUsable` (grey), `C_Spell.IsSpellInRange(id, unit)` false (red). **Round**: `DeckHealRound`
+  (SecureActionButton, type spell); `ApplyRound` (twice a second out of combat, and on REGEN_ENABLED) sets unit
+  and spell to `ns.HotRoundNext()` (hots.lua: a dead member + the class's `Res` without `fight` - Rebirth is
+  `fight` -, then a `BUFFS` entry without `round = false` that `BuffState` calls "missing"; Thorns and Shadow
+  Protection are `round = false`); PLAYER_REGEN_DISABLED clears the spell; the layer's snippet binds
+  `PADRSTICK` (attribute `roundkey`, "6" in the Deck test) to it only when `not PlayerInCombat()`. The tag above
+  the bar (`PaintTag`) names the next cast. Open: whether `PADRSTICK` is a key the override catches on the
+  Deck, whether `PlayerInCombat` exists in Forever's restricted environment (if not, the snippet errors on
+  every L press - first thing to check), and the cockpit's look.
+- **Vibration test (2026-11-16, owner: "bau den Testbefehl ein und dann überlegen wir uns wie wir das gut nutzen
+  können")**: `/df vibrate [low|high|ltrigger|rtrigger] [0-1] [seconds]` (`D.TestVibration` in the hub's core.lua)
+  calls retail's `C_GamePad.SetVibration(type, intensity)` and `StopVibration`, pcall'd, and prints whether the
+  call exists, the active device and CVar `GamePadVibrationStrength`. **Unverified for Forever** - nothing uses
+  vibration yet; planned uses (HoT warning, a new removable debuff) wait for the owner's Deck test.
 - **Untested in game.** Three things only the game answers, in this order: does the key's down *and* up reach
   the handler (counts in `/orbs deckheal`; if no up, `padHealToggle`), may a secure handler set bindings in a
   fight in Forever (the probe's wrap-script test was inconclusive), and does a priority override binding beat

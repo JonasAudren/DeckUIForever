@@ -262,7 +262,7 @@ function D.PrintDeckTest()
     if t then
         print(("  before the test: device %s, %s = %s. /df decktest off ends it."):format(
             tostring(t.device), D.STYLE_CVAR, tostring(t.style)))
-        print("  Deck Heal on the keyboard: hold Tab, arrow keys up/right/down/left pick party member 1-4, keys 1 2 3 4 are A X Y B.")
+        print("  Deck Heal on the keyboard: hold Tab, it starts on the tank, arrow keys up/right/down pick damage dealers 1-3, left the healer, 6 is the buff round (right stick click), keys 1 2 3 4 are A X Y B.")
     else
         print("  /df decktest on starts it (the game reloads).")
     end
@@ -389,6 +389,45 @@ function D.SetCameraMax(on)
     if CameraZoomOut then pcall(CameraZoomOut, 50) end
     print(("DeckUIForever: the camera now zooms out as far as the game allows (limit %s)."):format(
         tostring(CameraFactor())))
+end
+
+-- /df vibrate [low|high|ltrigger|rtrigger] [0-1] [seconds]: does the
+-- controller's vibration answer an addon? (owner 2026-11-16, for Deck Heal:
+-- "bau den Testbefehl ein und dann ueberlegen wir uns wie wir das gut nutzen
+-- koennen"). C_GamePad.SetVibration(type, intensity) and StopVibration are
+-- retail's; unverified for Forever, so everything is asked for and pcall'd,
+-- and the command says what it found. Without arguments: the weak motor,
+-- then the strong one, half a second each.
+local VIBRATION = { low = "Low", high = "High", ltrigger = "LTrigger", rtrigger = "RTrigger" }
+function D.TestVibration(args)
+    local G = C_GamePad
+    local function Say(text) print("DeckUIForever vibration: " .. text) end
+    if not (G and G.SetVibration) then
+        Say("this client has no C_GamePad.SetVibration - an addon cannot vibrate the controller here.")
+        return
+    end
+    local function Ask(fn, ...)
+        if not fn then return "no such call" end
+        local ok, value = pcall(fn, ...)
+        return ok and tostring(value) or ("error: " .. tostring(value))
+    end
+    Say(("gamepad enabled: %s, active device: %s, vibration strength setting: %s, in combat: %s"):format(
+        Ask(G.IsEnabled), Ask(G.GetActiveDeviceID), Ask(GetCVar, "GamePadVibrationStrength"),
+        tostring(InCombatLockdown())))
+    local kind, strength, seconds = (args or ""):lower():match("^(%a*)%s*([%d%.]*)%s*([%d%.]*)")
+    strength = math.min(1, math.max(0, tonumber(strength) or 1))
+    seconds = math.min(5, math.max(0.1, tonumber(seconds) or 0.5))
+    local steps = VIBRATION[kind] and { VIBRATION[kind] } or { "Low", "High" }
+    for i, name in ipairs(steps) do
+        C_Timer.After((i - 1) * (seconds + 0.3), function()
+            local ok, err = pcall(G.SetVibration, name, strength)
+            Say(("%s at %.2f for %.1f s: %s"):format(name, strength, seconds,
+                ok and "sent" or ("error: " .. tostring(err))))
+            C_Timer.After(seconds, function()
+                if G.StopVibration then pcall(G.StopVibration) end
+            end)
+        end)
+    end
 end
 
 function D.PrintCamera()

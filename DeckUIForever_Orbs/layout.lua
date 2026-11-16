@@ -68,6 +68,7 @@ ns.DEFAULTS = {
     hotStranger     = true,        -- the HoT window: a line for a friendly target outside the group; off = the group alone
     -- the HoT window's extensions of 2026-11-10, all off (hots.lua's header has them)
     hotHealth       = false,       -- a health capsule under each name
+    hotMana         = true,        -- a thin mana line under it, for members with mana (on: owner 2026-11-16)
     hotCooldown     = false,       -- a clock on a HoT-window slot while its spell is on cooldown
     hotRegen        = false,      -- your mana regeneration (MP5) above the HoT window
     hotHealthBlock  = false,      -- ... or the flat bar behind the whole name
@@ -87,7 +88,12 @@ ns.DEFAULTS = {
     padHealToggle   = false,       -- the key switches the layer on and off instead of holding it
     padHealModifier = true,        -- gamepad style: the friend-targeting button (L) is the layer's key
     padHealSpells   = "",         -- up to four spells, names or IDs between commas; empty = the class's
-    padHealSecond   = false,       -- a second set of four spells while R is held with the layer on
+    padHealR        = true,        -- a second set of four spells while R is held with the layer on
+                                   -- (padHealSecond, off, until 1.5.3; the new name puts it on for everyone)
+    padHealAim      = true,        -- gamepad style: the game's aiming at friends while the layer's key is held
+    padHealCockpit  = true,        -- the bar also shows the picked member's health, your HoTs and a debuff to remove
+    padHealFeedback = true,        -- the bar's spell icons: cooldown, grey without mana, red out of range
+    padHealRound    = true,        -- out of a fight the right stick's click casts the next missing buff or resurrection
     padHealBar      = true,        -- the small bar with the picked member and the four spells
     padHealFrame    = true,        -- a gold frame around the picked member's line in the HoT window
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
@@ -445,11 +451,22 @@ end
 -- groups side by side are 700 pixels wide, so the Deck starts smaller)
 local DEVICE_DEFAULTS = {
     deck = { partyScale = 1, partyAcross = false, raidScale = 0.85, raidW = 84, raidH = 34, raidRows = false,
-             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, hotAcross = false },
+             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false },
     pc   = { partyScale = 1, partyAcross = false, raidScale = 1,    raidW = 96, raidH = 36, raidRows = false,
-             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, hotAcross = false },
+             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false },
 }
 function ns.DeviceDB() return D.DeviceDB(DeckUIForeverOrbsDB, DEVICE_DEFAULTS) end
+
+-- The HoT window in place of the party list (device hotAsParty, off;
+-- owner 2026-11-16: on the Deck both were on the screen - "kann man das
+-- nicht als Option verheiraten? Die HoTs etwas vergroessern und dafuer
+-- Gruppe rausnehmen ... denke auch an dispellable Debuffs"). hots.lua then
+-- shows health, removable debuffs, the status words and the range on every
+-- line and draws a quarter bigger; party.lua hides its rows. Only while
+-- the HoT window itself is on.
+function ns.HotAsParty()
+    return DeckUIForeverOrbsDB.hotTracker and ns.DeviceDB().hotAsParty and true or false
+end
 
 -- The FF frames' width and bar height per device, as a percentage of the
 -- style's own numbers (owner 2026-10-28: 100% = the Final Fantasy look as

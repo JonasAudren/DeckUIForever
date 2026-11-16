@@ -343,7 +343,7 @@ function ns.SetPartyTest(on)
         LayoutTest(across)
         -- the new rows' auras too
         for _, auras in ipairs(partyAuras) do AuraPoint(auras, across) end
-        ns.partyHeader:SetVisibility(on and "hide" or VISIBILITY)
+        ns.partyHeader:SetVisibility((on or ns.HotAsParty()) and "hide" or VISIBILITY)
         print("DeckUIForever Orbs: party test mode " .. (on and "on - five rows of you." or "off."))
     end)
 end
@@ -367,6 +367,15 @@ function ns.ApplyPartyLayout()
         header:SetAttribute("xOffset", across and GAP * 2 or 0)
         header:SetAttribute("_ignore", nil)
         header:SetAttribute("yOffset", across and 0 or -GAP)
+    end)
+end
+
+-- the HoT window stands in for the rows (ns.HotAsParty): they hide, and
+-- Blizzard's party frames stay away as before
+function ns.ApplyPartyMerge()
+    if not ns.partyHeader then return end
+    ns.OutOfCombat("partyMerge", function()
+        ns.partyHeader:SetVisibility((ns.partyTest or ns.HotAsParty()) and "hide" or VISIBILITY)
     end)
 end
 
@@ -401,7 +410,7 @@ oUF:Factory(function(self)
         "groupingOrder", "TANK,HEALER,DAMAGER,NONE",
         "oUF-initialConfigFunction", ("self:SetWidth(%d); self:SetHeight(%d)"):format(W, H))
     -- in a raid Blizzard's raid frames take over
-    header:SetVisibility(VISIBILITY)
+    header:SetVisibility(ns.HotAsParty() and "hide" or VISIBILITY)
     header:SetPoint("TOPLEFT", holder, "TOPLEFT")
     ns.partyHeader = header
     ns.ApplyPartyScale()

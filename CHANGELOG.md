@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.5.3
+
+- Deck Heal picks by role now. Holding the Deck Heal key alone heals the
+  tank (you, in a group without a tank). D-pad left picks the healer,
+  up, right and down the three damage dealers in the order of the HoT
+  window. The picked member's direction again goes back to the tank. In
+  a group without roles nothing changes: it starts on you and the D-pad
+  picks party member 1 to 4. The key pictures in the HoT window follow.
+- Deck Heal: the second set of spells with R is on from the start now
+  (it was a switch you had to find first). Hold the Deck Heal key and R,
+  and A, X, Y, B cast spells five to eight. The buttons also answer when
+  the two held keys count as Ctrl, Shift or Alt together.
+- Deck Heal: holding the Deck Heal key (L) aims at friends again, as the
+  game does without Deck Heal - turn towards someone and they become
+  your target. The heals still go to the member picked with the D-pad.
+  New switch "Aim at friends while holding the key" (on).
+- Your HoTs: new switch "In place of the party list (this device)". The
+  party list hides and the HoT window takes over - a quarter bigger,
+  with the health bar, the debuffs you can remove, dead or offline and
+  the range dimming on every line. Made for the Steam Deck, where both
+  windows took too much of the screen.
+- Deck Heal: the bar is a cockpit now. Under the picked member's name
+  sits their health, and after the four spells a debuff you can remove
+  and your HoTs on them with their clocks - no more looking over to the
+  HoT window in a fight. Switch "Health, HoTs and debuffs on the bar".
+- Deck Heal: the four spell icons say what is possible - a closing clock
+  with the time while on cooldown, grey without the mana, red while the
+  picked member is out of range. Switch "Spell icons show what is
+  possible".
+- Deck Heal: the buff and resurrection round. Out of combat, hold the
+  Deck Heal key and click the right stick: one cast per click on whoever
+  needs it next - your resurrection on a dead member first, then your
+  buffs where they are missing. A line above the bar names the next
+  cast. Switch "Buff and resurrection round".
+- Deck Heal: a list of your own no longer leaves buttons empty. What you
+  do not name is filled with your HoTs, heals and cures - with four
+  names of yours, the second set carries your class's other spells.
+- Your HoTs: a mana bar. A thin blue line under each name shows how
+  much mana the member has left; members without mana get none. Switch
+  "Mana bar" (on).
+- For testing: /df vibrate tries the controller's rumble and says
+  whether the game took the call. Nothing uses it yet.
+
 ## 1.5.2
 
 - Deck Heal: a second set of spells. New switch "Second set of spells

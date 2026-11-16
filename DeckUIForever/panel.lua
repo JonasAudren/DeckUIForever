@@ -1573,6 +1573,8 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         D.PrintSync()
     elseif msg == "camera" then
         D.PrintCamera()
+    elseif msg:match("^vibrate") then
+        D.TestVibration(msg:match("^vibrate%s*(.*)$"))
     elseif msg == "cvars" then
         if D.PrintCVars then D.PrintCVars() end
     elseif msg == "build" then
