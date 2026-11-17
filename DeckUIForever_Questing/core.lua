@@ -33,6 +33,7 @@ local DEFAULTS = {
     acceptTrivial = false,   -- grey ones too
     acceptShared  = true,    -- quests a party member shares, and escort starts
     autoTurnIn    = true,    -- hand in finished quests, take the reward when there is no choice
+    autoRepeatable = false,  -- repeatable quests too (off: they could be handed in over and over)
     autoGossip    = true,    -- skip the small talk when it leads nowhere else
     autoShare     = false,   -- share every new quest with the party
     announce      = true,    -- say in the chat what was done

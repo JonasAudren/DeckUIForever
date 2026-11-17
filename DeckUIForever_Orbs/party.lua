@@ -326,7 +326,7 @@ function ns.SetPartyTest(on)
         if on and #testFrames == 0 then
             oUF:SetActiveStyle("DeckOrbsParty")
             for i = 1, 5 do
-                testFrames[i] = oUF:Spawn("player", "DeckOrbsPartyTest" .. i)
+                testFrames[i] = ns.SpawnQuiet("player", "DeckOrbsPartyTest" .. i)
             end
         end
         local scale = ns.DeviceDB().partyScale or 1

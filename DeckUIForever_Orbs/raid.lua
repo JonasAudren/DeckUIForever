@@ -448,7 +448,7 @@ function ns.SetRaidTest(on)
         if on and #testFrames == 0 then
             oUF:SetActiveStyle("DeckOrbsRaid")
             for i = 1, GROUPS * PER_GROUP do
-                testFrames[i] = oUF:Spawn("player", "DeckOrbsRaidTest" .. i)
+                testFrames[i] = ns.SpawnQuiet("player", "DeckOrbsRaidTest" .. i)
             end
         end
         local scale = ns.DeviceDB().raidScale or 1

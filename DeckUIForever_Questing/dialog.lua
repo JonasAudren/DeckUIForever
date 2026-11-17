@@ -67,6 +67,28 @@ local function AcceptOK(questID, trivial)
     return true
 end
 
+-- A repeatable quest (cloth, reputation tokens) can be handed in again as
+-- soon as it was handed in: the NPC's window comes back, the autopilot
+-- takes and hands it in again, until the items are gone (module check
+-- 2026-11-17). So they are the player's own click unless autoRepeatable is
+-- on. `flag`: what the gossip list says; the quest ID is asked as well.
+local function Repeatable(questID, flag)
+    if flag == true then return true end
+    if not questID or questID == 0 or not C_QuestLog.IsRepeatableQuest then return false end
+    local ok, yes = pcall(C_QuestLog.IsRepeatableQuest, questID)
+    return ok and yes == true
+end
+
+local function RepeatOK(questID, flag)
+    return db().autoRepeatable or not Repeatable(questID, flag)
+end
+
+-- a hand-in that takes gold is never the autopilot's
+local function CostsMoney()
+    local money = GetQuestMoneyToGet and GetQuestMoneyToGet() or 0
+    return type(money) == "number" and money > 0
+end
+
 local function QuestName(questID)
     local title = questID and questID > 0 and C_QuestLog.GetTitleForQuestID(questID)
     if title and title ~= "" then return title end
@@ -86,7 +108,7 @@ local function OnGossip()
     local d = db()
     if d.autoTurnIn then
         for _, q in ipairs(C_GossipInfo.GetActiveQuests() or {}) do
-            if q.isComplete and q.questID then
+            if q.isComplete and q.questID and RepeatOK(q.questID, q.repeatable) then
                 C_GossipInfo.SelectActiveQuest(q.questID)
                 return
             end
@@ -94,7 +116,7 @@ local function OnGossip()
     end
     if d.autoAccept then
         for _, q in ipairs(C_GossipInfo.GetAvailableQuests() or {}) do
-            if q.questID and AcceptOK(q.questID, q.isTrivial) then
+            if q.questID and AcceptOK(q.questID, q.isTrivial) and RepeatOK(q.questID, q.repeatable) then
                 C_GossipInfo.SelectAvailableQuest(q.questID)
                 return
             end
@@ -151,7 +173,7 @@ local function OnDetail(_, questStartItemID)
     end
     if not Allowed("questnpc") then Stop() return end
     if not shouldRun then return end
-    if AcceptOK(questID, Trivial(questID)) then
+    if AcceptOK(questID, Trivial(questID)) and RepeatOK(questID) then
         AcceptQuest()
         ns.Say("accepted " .. QuestName(questID) .. ".")
     end
@@ -160,12 +182,16 @@ end
 local function OnProgress()
     if not Allowed("questnpc") then Stop() return end
     if not shouldRun or not db().autoTurnIn then return end
+    -- the greeting window lists quests by index only: this is where a
+    -- repeatable one picked there is stopped
+    if not RepeatOK(GetQuestID()) or CostsMoney() then Stop() return end
     if IsQuestCompletable() then CompleteQuest() end
 end
 
 local function OnComplete()
     if not Allowed("questnpc") then Stop() return end
     if not shouldRun or not db().autoTurnIn then return end
+    if not RepeatOK(GetQuestID()) then Stop() return end
     local choices = GetNumQuestChoices()
     if choices > 1 then return end   -- rewards.lua marks them, and picks only if asked to
     GetQuestReward(1)

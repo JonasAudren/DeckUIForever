@@ -42,6 +42,9 @@ local function Restock()
     local wanted = List()
     if not next(wanted) then return end
     local bought, spent = {}, 0
+    -- what is left to spend: the server answers later, GetMoney() stays the
+    -- same for the whole loop, so every item saw the full purse
+    local budget = GetMoney() or 0
     for index = 1, GetMerchantNumItems() do
         local itemID = GetMerchantItemID(index)
         local want = itemID and wanted[itemID]
@@ -55,7 +58,7 @@ local function Restock()
                 need = math.ceil(need / stackCount) * stackCount
                 if numAvailable and numAvailable >= 0 then need = math.min(need, numAvailable * stackCount) end
                 local each = price / stackCount
-                need = math.min(need, math.floor(GetMoney() / each / stackCount) * stackCount)
+                need = math.min(need, math.floor(budget / each / stackCount) * stackCount)
                 local maxStack = math.max(stackCount, GetMerchantItemMaxStack(index) or stackCount)
                 local left = need
                 while left > 0 do
@@ -66,6 +69,7 @@ local function Restock()
                 if need > 0 then
                     bought[#bought + 1] = (GetMerchantItemLink(index) or ("item " .. itemID)) .. " x" .. need
                     spent = spent + need * each
+                    budget = budget - need * each
                 end
             end
         end
@@ -218,7 +222,7 @@ ev:SetScript("OnEvent", function(_, event)
         D.ApplyRestock()
         -- after the merchant's list has arrived and junk was sold
         C_Timer.After(0.6, Restock)
-    elseif win and win:IsShown() then
+    elseif win and win:IsVisible() then   -- IsShown stays true under the hidden merchant frame
         Refresh()
     end
 end)

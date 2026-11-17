@@ -61,7 +61,7 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -- frames", the Overview "Modules", the Units group "Frames".
 D.PAGE_GROUPS = {
     { title = "General",   pages = { "General", "Devices", "Screen", "Targets", "Windows", "Console" } },
-    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "DeckHeal", "Group", "Raid" } },
+    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "BuffCheck", "DeckHeal", "Group", "Raid" } },
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
     { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
@@ -71,7 +71,7 @@ D.PAGE_GROUPS = {
 D.PAGE_NAMES = {
     Orbs = "Unit frames", Cross = "Cross hotbar", Spec = "Talent groups",
     Nav = "Navigation", Map = "Maps", Week = "Week overview", Bars = "Action bars", Pad = "Controller bar",
-    Debuffs = "Your debuffs", HoTs = "Your HoTs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
+    Debuffs = "Your debuffs", HoTs = "Your HoTs", BuffCheck = "Missing buffs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
     BuffBar = "Buff bar", Enemies = "Enemies and bosses", CrossController = "Controller",
     MapWorld = "World map",
 }
@@ -82,7 +82,7 @@ D.PAGE_NAMES = {
 -- the module, so a module that is off shows only its stand-in.
 D.PAGE_PARENT = {
     FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", HoTs = "Orbs", DeckHeal = "Orbs",
-    BuffBar = "Orbs", Enemies = "Orbs",
+    BuffBar = "Orbs", Enemies = "Orbs", BuffCheck = "Orbs",
     CrossController = "Cross",
     MapWorld = "Map",
 }
@@ -354,6 +354,7 @@ D.PAGE_FRAMES = {
     FrameTarget = { "Target", "Target (FF)" },
     Debuffs = { "Debuffs" },
     HoTs    = { "HoTs" },
+    BuffCheck = { "Buff check" },
     DeckHeal = { "Deck Heal" },
     BuffBar = { "Buffs" },
     Enemies = { "Focus", "Focus (FF)", "Boss frames", "Boss frames (FF)", "Enemy list" },
@@ -381,12 +382,13 @@ D.PAGE_FRAMES = {
 -- positions" on the Devices page does that. The game reloads right after,
 -- and each module fills what is missing with its defaults as it loads.
 local LOOT_KEYS = { autoSellJunk = true, autoRepair = true, repairGuild = true, fastLoot = true, lootWindow = true, lootRolls = true,
-                    restock = true, mailHelper = true }
-local function GroupKey(k) return k == "showParty" or k:find("^party") ~= nil end
+                    restock = true, mailHelper = true, ahScan = true, ahStyle = true }
+local function GroupKey(k) return k == "showParty" or k == "groupStyle" or k:find("^party") ~= nil end
 local function RaidKey(k) return k == "showRaid" or k:find("^raid") ~= nil end
 local function DotKey(k) return k:find("^dot") ~= nil end
 local function HotKey(k) return k:find("^hot") ~= nil end
 local function PadHealKey(k) return k:find("^padHeal") ~= nil end
+local function BuffCheckKey(k) return k:find("^buffCheck") ~= nil end
 local function PlayerKey(k) return k:find("^player") ~= nil end
 local function TargetKey(k) return k:find("^target") ~= nil end
 local function ToTKey(k) return k:find("^tot") ~= nil end
@@ -403,7 +405,7 @@ local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow =
 D.PAGE_RESET = {
     Orbs    = { db = "DeckUIForeverOrbsDB", match = function(k)
         return not (GroupKey(k) or RaidKey(k) or HotKey(k) or DotKey(k) or PlayerKey(k) or TargetKey(k) or ToTKey(k)
-                    or BuffBarKey(k) or EnemyKey(k) or PadHealKey(k))
+                    or BuffBarKey(k) or EnemyKey(k) or PadHealKey(k) or BuffCheckKey(k))
     end },
     BuffBar = { db = "DeckUIForeverOrbsDB", match = BuffBarKey },
     Enemies = { db = "DeckUIForeverOrbsDB", match = EnemyKey },
@@ -415,6 +417,7 @@ D.PAGE_RESET = {
     FrameToT    = { db = "DeckUIForeverOrbsDB", match = ToTKey },
     Debuffs = { db = "DeckUIForeverOrbsDB", match = DotKey },
     HoTs    = { db = "DeckUIForeverOrbsDB", match = HotKey },
+    BuffCheck = { db = "DeckUIForeverOrbsDB", match = BuffCheckKey },
     DeckHeal = { db = "DeckUIForeverOrbsDB", match = PadHealKey },
     Group   = { db = "DeckUIForeverOrbsDB", match = GroupKey },
     Raid    = { db = "DeckUIForeverOrbsDB", match = RaidKey },
@@ -1105,8 +1108,8 @@ local PRESETS = {
         tip = "Adds the healer's tools to whatever you have: the HoT window with click to cast, health bars, debuffs you can remove, missing buffs and your heals as buttons. On the Steam Deck also Deck Heal.",
         modules = { Orbs = true },
         orbs = { hotTracker = true, hotHealer = true, hotHealth = true, hotStatus = true, hotRange = true,
-                 hotDispel = true, hotBuffSlots = true, hotCastSlots = true },
-        orbsText = "On the \"Your HoTs\" page: the HoT window with click to cast, health bars, dead and offline marks, range, debuffs you can remove, missing buffs and your heals as buttons.",
+                 hotDispel = true, hotCastSlots = true, buffCheck = true },
+        orbsText = "On the \"Your HoTs\" page: the HoT window with click to cast, health bars, dead and offline marks, range, debuffs you can remove and your heals as buttons. On \"Missing buffs\": the buff window.",
         deckOrbs = { padHeal = true },
         deckText = "On this Steam Deck also Deck Heal: hold L, pick a friend with the D-pad, heal with A, X, Y, B.",
     },
@@ -1487,9 +1490,9 @@ panel:AddTab("Devices", {
             if v then D.ApplyUiScale() end
         end, "One scale for the Deck's small screen, one for the PC. Off, the scale stays as it is.")
         f:Slider("On the Steam Deck", 0.5, 1.0, 0.01, pct, db, "uiScaleDeck",
-            function() if D.IsDeck() then D.ApplyUiScale() end end)
+            function(v) DeckUIForeverDB.uiScaleDeck = v; if D.IsDeck() then D.ApplyUiScale() end end)
         f:Slider("On the PC", 0.5, 1.0, 0.01, pct, db, "uiScalePC",
-            function() if not D.IsDeck() then D.ApplyUiScale() end end)
+            function(v) DeckUIForeverDB.uiScalePC = v; if not D.IsDeck() then D.ApplyUiScale() end end)
 
         f:Gap(4)
         f:Label("Controller")

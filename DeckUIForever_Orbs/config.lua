@@ -25,8 +25,23 @@ D.RegisterModule("Orbs", {
         if loaded.xivCast == nil then loaded.xivCast = DeckUIForeverOrbsDB.xivCastCenter and true or false end
         if loaded.dotIcons == nil then loaded.dotIcons = DeckUIForeverOrbsDB.dotIcons and true or false end
         if loaded.hotHealer == nil then loaded.hotHealer = DeckUIForeverOrbsDB.hotHealer and true or false end
+        if loaded.showPlayer == nil then loaded.showPlayer = DeckUIForeverOrbsDB.showPlayer ~= false end
+        if loaded.showTarget == nil then loaded.showTarget = DeckUIForeverOrbsDB.showTarget ~= false end
+        if loaded.healPrediction == nil then loaded.healPrediction = DeckUIForeverOrbsDB.healPrediction and true or false end
+        local function Built(key)
+            return function(v) D.NeedReload("orbs:" .. key, (v and true or false) ~= loaded[key]) end
+        end
         local f = D.Flow(c)
         c.widgets = c.widgets or {}
+
+        -- player and target apart (GitHub issue 1, 2026-11-17); party, raid,
+        -- focus and bosses have their switches on their own pages
+        f:Label("Which frames")
+        f:Checkbox("Player frame", db, "showPlayer", Built("showPlayer"),
+            "Your own frame, with your pet's beside it. Off, the game's player frame stays as it is - for Blizzard's own or another addon's. Needs a reload.")
+        f:Checkbox("Target frame", db, "showTarget", Built("showTarget"),
+            "Your target's frame, with its target beside it. Off, the game's target frame stays as it is - for Blizzard's own or another addon's. Needs a reload.")
+        f:Gap(4)
 
         f:Label("Size and look")
         f:Slider("Size (this device)", 0.6, 1.6, 0.05, pct, ns.DeviceDB, "scale", ns.SetScale)
@@ -60,6 +75,8 @@ D.RegisterModule("Orbs", {
         f:Checkbox("Cast in the orb", db, "showCast", ns.SetCastShown)
         f:Checkbox("Buffs and debuffs", db, "showAuras", ns.SetAurasShown)
         f:More()
+        f:Checkbox("Incoming heals on the health bar", db, "healPrediction", Built("healPrediction"),
+            "A lighter piece ahead of your health, and your target's, shows how much the heals being cast right now will bring back. Needs a reload.")
         f:Checkbox("Only your own debuffs on the target", db, "ownDebuffsOnly", ns.SetOwnDebuffsOnly)
         f:Checkbox("Class resource dots on the player", db, "showClassPower", ns.SetClassPowerShown,
             "Combo points and the like as dots on your frame.")
@@ -313,11 +330,32 @@ D.RegisterModule("Debuffs", {
 -- on 2026-11-07: a line per party member - name, a round icon per heal
 -- with a closing clock, the buffs on them - a stranger only while
 -- targeted. hots.lua.
+-- The buff window (buffcheck.lua): the missing buffs, out of the HoT window
+-- since 2026-11-17 (owner: "ein separates Buff-Fenster").
+D.RegisterModule("BuffCheck", {
+    title = "Missing buffs",
+    build = function(c)
+        local f = D.Flow(c)
+        if loaded.buffCheck == nil then loaded.buffCheck = DeckUIForeverOrbsDB.buffCheck and true or false end
+        if loaded.buffCheckScale == nil then loaded.buffCheckScale = ns.DeviceDB().buffCheckScale end
+        f:Hint("A small window that says who in your party lacks a buff you can cast - Fortitude, Mark of the Wild, Arcane Intellect and the like. /orbs buffs prints what it sees.")
+        f:Label("Window")
+        f:Checkbox("Show the buff window", db, "buffCheck", function(v)
+            D.NeedReload("orbs:buffCheck", (v and true or false) ~= loaded.buffCheck)
+        end, "A line for you and each party member, with one round icon per buff they lack - no matter who cast it. Click an icon to cast the buff on that member. Whoever has everything shows nothing, so a fully buffed party leaves the window empty. Not for pets. During a fight a buff that drops may show late; it catches up when the fight ends. Needs a reload; move it with Move below.")
+        f:Slider("Icon size (this device)", 50, 175, 5, function(v) return math.floor(v + 0.5) .. "%" end,
+            ns.DeviceDB, "buffCheckScale", function(v)
+                ns.DeviceDB().buffCheckScale = v
+                D.NeedReload("orbs:buffCheckScale", v ~= loaded.buffCheckScale)
+            end, "100% is 22 pixels. Needs a reload.")
+    end,
+})
+
 D.RegisterModule("HoTs", {
     title = "HoTs",
     build = function(c)
         local f = D.Flow(c)
-        f:Hint("Your party in one window: who has your HoTs, and which buffs. Druids and priests have HoTs in Classic; the other classes see only the buffs. /orbs hots prints what the window sees.")
+        f:Hint("Your party in one window: who has your HoTs, and which buffs. Druids and priests have HoTs in Classic; the other classes see only the buffs. The buffs someone lacks have a window of their own, on the Missing buffs page. /orbs hots prints what the window sees.")
         f:Label("Window")
         f:Checkbox("Show the HoT window", db, "hotTracker", ns.SetHotTracker,
             "One line per party member in the order of the game's group frames: in a raid your raid group with you at your place in it, in a party you first; solo it is just you. Each line: the name, one round icon per HoT - the dark clock closes as it runs out - then the buffs on them. A HoT you have not cast is a dimmed icon with a red rim in combat. Gold means the last third: refresh now and nothing is lost. A friendly target outside your party gets its own line while you target it.")
@@ -360,8 +398,6 @@ D.RegisterModule("HoTs", {
         f:Checkbox("Your mana regeneration", db, "hotRegen", function() ns.ApplyHotLayout() end,
             "A small line above the window: the mana you get back every five seconds right now (MP5). For five seconds after a spell that cost mana you get less; the grey number beside it is the other rate. Not for classes without mana.")
         f:Label("More spells")
-        f:Checkbox("Your buffs while they are missing", db, "hotBuffSlots", function() ns.ApplyHotList() end,
-            "Buffs you can cast on others - Fortitude, Mark of the Wild, Arcane Intellect and the like - get a spot each. The icon shows only while the member lacks the buff, no matter who cast it. Not on pets. During a fight the window may not notice a buff that drops; it catches up when the fight ends.")
         f:Checkbox("Your heals as buttons (healer mode)", db, "hotCastSlots", function() ns.ApplyHotList() end,
             "With click to cast on: your direct heals, your cures and your resurrection get a button on every line. Click it to cast the spell on that member. A cure shows only while the member has a debuff you can remove, the resurrection only while the member is dead.")
         f:More()

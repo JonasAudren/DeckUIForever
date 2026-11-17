@@ -4,6 +4,27 @@ local D = DeckUIForever
 ns.DISC = D.DISC
 ns.FONT = D.FONT
 
+-- oUF's Spawn silences Blizzard's frame of that unit (DisableBlizzard).
+-- With showPlayer / showTarget off (layout.lua) Blizzard's frame, or another
+-- addon's, is meant to stay - but the buff bar and the party and raid test
+-- frames are spawned on "player", the boss test frames on "target", and
+-- took it away all the same (module check 2026-11-17). They spawn through
+-- this: with the unit's switch off, DisableBlizzard does nothing for the
+-- length of that one Spawn.
+function ns.SpawnQuiet(unit, name)
+    local oUF = ns.oUF
+    local db = DeckUIForeverOrbsDB or {}
+    local keepBlizzard = (unit == "player" and db.showPlayer == false)
+        or (unit == "target" and db.showTarget == false)
+    if not keepBlizzard then return oUF:Spawn(unit, name) end
+    local disable = oUF.DisableBlizzard
+    oUF.DisableBlizzard = function() end
+    local ok, frame = pcall(oUF.Spawn, oUF, unit, name)
+    oUF.DisableBlizzard = disable
+    if not ok then error(frame, 0) end
+    return frame
+end
+
 -- The countdown numbers a Cooldown frame writes on an aura icon come in a
 -- font the client picks from the frame's size, and Forever picks a big
 -- one: "50m" filled a 22 px status icon (owner, 2026-11-05). The icons
@@ -72,6 +93,39 @@ local function RoundBar(parent, size, levelOffset, bgShade, bgAlpha)
     bg:AddMaskTexture(mask)
 
     AddGlow(bar, mask)
+    return bar
+end
+
+-- Incoming heals on a health bar (GitHub issue 1, 2026-11-17; option
+-- healPrediction, off, /reload): a lighter bar that starts where the
+-- health's fill ends and is as long as the heals being cast are worth.
+-- oUF's health element fills it (Health.HealingAll, from the game's heal
+-- prediction calculator - no number passes through our code) and keeps it
+-- as long as the health bar; incomingHealOverflow 1 stops it at full
+-- health, so nothing sticks out of the bar. `shape` cuts its texture like
+-- the bar's own (a PillBar's caps, the orb's disc). Call it right after
+-- the style sets self.Health.
+function ns.HealPrediction(health, shape)
+    if not (DeckUIForeverOrbsDB and DeckUIForeverOrbsDB.healPrediction) then return end
+    local bar = CreateFrame("StatusBar", nil, health)
+    bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8x8")
+    bar:SetStatusBarColor(0.6, 1, 0.7, 0.6)
+    local fill = health:GetStatusBarTexture()
+    if health:GetOrientation() == "VERTICAL" then
+        bar:SetOrientation("VERTICAL")
+        bar:SetPoint("LEFT")
+        bar:SetPoint("RIGHT")
+        bar:SetPoint("BOTTOM", fill, "TOP")
+        bar:SetHeight(health:GetHeight())
+    else
+        bar:SetPoint("TOP")
+        bar:SetPoint("BOTTOM")
+        bar:SetPoint("LEFT", fill, "RIGHT")
+        bar:SetWidth(health:GetWidth())
+    end
+    if shape then shape(bar:GetStatusBarTexture()) end
+    health.HealingAll = bar
+    health.incomingHealOverflow = 1
     return bar
 end
 

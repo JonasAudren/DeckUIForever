@@ -347,10 +347,12 @@ local function CustomList(seen)
     end
 end
 
--- The slots of a line, in this order: your HoTs, the list of your own,
--- your buffs while missing, your direct casts. kind says how a slot
--- behaves (hot: the engine's aura button; buff: our icon while the buff
--- is missing; cast: a plain button).
+-- The slots of a line, in this order (owner 2026-11-17: "zuerst Instant
+-- Spells, dann Heals, dann Debuffer und dann Buffs"): your HoTs and the
+-- shield - the instant ones - with the list of your own, then your direct
+-- heals, the cures and the resurrection (CASTS keeps that order). kind
+-- says how a slot behaves (hot: the engine's aura button; cast: a plain
+-- button). The missing buffs are buffcheck.lua's.
 local function Rebuild()
     wipe(entries)
     allIDs = {}
@@ -367,20 +369,6 @@ local function Rebuild()
         end
     end
     CustomList(seen)
-    if Opt("hotBuffSlots") then
-        for _, e in ipairs(BUFFS[ListKey()] or {}) do
-            local n = Known(e.id) and SpellName(e.id)
-            if n and not seen[n] then
-                seen[n] = true
-                local names = { n }
-                for _, other in ipairs(e.also or {}) do
-                    local o = SpellName(other)
-                    if o then names[#names + 1] = o end
-                end
-                entries[#entries + 1] = { kind = "buff", name = n, icon = SpellIcon(e.id), id = e.id, names = names }
-            end
-        end
-    end
     if healer and Opt("hotCastSlots") then
         for _, e in ipairs(CASTS[ListKey()] or {}) do
             local n = Known(e.id) and SpellName(e.id)
@@ -391,6 +379,10 @@ local function Rebuild()
             end
         end
     end
+    -- the missing buffs stood here as slots of kind "buff" until 2026-11-17
+    -- (hotBuffSlots); they have a window of their own now, buffcheck.lua,
+    -- which asks ns.HotBuffEntries and ns.HotBuffState below. What this file
+    -- still does for a "buff" entry is never reached.
     for _, e in ipairs(entries) do e.cast = ns.HotTopRank(e.name, e.id) end
     ns.ApplyHotExclusion()
 end
@@ -1087,13 +1079,26 @@ local function UpdateHealth(c)
 end
 
 -- the mana line (hotMana): only for a member with mana. Whether there is
--- any is asked of the maximum; a secret one keeps the last answer, so a
--- druid in bear form keeps the line and a warrior never gets one.
+-- any is asked of the maximum; where the game keeps that to itself the
+-- class answers (Classic: every class but the warrior and the rogue), so a
+-- druid in bear form keeps the line and a warrior never gets one. Until
+-- 2026-11-17 a secret maximum kept "the last answer", which for a party
+-- member whose maximum was never readable meant no line at all (owner:
+-- "ich sehe noch immer keine Mana meiner Gruppe").
+local NO_MANA = { WARRIOR = true, ROGUE = true }
+local function HasMana(unit)
+    local max = UnitPowerMax(unit, MANA_POWER)
+    if not Secret(max) then return (max or 0) > 0, max, "maximum" end
+    local _, class = UnitClass(unit)
+    class = Ask(class)
+    return not (class and NO_MANA[class]), max, "class " .. tostring(class)
+end
+
 local function UpdateMana(c)
     local on = Opt("hotMana") and c.kind ~= "pet" and UnitExists(c.unit)
     if on then
-        local max = UnitPowerMax(c.unit, MANA_POWER)
-        if not Secret(max) then c.hasMana = (max or 0) > 0 end
+        local has, max = HasMana(c.unit)
+        c.hasMana = has
         on = c.hasMana and true or false
         if on then
             c.mana:SetMinMaxValues(0, max)
@@ -1975,6 +1980,27 @@ function ns.HotLayerSpells(max)
     return list
 end
 
+-- for the buff window (buffcheck.lua): the buffs of your class you know,
+-- each with the names that count as it (the group version too) and the
+-- highest rank to cast; and the check itself
+function ns.HotBuffEntries()
+    local list = {}
+    for _, e in ipairs(BUFFS[ListKey()] or {}) do
+        local n = Known(e.id) and SpellName(e.id)
+        if n then
+            local names = { n }
+            for _, other in ipairs(e.also or {}) do
+                local o = SpellName(other)
+                if o then names[#names + 1] = o end
+            end
+            list[#list + 1] = { name = n, icon = SpellIcon(e.id), id = e.id, names = names,
+                                cast = ns.HotTopRank(n, e.id) }
+        end
+    end
+    return list
+end
+ns.HotBuffState = BuffState
+
 -- for Deck Heal's bar: the filter of the debuffs you can remove, and every
 -- spell ID (all ranks) of the class's HoTs as a set
 ns.HOT_DISPEL_FILTER = DISPEL_FILTER
@@ -2072,7 +2098,7 @@ function ns.HotDebug()
     local function OnOff(key) return Opt(key) and "on" or "off" end
     print(("  extras: mana %s, health %s, status %s, range %s, debuffs to remove %s (%s), missing buffs %s, cast buttons %s, pets %s (loaded %s), raid table %s (loaded %s, active %s), warning blink %s sound %s at %s s"):format(
         OnOff("hotMana"), OnOff("hotHealth"), OnOff("hotStatus"), OnOff("hotRange"), OnOff("hotDispel"), DISPEL_FILTER,
-        OnOff("hotBuffSlots"), OnOff("hotCastSlots"), OnOff("hotPets"), tostring(petsOn),
+        DeckUIForeverOrbsDB.buffCheck and "own window" or "off", OnOff("hotCastSlots"), OnOff("hotPets"), tostring(petsOn),
         OnOff("hotRaid"), tostring(raidOn), tostring(RaidMode()),
         OnOff("hotWarn"), OnOff("hotWarnSound"), tostring(DeckUIForeverOrbsDB.hotWarnAt or 3)))
     do
@@ -2114,6 +2140,14 @@ function ns.HotDebug()
             IsInRaid() and UnitExists(c.unit) and tostring(Ask(UnitInRaid(c.unit)) or "secret") or "-", slots,
             c == stranger and (", friendly " .. tostring(Friendly("target")) .. ", in the table " ..
                 tostring(GUID("target") ~= nil and InTable(GUID("target")))) or ""))
+        -- the mana line: what the game answers for this unit right now
+        if UnitExists(c.unit) and c.kind ~= "pet" then
+            local has, max, by = HasMana(c.unit)
+            local now = UnitPower(c.unit, MANA_POWER)
+            print(("    mana: has %s (by %s), maximum %s, now %s, line %s"):format(tostring(has), by,
+                Secret(max) and "secret" or tostring(max), Secret(now) and "secret" or tostring(now),
+                c.mana:IsShown() and "shown" or "hidden"))
+        end
         -- the missing-buff slots: what the game answers for this unit right now
         if UnitExists(c.unit) and c.kind ~= "pet" then
             for i, e in ipairs(entries) do

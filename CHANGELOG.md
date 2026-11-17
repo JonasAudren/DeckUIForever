@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.5.4
+
+- Unit frames: the player frame and the target frame each have a switch
+  of their own now ("Player frame", "Target frame" at the top of the
+  Unit frames page, both on). Off, DeckUIForever does not build that
+  frame and leaves the game's own alone, so Blizzard's frame or another
+  addon's can stand there while you keep our party and raid frames. The
+  pet's frame goes with the player's, the target of target with the
+  target's. Needs a reload. (GitHub issue 1)
+- Unit frames: new switch "Incoming heals on the health bar" (off). A
+  lighter piece ahead of your health, and your target's, shows how much
+  the heals being cast right now will bring back - in all three styles,
+  the orbs included. Needs a reload. (GitHub issue 1)
+- New: the buff window ("Missing buffs" under Unit frames, off). A line
+  for you and each party member with one round icon per buff of yours
+  they lack - Fortitude, Mark of the Wild, Arcane Intellect and the
+  like - no matter who cast it. Click an icon to cast the buff on that
+  member. A fully buffed party leaves the window empty. The missing
+  buffs are no longer part of the HoT window; who had them on there
+  gets the new window switched on. /orbs buffs prints what it sees.
+- Your HoTs: the icons of a line stand in a new order - first your HoTs
+  and the shield (the instant ones), then the heals, then the cures and
+  the resurrection.
+- Questing: repeatable quests (cloth, reputation tokens) are no longer
+  taken and handed in on their own - the autopilot could hand them in
+  over and over until the items were gone. New switch "Repeatable quests
+  too" (off) for those who want that. A hand-in that costs gold is
+  always left to you.
+- Fixed: Your HoTs: the mana line could stay away for party members
+  whose mana the game keeps to itself; the class decides then (every
+  class but warriors and rogues). /orbs hots prints what it sees.
+- Fixed: the two UI scale sliders on the Devices page did not keep their
+  value.
+- Fixed: bags threw an error with "Gold coin on valuable items" off.
+- Fixed: Restock could report purchases the merchant had refused when
+  the gold did not reach for the whole list.
+- Fixed: enemies tapped by someone else are grey again on the target,
+  focus and boss bars of the Final Fantasy styles.
+- Fixed: "Defaults" on the Loot page missed the two auction switches,
+  and on the Group page the look of party and raid.
+- Fixed: the own buff bar and the test frames (/orbs test, raid, boss)
+  no longer take Blizzard's player or target frame away while "Player
+  frame" or "Target frame" is off.
+
 ## 1.5.3
 
 - Deck Heal picks by role now. Holding the Deck Heal key alone heals the

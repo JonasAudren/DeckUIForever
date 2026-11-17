@@ -248,7 +248,7 @@ end
 oUF:Factory(function(self)
     if not DeckUIForeverOrbsDB.buffBar then return end
     self:SetActiveStyle("DeckOrbsBuffBar")
-    bar = self:Spawn("player", "DeckOrbsBuffBar")
+    bar = ns.SpawnQuiet("player", "DeckOrbsBuffBar")
     bar.defaultPoint = { "TOPRIGHT", UIParent, "TOPRIGHT", -250, -20 }
     bar:SetPoint(unpack(bar.defaultPoint))
     D.MakeMovable(bar, "Buffs", DeckUIForeverOrbsDB)

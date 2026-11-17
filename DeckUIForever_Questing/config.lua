@@ -30,6 +30,8 @@ D.RegisterModule("Questing", {
         f:Basic()
         f:Checkbox("Hand in finished quests", db, "autoTurnIn", nothing,
             "A finished quest is handed in, and the reward taken when there is nothing to choose. With a choice the window stays open.")
+        f:Checkbox("Repeatable quests too", db, "autoRepeatable", nothing,
+            "Quests you can hand in again and again, such as cloth or reputation tokens, are taken and handed in without a click as well - one after the other, until the items run out. Off, those stay your own click.")
         f:Checkbox("Skip the small talk", db, "autoGossip", nothing,
             "An NPC with one line of talk and no quest is talked to without a click. Vendors, trainers, flight masters and bankers are left alone.")
         f:More()

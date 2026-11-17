@@ -2,7 +2,7 @@
 ## Title: DeckUIForever Orbs
 ## Notes: DeckUIForever module: round unit frames (orbs) or Final Fantasy's bars, party list, raid frames, buff bar
 ## Author: Gottlieb
-## Version: 1.5.3
+## Version: 1.5.4
 ## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
 ## X-Website: https://github.com/JonasAudren/DeckUIForever
 ## X-Category: Unit Frames
@@ -24,5 +24,6 @@ buffs.lua
 enemies.lua
 debuffs.lua
 hots.lua
+buffcheck.lua
 padheal.lua
 config.lua

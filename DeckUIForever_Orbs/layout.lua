@@ -23,6 +23,9 @@ ns.DEFAULTS = {
     showCast        = true,
     showAuras       = true,
     ownDebuffsOnly  = true,
+    showPlayer      = true,        -- our player frame (and the pet's); off leaves Blizzard's alone; /reload
+    showTarget      = true,        -- our target frame (and its target's); off leaves Blizzard's alone; /reload
+    healPrediction  = false,       -- incoming heals ahead of the health on player and target; /reload
     showFocus       = true,
     showBoss        = true,
     showClassPower  = true,
@@ -75,7 +78,7 @@ ns.DEFAULTS = {
     hotStatus       = false,       -- Dead / Ghost / Offline over the icons
     hotRange        = false,       -- a member out of range is dimmed
     hotDispel       = false,       -- up to two debuffs you can remove, after the name
-    hotBuffSlots    = false,       -- your castable buffs as slots that show while missing
+    buffCheck       = false,       -- the buff window (buffcheck.lua): who lacks a buff you can cast; /reload
     hotCastSlots    = false,       -- your direct heals and cures as buttons (healer mode only)
     hotCustom       = "",          -- spells of your own, names or IDs between commas
     hotPets         = false,       -- a line per party pet; /reload
@@ -295,6 +298,10 @@ local function BuildOrb(self, unit, s)
     Health.colorClass = true
     Health.colorReaction = true
     self.Health = Health
+    if unit == "player" or unit == "target" then
+        -- incoming heals: a lighter slice above the fill, cut round like the orb
+        ns.HealPrediction(Health, function(texture) texture:AddMaskTexture(D.RoundMask(Health)) end)
+    end
 
     local topLevel = Health:GetFrameLevel()
     if s.castbar then
@@ -451,9 +458,9 @@ end
 -- groups side by side are 700 pixels wide, so the Deck starts smaller)
 local DEVICE_DEFAULTS = {
     deck = { partyScale = 1, partyAcross = false, raidScale = 0.85, raidW = 84, raidH = 34, raidRows = false,
-             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false },
+             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false, buffCheckScale = 100 },
     pc   = { partyScale = 1, partyAcross = false, raidScale = 1,    raidW = 96, raidH = 36, raidRows = false,
-             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false },
+             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false, buffCheckScale = 100 },
 }
 function ns.DeviceDB() return D.DeviceDB(DeckUIForeverOrbsDB, DEVICE_DEFAULTS) end
 
@@ -571,7 +578,7 @@ function ns.SetBossTest(on)
         if on and #bossTest == 0 then
             oUF:SetActiveStyle(ns.bossStyle)
             for i = 1, 5 do
-                local f = oUF:Spawn("target", "DeckOrbsBossTest" .. i)
+                local f = ns.SpawnQuiet("target", "DeckOrbsBossTest" .. i)
                 f:SetPoint(ns.bossAnchor, ns.bossHolder, ns.bossAnchor, 0, -(i - 1) * ns.bossStep)
                 bossTest[i] = f
             end
@@ -729,6 +736,14 @@ oUF:Factory(function(self)
         if DeckUIForeverOrbsDB.playerDebuffs == nil then DeckUIForeverOrbsDB.playerDebuffs = DeckUIForeverOrbsDB.playerAuras end
         DeckUIForeverOrbsDB.playerAuras = nil
     end
+    -- the missing buffs left the HoT window for one of their own (2026-11-17):
+    -- who had them on there gets the new window
+    if DeckUIForeverOrbsDB.hotBuffSlots ~= nil then
+        if DeckUIForeverOrbsDB.buffCheck == nil and DeckUIForeverOrbsDB.hotBuffSlots then
+            DeckUIForeverOrbsDB.buffCheck = true
+        end
+        DeckUIForeverOrbsDB.hotBuffSlots = nil
+    end
     for k, v in pairs(ns.DEFAULTS) do
         if DeckUIForeverOrbsDB[k] == nil then DeckUIForeverOrbsDB[k] = v end
     end
@@ -737,23 +752,34 @@ oUF:Factory(function(self)
     D.MigrateToDevice(DeckUIForeverOrbsDB, { "scale" })
     ns.GLOW = DeckUIForeverOrbsDB.glow
 
-    -- player and target: the orbs, or Final Fantasy's bars (ffstyle.lua)
+    -- player and target: the orbs, or Final Fantasy's bars (ffstyle.lua).
+    -- Each has a switch of its own (showPlayer / showTarget, GitHub issue 1,
+    -- 2026-11-17): off, the frame is never spawned - oUF's Spawn is what
+    -- silences Blizzard's frame, so without it Blizzard's (or another
+    -- addon's) stays as it is. The pet goes with the player, the target of
+    -- target with the target; everything below copes with a missing frame.
     local ff = ns.IsFFStyle()
+    local showPlayer = DeckUIForeverOrbsDB.showPlayer ~= false
+    local showTarget = DeckUIForeverOrbsDB.showTarget ~= false
     local player, target, tot
     if ff then
-        player, target, tot = ns.SpawnFF(self)
+        player, target, tot = ns.SpawnFF(self, showPlayer, showTarget)
     else
         self:SetActiveStyle("DeckOrbsBig")
 
-        player = self:Spawn("player", "DeckOrbsPlayer")
-        player.defaultPoint = { "BOTTOM", UIParent, "BOTTOM", -260, 140 }
-        player:SetPoint(unpack(player.defaultPoint))
-        D.MakeMovable(player, "Player", DeckUIForeverOrbsDB)
+        if showPlayer then
+            player = self:Spawn("player", "DeckOrbsPlayer")
+            player.defaultPoint = { "BOTTOM", UIParent, "BOTTOM", -260, 140 }
+            player:SetPoint(unpack(player.defaultPoint))
+            D.MakeMovable(player, "Player", DeckUIForeverOrbsDB)
+        end
 
-        target = self:Spawn("target", "DeckOrbsTarget")
-        target.defaultPoint = { "BOTTOM", UIParent, "BOTTOM", 260, 140 }
-        target:SetPoint(unpack(target.defaultPoint))
-        D.MakeMovable(target, "Target", DeckUIForeverOrbsDB)
+        if showTarget then
+            target = self:Spawn("target", "DeckOrbsTarget")
+            target.defaultPoint = { "BOTTOM", UIParent, "BOTTOM", 260, 140 }
+            target:SetPoint(unpack(target.defaultPoint))
+            D.MakeMovable(target, "Target", DeckUIForeverOrbsDB)
+        end
     end
 
     -- focus: an orb, or FFXIV's small focus box in the "ffxiv" style
@@ -770,21 +796,24 @@ oUF:Factory(function(self)
 
     self:SetActiveStyle("DeckOrbsSmall")
 
-    if not ff then
+    if not ff and target then
         tot = self:Spawn("targettarget", "DeckOrbsTargetTarget")
         tot:SetFrameLevel(30)
         tot:SetPoint("CENTER", target, "CENTER", 55, -45)
     end
 
     -- in the FF style a small parameter bar (ffstyle.lua), else a small orb
-    if ff then self:SetActiveStyle(ns.FFStyle("Pet")) end
-    local pet = self:Spawn("pet", "DeckOrbsPet")
-    pet:SetFrameLevel(30)
-    if ff then
-        -- beside the parameter bar instead of on the orb's edge
-        pet:SetPoint("RIGHT", player, "LEFT", -8, 0)
-    else
-        pet:SetPoint("CENTER", player, "CENTER", -55, -45)
+    local pet
+    if player then
+        if ff then self:SetActiveStyle(ns.FFStyle("Pet")) end
+        pet = self:Spawn("pet", "DeckOrbsPet")
+        pet:SetFrameLevel(30)
+        if ff then
+            -- beside the parameter bar instead of on the orb's edge
+            pet:SetPoint("RIGHT", player, "LEFT", -8, 0)
+        else
+            pet:SetPoint("CENTER", player, "CENTER", -55, -45)
+        end
     end
 
     if ns.BossLook() ~= "orbs" then
@@ -812,9 +841,18 @@ oUF:Factory(function(self)
         ns.bossStyle, ns.bossStep, ns.bossAnchor = "DeckOrbsBoss", bs + BOSS_SPACING, "TOP"
     end
 
-    announce:SetPoint("BOTTOM", target, "TOP", 0, 26)
+    if target then
+        announce:SetPoint("BOTTOM", target, "TOP", 0, 26)
+    else
+        announce:SetPoint("TOP", UIParent, "TOP", 0, -140)
+    end
 
-    ns.frames = { player, target, focus, tot, pet, unpack(ns.bossFrames) }
+    -- player, target and their two small ones may be missing: no holes in the list
+    ns.frames = {}
+    for _, frame in pairs({ player = player, target = target, focus = focus, tot = tot, pet = pet }) do
+        table.insert(ns.frames, frame)
+    end
+    for _, frame in ipairs(ns.bossFrames) do table.insert(ns.frames, frame) end
     ns.units  = { player = player, target = target, focus = focus, tot = tot, pet = pet }
 
     ns.ApplyAllSettings()
@@ -841,6 +879,9 @@ SlashCmdList.DECKORBS = function(msg)
     elseif msg == "hots" then
         -- the HoT window's list and which unit it shows (hots.lua)
         ns.HotDebug()
+    elseif msg == "buffs" then
+        -- the buff window: the class's buffs and what each member lacks (buffcheck.lua)
+        ns.BuffCheckDebug()
     elseif msg == "deckheal" then
         -- the controller's healing layer: keys, spells, what it saw (padheal.lua)
         ns.PadHealDebug()

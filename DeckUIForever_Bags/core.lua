@@ -208,7 +208,8 @@ function ns.UpdateButton(b)
     b.JunkIcon:SetShown(DeckUIForeverBagsDB.markJunk and info ~= nil and quality == POOR and not info.hasNoValue)
 
     local price = info and DeckUIForeverBagsDB.markValuable and D.AuctionPrice and D.AuctionPrice(info.itemID)
-    b.DeckValuable:SetShown(price ~= nil and price * (info.stackCount or 1) >= (DeckUIForeverBagsDB.valuableGold or 100) * 10000)
+    -- price is false with the switch off and nil without a known price
+    b.DeckValuable:SetShown(price and price * (info.stackCount or 1) >= (DeckUIForeverBagsDB.valuableGold or 100) * 10000 or false)
 
     local level = DeckUIForeverBagsDB.itemLevel and info and ItemLevel(bag, slot, info.itemID, info.hyperlink)
     b.DeckLevel:SetText(level or "")

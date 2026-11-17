@@ -113,9 +113,20 @@ local function Reputations()
     return list
 end
 
+-- which of data_forever.lua's world bosses are done this week, by their
+-- hidden quest - view_forever.lua reads snap.worldBosses[quest]
+local function WorldBosses()
+    local done = {}
+    for _, b in ipairs(ns.WORLD_BOSSES or {}) do
+        if b.quest and C_QuestLog.IsQuestFlaggedCompleted(b.quest) then done[b.quest] = true end
+    end
+    return done
+end
+
 ns.COLLECTORS = {
     locks = ns.Locks, renown = Renown, currencies = Currencies,
     weekliesDone = ns.Weeklies, dailies = Dailies, reputations = Reputations,
+    worldBosses = WorldBosses,
 }
 
 local ev = CreateFrame("Frame")

@@ -311,6 +311,7 @@ local function BuildPlayer(self, unit)
     health:SetPoint("TOPLEFT", 8, -19)
     health.colorHealth = true
     self.Health = health
+    ns.HealPrediction(health)
 
     local ppLabel = Label(self, "MP", -(19 + hb + 4))
     local pp = Text(self, 13, "RIGHT")
@@ -445,9 +446,10 @@ local function BuildTarget(self, unit)
     health:SetPoint("TOPLEFT", 8, -21)
     health.colorClass = true
     health.colorReaction = true
-    health.colorTapped = true
+    health.colorTapping = true
     health.colorDisconnected = true
     self.Health = health
+    ns.HealPrediction(health)
 
     local cast = Bar(self, W - 16, 8)
     cast:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 8, -3)
@@ -576,7 +578,7 @@ local function BuildBoss(self, unit)
     local health = Bar(self, BOSS_W - 16, 6)
     health:SetPoint("TOPLEFT", 8, -21)
     health.colorReaction = true
-    health.colorTapped = true
+    health.colorTapping = true
     self.Health = health
 
     -- whom it is after: "» name" under the bar
@@ -711,6 +713,7 @@ local function PillBar(parent, width, height)
     round(shade)
 
     bar.edge, bar.track = edge, track
+    bar.round = round   -- the caps, for a piece that must end round with the bar (ns.HealPrediction)
     return bar
 end
 ns.PillBar = PillBar   -- the enemy list (enemies.lua) wears it too
@@ -834,6 +837,7 @@ local function BuildPlayerXIV(self, unit)
     health:SetPoint("TOPLEFT", 0, -17)
     health.colorHealth = true
     self.Health = health
+    ns.HealPrediction(health, health.round)
     local _, hp = BarNumber(self, health, "HP")
     self:Tag(hp, ns.HP_TAGS[DeckUIForeverOrbsDB.hpText] or ns.HP_TAGS.percent)
     self.hpText = hp
@@ -908,9 +912,10 @@ local function BuildTargetXIV(self, unit)
     health:SetPoint("TOPLEFT", 0, -19)
     health.colorClass = true
     health.colorReaction = true
-    health.colorTapped = true
+    health.colorTapping = true
     health.colorDisconnected = true
     self.Health = health
+    ns.HealPrediction(health, health.round)
 
     local cast = PillBar(self, W, 6)
     cast:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -4)
@@ -976,7 +981,7 @@ local function BuildFocusXIV(self, unit)
     health:SetPoint("TOPLEFT", 0, -26)
     health.colorClass = true
     health.colorReaction = true
-    health.colorTapped = true
+    health.colorTapping = true
     health.colorDisconnected = true
     self.Health = health
     local cast = PillBar(self, W, 4)
@@ -1091,7 +1096,7 @@ local function BuildBossXIV(self, unit)
     local health = PillBar(self, BOSS_W - 8, 7)
     health:SetPoint("TOPLEFT", 4, -20)
     health.colorReaction = true
-    health.colorTapped = true
+    health.colorTapping = true
     self.Health = health
 
     local arrow = Text(self, 10)
@@ -1202,25 +1207,34 @@ end
 
 -- layout.lua's Factory asks this when the style is "ff": spawn, place,
 -- and hand back the frames it keeps for the settings.
-function ns.SpawnFF(factory)
-    factory:SetActiveStyle(ns.FFStyle("Player"))
-    local player = factory:Spawn("player", "DeckFFPlayer")
-    player.defaultPoint = { "BOTTOM", UIParent, "BOTTOM", -300, 150 }
-    player:SetPoint(unpack(player.defaultPoint))
-    D.MakeMovable(player, "Player (FF)", DeckUIForeverOrbsDB)
+-- showPlayer / showTarget off (layout.lua): that frame is not spawned and
+-- comes back nil; the target of target goes with the target.
+function ns.SpawnFF(factory, showPlayer, showTarget)
+    local player, target, tot
+    if showPlayer then
+        factory:SetActiveStyle(ns.FFStyle("Player"))
+        player = factory:Spawn("player", "DeckFFPlayer")
+        player.defaultPoint = { "BOTTOM", UIParent, "BOTTOM", -300, 150 }
+        player:SetPoint(unpack(player.defaultPoint))
+        D.MakeMovable(player, "Player (FF)", DeckUIForeverOrbsDB)
+    end
 
-    factory:SetActiveStyle(ns.FFStyle("Target"))
-    local target = factory:Spawn("target", "DeckFFTarget")
-    target.defaultPoint = { "TOP", UIParent, "TOP", 0, -90 }
-    target:SetPoint(unpack(target.defaultPoint))
-    D.MakeMovable(target, "Target (FF)", DeckUIForeverOrbsDB)
+    if showTarget then
+        factory:SetActiveStyle(ns.FFStyle("Target"))
+        target = factory:Spawn("target", "DeckFFTarget")
+        target.defaultPoint = { "TOP", UIParent, "TOP", 0, -90 }
+        target:SetPoint(unpack(target.defaultPoint))
+        D.MakeMovable(target, "Target (FF)", DeckUIForeverOrbsDB)
+    end
 
     if DeckUIForeverOrbsDB.style == "ffxiv" then SpawnXIVExpBar() end
 
-    factory:SetActiveStyle(ns.FFStyle("ToT"))
-    local tot = factory:Spawn("targettarget", "DeckFFTargetTarget")
-    -- XIV: in the target's line, after the chevrons
-    tot:SetPoint("TOPLEFT", target, "TOPRIGHT", DeckUIForeverOrbsDB.style == "ffxiv" and 30 or 6, 0)
+    if target then
+        factory:SetActiveStyle(ns.FFStyle("ToT"))
+        tot = factory:Spawn("targettarget", "DeckFFTargetTarget")
+        -- XIV: in the target's line, after the chevrons
+        tot:SetPoint("TOPLEFT", target, "TOPRIGHT", DeckUIForeverOrbsDB.style == "ffxiv" and 30 or 6, 0)
+    end
 
     return player, target, tot
 end

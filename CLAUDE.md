@@ -935,6 +935,44 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   `RegisterForClicks("AnyUp")` out of combat or at PLAYER_REGEN_ENABLED (`lateRows`) - the header's
   `oUF-initialConfigFunction` has sized the button already.
 
+- **GitHub issue 1 (cstadlock, 2026-11-16; built 2026-11-17 for 1.5.4, untested in game)**: (1) `showPlayer` /
+  `showTarget` (on, reload; "Which frames" at the top of the Orbs page). Off, layout.lua's Factory and
+  `ns.SpawnFF(factory, showPlayer, showTarget)` never call `Spawn` for that unit - oUF's Spawn is what runs
+  `DisableBlizzard` and the Castbar element is what hides `PlayerCastingBarFrame`, so Blizzard's frame (or
+  XIVPlayer / XIVTarget) is untouched. The pet goes with the player, the target of target with the target; `player`,
+  `target`, `tot`, `pet` may be nil in the Factory, `ns.frames` is built without holes, `ns.units.player` may be
+  nil, the target announce falls back to the top of the screen, debuffs.lua's `UnitFrameFor` already coped with nil.
+  (2) `healPrediction` (off, reload; "On the frames"): `ns.HealPrediction(health, shape)` in core.lua makes
+  `Health.HealingAll` (oUF's health element fills it from the heal prediction calculator, `incomingHealOverflow` 1)
+  on player and target in all three styles - a PillBar hands its caps as `bar.round`, the orb a second round mask
+  of the health orb. Open: whether Forever fires UNIT_HEAL_PREDICTION and hands out values (Classic has no heal
+  prediction API without a library), and whether a mask of the health orb cuts the child bar's texture.
+
+- **Module check (2026-11-17, owner: "großer Check ... für jedes Modul Verbesserungsvorschläge in einem Bericht")**:
+  `MODUL_CHECK_BERICHT.md` (German) - every module read in full, nothing run in game; per module bugs, risks and
+  suggestions with effort, findings marked confirmed / reported / open. Its eight confirmed bugs were fixed the same
+  day for 1.5.4 (untested in game): `ns.SpawnQuiet(unit, name)` in Orbs core.lua (buff bar, party/raid/boss test
+  frames no longer silence Blizzard's player/target frame while `showPlayer`/`showTarget` is off - **every new
+  spawn on "player" or "target" outside the Factory goes through it**), Bags `markValuable` off, the UI scale
+  sliders (a slider's `apply` must write the DB itself - `D.Slider` does not), Questing `autoRepeatable` (off;
+  `Repeatable`/`RepeatOK`/`CostsMoney` in dialog.lua), Restock's budget and `IsVisible`, oUF's `colorTapping`,
+  the reset keys `ahScan`/`ahStyle`/`groupStyle`, Week's `worldBosses` collector. The rest of the report is open.
+
+- **The buff window (2026-11-17, owner: "ein separates Buff-Fenster, ich möchte das nicht mehr im HoTs haben"; for
+  1.5.4, untested in game)**: `DeckUIForever_Orbs/buffcheck.lua` (after hots.lua in the toc; its header has the
+  design). `buffCheck` (off, reload), device `buffCheckScale`; page `BuffCheck` ("Missing buffs") under Orbs, movable
+  "Buff check", `PAGE_RESET.BuffCheck` (`^buffCheck`), `/orbs buffs` (`ns.BuffCheckDebug`). `DeckOrbsBuffCheck`: a
+  line per token (player, party1-4; a state driver shows a party line while the token exists) with `MAX` 6
+  SecureActionButtons (type spell, unit = token, spell = top rank, written out of combat). An icon is there by
+  alpha alone while `ns.HotBuffState(unit, e)` says "missing" (nil keeps the last answer for the same GUID); its
+  mouse follows out of combat only. hots.lua hands out `ns.HotBuffEntries()` (the class's known `BUFFS` with
+  names and top rank) and `ns.HotBuffState` (= `BuffState`) and no longer makes `kind = "buff"` entries - the
+  code for that kind is still in the file, unreached. `hotBuffSlots` is gone (a saved `true` sets `buffCheck` once,
+  layout.lua's Factory); the healer preset sets `buffCheck`. Deck Heal's buff round (`ns.HotRoundNext`) is
+  unchanged. The same day the HoT window's slot order became HoTs and shield, heals, cures, resurrection (owner:
+  "zuerst Instant Spells, dann Heals, dann Debuffer und dann Buffs"). Open: raid groups other than yours have no
+  lines; the window shows nothing while the frames are unlocked and nobody lacks a buff.
+
 ## Audit
 
 A scripted pass over the repo (2026-11-05, script in the session's scratchpad, easy to rewrite): syntax of
