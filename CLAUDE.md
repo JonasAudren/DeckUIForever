@@ -1071,3 +1071,9 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    list, the mana line, `/df vibrate`; commit 51674cc, Release workflow run 43904280958, CurseForge file id
    9650419). Seen in game before: nothing of it - the owner played a dungeon with 1.5.2 on the Deck ("läuft gut")
    and asked for these. Not seen: all of the above; the open questions stand in the Deck Heal section.
+   **Released**: v1.5.4 on 2026-11-17 (GitHub issue 1: switches for the player and the target frame, incoming
+   heals on the health bar; the buff window in place of the HoT window's buff slots, the HoT slot order,
+   repeatable quests left alone, the eight fixes of MODUL_CHECK_BERICHT.md, the mana line by class where the
+   maximum is secret; commit b41dfec, Release workflow run 44124404587, CurseForge file id 9668846). Seen in
+   game before: nothing of it; the owner reported the mana line missing for the party the same day and the
+   class fallback is a guess at the cause (`/orbs hots` prints the mana answers per member).
