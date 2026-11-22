@@ -147,6 +147,36 @@ local PET_SHIFT = 12
 local PET ={ 0.72, 0.78, 0.86 }       -- and wears a pale blue instead of the members' gold
 local HEALTH_H = 5                    -- the health capsule under the name
 local HEALTH_LIFT = 3                  -- the name moves up by this to make room for it
+-- NAME_W and HEALTH_H are the shipped numbers; each device may set its
+-- own (hotNameW, hotHealthH - owner 2026-11-21, the window as party
+-- list: "die sind mir etwas zu klein"). Not in DEVICE_DEFAULTS: unset
+-- means the standard, and that is larger while the window stands in for
+-- the party list (96 wide, 8 high - owner the same day: "mach höhe 8 und
+-- breite 96 zum standard"). Read once before the lines are made
+-- (LoadBarSize): the capsule's caps are cut for one height and the healer
+-- mode's buttons are protected, so a change wants a reload.
+local loadedNameW, loadedHealthH
+local function BarSize()
+    local dev, party = ns.DeviceDB(), ns.HotAsParty()
+    local w = tonumber(dev.hotNameW) or (party and 96 or 64)
+    local h = tonumber(dev.hotHealthH) or (party and 8 or 5)
+    return math.max(48, math.min(160, w)), math.max(4, math.min(12, h))
+end
+-- for the sliders: what is in force, set or not
+function ns.HotBarSizes()
+    local w, h = BarSize()
+    return { hotNameW = w, hotHealthH = h }
+end
+local function LoadBarSize()
+    NAME_W, HEALTH_H = BarSize()
+    HEALTH_LIFT = 3 + math.floor((HEALTH_H - 5) / 2)
+    loadedNameW, loadedHealthH = NAME_W, HEALTH_H
+end
+function ns.HotBarSizeChanged()
+    if not loadedNameW then return end
+    local w, h = BarSize()
+    D.NeedReload("hotBarSize", w ~= loadedNameW or h ~= loadedHealthH)
+end
 local HEALTH = { 0.3, 0.82, 0.3 }      -- the FF frames' health green
 local MANA_H = 2                       -- the mana line at the line's foot; the capsule steps up over it
 local MANA_BLUE = { 0.3, 0.6, 1 }      -- ffstyle.lua's brighter mana blue
@@ -1076,6 +1106,16 @@ local function UpdateHealth(c)
     hb:SetMinMaxValues(0, UnitHealthMax(c.unit))
     hb:SetValue(UnitHealth(c.unit))
     hb:Show()
+    -- the heals being cast on the member, ahead of the fill (hotHeals;
+    -- core.lua's pieces, made the first time they are wanted)
+    if Opt("hotHeals") then
+        if not hb.healNative then ns.HealPieces(hb, hb.round, c.unit) end
+        hb.healOff = nil
+        ns.HealPaint(hb)
+    elseif hb.healNative and not hb.healOff then
+        hb.healOff = true
+        ns.HealPaint(hb)
+    end
 end
 
 -- the mana line (hotMana): only for a member with mana. Whether there is
@@ -1369,6 +1409,17 @@ local function Rows()
     return rows
 end
 
+-- The window grows and shrinks from its top-left corner. After a drag the
+-- game anchors a frame by its nearest edge, so one dropped in the lower
+-- half hung from its bottom: the target's line coming in pushed every
+-- line up by one, and the target stood where you had been (owner
+-- 2026-11-21). Turned into a top-left anchor before the size changes, as
+-- the quest tracker does; not in a fight, the healer mode's window is
+-- protected then.
+local function PinHolder()
+    if holder:GetPoint() ~= "TOPLEFT" and not InCombatLockdown() then D.PinTopLeft(holder) end
+end
+
 -- Every line to its row (Rows; the stranger takes row `count`), under one
 -- another or side by side (hotAcross, per device); the holder is sized to
 -- the rows in use.
@@ -1419,6 +1470,7 @@ local function Stack(count, extra)
         stranger.row = count
         stranger:ClearAllPoints()
         stranger:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -bands * bandH)
+        PinHolder()
         holder:SetSize(cols * (w + COL_GAP) - COL_GAP, bands * bandH - BAND_GAP + (extra and (step + BAND_GAP) or 0))
         return
     end
@@ -1470,6 +1522,7 @@ local function Stack(count, extra)
     for j, c in ipairs(waiting) do behind = Put(c, count + j - 1, behind) end
     local used = Put(stranger, count, at)
     if not extra then used = at end
+    PinHolder()
     if across then
         holder:SetSize(math.max(used - GAP, w), size)
     else
@@ -1787,6 +1840,7 @@ end
 function ns.ApplyHotAsParty()
     if ns.ApplyPartyMerge then ns.ApplyPartyMerge() end
     ns.ApplyHotSize()
+    ns.HotBarSizeChanged()   -- the bars' standard size differs between the two
     ns.ApplyHotLayout()
 end
 
@@ -2066,6 +2120,7 @@ end
 oUF:Factory(function()
     D.MakeMovable(holder, "HoTs", DeckUIForeverOrbsDB)
     loadedSize = Size()
+    LoadBarSize()
     healer = DeckUIForeverOrbsDB.hotHealer and true or false
     petsOn = Opt("hotPets")
     raidOn = Opt("hotRaid")

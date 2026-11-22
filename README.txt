@@ -40,6 +40,9 @@ loaded.
                        renown, dailies, weekly quests, reputation and
                        currencies for every character
                                                (off until you switch it on)
+  DeckUIForever Combat   a swing timer, breath and fatigue timers, an alert
+                       when you lose control, your threat on the target
+                                               (off until you switch it on)
 
 Runs in World of Warcraft: Forever (1.60.1, Interface 16001) only. For
 Retail and Mists of Pandaria Classic use DeckUI.

@@ -323,6 +323,13 @@ D.RegisterModule("Debuffs", {
             "With the rows at the target frame: above it rather than below.")
         f:Checkbox("Sample rows while moving", db, "dotPreview", nil,
             "With Move or /df unlock the window shows three example rows instead of an empty box.")
+        if D.CooldownManagerAvailable and D.CooldownManagerAvailable() then
+            f:MoreSection("Blizzard's Cooldown Manager")
+            f:Checkbox("Leave the target's debuffs to the Cooldown Manager", db, "dotManager", nil,
+                "A debuff that sits in one of the Cooldown Manager's two buff bars leaves this window's target column - the manager shows it for your target. Your focus, the enemies you switched away from and every debuff the manager does not offer stay here. The red empty capsule for a missing debuff goes with it. /df cooldowns prints which debuffs the manager shows.")
+            f:Checkbox("Hang the window below the Cooldown Manager's bars", db, "dotUnderManager", nil,
+                "The window follows the manager's buff bars - or its buff icons while the bars are hidden - instead of its own place. Move the manager's bars in the game's Edit Mode.")
+        end
     end,
 })
 
@@ -386,6 +393,8 @@ D.RegisterModule("HoTs", {
         f:Checkbox("Debuffs you can remove", db, "hotDispel", function() ns.ApplyHotLayout() end,
             "Up to two debuffs your class can remove show with a red rim between the name and your HoTs. The icon size follows the slider after a reload.")
         f:More()
+        f:Checkbox("Incoming heals on the health bar", db, "hotHeals", function() ns.ApplyHotLayout() end,
+            "With the health bar on: a lighter piece ahead of each member's health shows how much the heals being cast on them right now will bring back. Direct heals only, not heals over time.")
         f:Checkbox("Health bar behind the name", db, "hotHealthBlock", function() ns.ApplyHotLayout() end,
             "With the health bar on: a flat bar behind the whole name instead of the thin one under it.")
         f:Checkbox("Dead, ghost or offline", db, "hotStatus", function() ns.ApplyHotLayout() end,
@@ -445,6 +454,15 @@ D.RegisterModule("HoTs", {
             ns.DeviceDB().hotScale = v
             ns.ApplyHotSize()
         end, "100% is 22 pixels. The HoT icons change at once, the buff icons after a reload.")
+        local px = function(v) return v .. " px" end
+        f:Slider("Health bar height", 4, 12, 1, px, ns.HotBarSizes, "hotHealthH", function(v)
+            ns.DeviceDB().hotHealthH = v
+            ns.HotBarSizeChanged()
+        end, "How thick the health bar under each name is. As shipped 5 pixels, and 8 while the window stands in for the party list. Needs a reload.")
+        f:Slider("Name and bar width", 48, 160, 4, px, ns.HotBarSizes, "hotNameW", function(v)
+            ns.DeviceDB().hotNameW = v
+            ns.HotBarSizeChanged()
+        end, "How wide the name and the health and mana bars under it are. As shipped 64 pixels, and 96 while the window stands in for the party list. Needs a reload.")
         f:More()
         f:Checkbox("Sample lines while moving", db, "hotPreview", nil,
             "With Move or /df unlock the window shows two example lines instead of an empty box.")

@@ -487,6 +487,9 @@ ev:RegisterEvent("PLAYER_LOGIN")
 ev:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then
         D.MakeMovable(win, "Loot rolls", DeckUIForeverDB)
+        -- a window like the loot window: also dragged by its title band,
+        -- without unlocking, while a roll is open
+        D.MakeDraggable(win)
         D.OnUnlock(function(state, only)
             if only and not only["Loot rolls"] then state = false end
             preview = state and true or false

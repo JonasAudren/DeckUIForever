@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: DeckUIForever Combat
+## Notes: DeckUIForever module: swing timer, breath timers, loss of control and threat in DeckUIForever's style
+## Author: Gottlieb
+## Version: 1.5.5
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Combat
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+## SavedVariables: DeckUIForeverCombatDB
+
+core.lua
+swing.lua
+mirror.lua
+control.lua
+threat.lua
+config.lua

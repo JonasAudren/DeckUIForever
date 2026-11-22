@@ -60,8 +60,8 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -- pages of a hint and six checkboxes each); the Orbs page is "Unit
 -- frames", the Overview "Modules", the Units group "Frames".
 D.PAGE_GROUPS = {
-    { title = "General",   pages = { "General", "Devices", "Screen", "Targets", "Windows", "Console" } },
-    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "BuffCheck", "DeckHeal", "Group", "Raid" } },
+    { title = "General",   pages = { "General", "Profiles", "Devices", "Screen", "Targets", "Windows", "Console" } },
+    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "BuffCheck", "DeckHeal", "Group", "Raid", "Combat" } },
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
     { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
@@ -371,7 +371,7 @@ D.PAGE_FRAMES = {
     Nav     = { "Compass", "Navigation target", "Waypoint list" },
     Week    = { "Week" },
     Loot    = { "Loot", "Loot list", "Loot rolls" },
-    Screen  = { "Server info", "Gold", "Bag overview", "Main menu", "Dock" },
+    Screen  = { "Server info", "Gold", "Bag overview", "Main menu", "Dock", "Totem timers" },
     Windows = { "Group listing" },
 }
 
@@ -398,7 +398,7 @@ local ENEMY_KEYS = { enemyList = true, showFocus = true, showBoss = true, bossSt
 local function BuffBarKey(k) return BUFFBAR_KEYS[k] == true or k:find("^buffBar") ~= nil end
 local function EnemyKey(k) return ENEMY_KEYS[k] == true end
 -- the Overview's three sub-pages share DeckUIForeverDB with everything else of the hub
-local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true, dock = true }
+local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true, dock = true, totemTimers = true, cdManager = true }
 local TARGET_KEYS = { targetArrow = true, xivPlates = true, xivPlatesFriendly = true, xivPlatesNameOnly = true, plateSpace = true, rankMarks = true,
                       softTargetName = true, softTargetCast = true }
 local WINDOW_KEYS = { styleDamageMeter = true, charPanel = true, listingWindow = true }
@@ -925,6 +925,7 @@ D.MODULE_DESCRIPTIONS = {
     Tooltip = "The mouse-over tooltip in DeckUIForever's look, with a few extra lines.",
     Nav     = "A compass bar, the navigation target with distance and arrival time, and /way waypoints.",
     Week    = "The week at a glance for all your characters: lockouts, renown, dailies, reputation, weekly quests.",
+    Combat  = "Small pieces for a fight: a swing timer, breath and fatigue timers, an alert when you lose control, and your threat on the target.",
 }
 
 local function ModuleLoaded(key)
@@ -1018,11 +1019,12 @@ D.MODULE_SHORT = {
     Tooltip  = "The tooltip in the same look, with a few extra lines.",
     Nav      = "A compass, the distance to your goal and /way waypoints.",
     Week     = "Lockouts and weekly goals of all your characters.",
+    Combat   = "Swing timer, breath timers, loss of control and threat.",
 }
 
 -- the modules by what they are for, in the order a new player meets them
 local START_GROUPS = {
-    { "Frames",           { "Orbs" } },
+    { "Frames",           { "Orbs", "Combat" } },
     { "Action bars",      { "Bars", "Pad", "Cross", "Spec" } },
     { "Quests and world", { "Quests", "Questing", "Map", "Nav" } },
     { "Bags and info",    { "Bags", "Tooltip", "Week" } },
@@ -1299,6 +1301,19 @@ panel:AddTab("Screen", {
             f:Checkbox("DeckUIForever's dock", db, "dock", function() D.ApplyDock() end,
                 "A small panel with round buttons for the settings, the week overview and the quest compendium, as the modules are on. Drag it by any button, or move it with Move below.")
         end
+        -- shamans only (GitHub issue 2)
+        if D.ApplyTotemTimers and D.TotemTimersAvailable() then
+            f:Label("Totems")
+            f:Checkbox("Totem timers", db, "totemTimers", function() D.ApplyTotemTimers() end,
+                "A small row of icons for your standing totems - fire, earth, water, air - each with the time it has left. Move it with Move below.")
+        end
+        if D.ApplyCooldownManager and D.CooldownManagerAvailable() then
+            f:Label("Cooldown manager")
+            f:Checkbox("Blizzard's Cooldown Manager in DeckUIForever's look", db, "cdManager", function() D.ApplyCooldownManager() end,
+                "The game's own bars for your cooldowns and tracked buffs, with square icons and DeckUIForever's numbers in place of the round frames. Switching it on also switches Blizzard's Cooldown Manager on. Move the bars in the game's Edit Mode. Switching it off needs a reload.")
+            f:Button("Choose the spells", function() D.OpenCooldownSettings() end,
+                "Opens the game's own window where you pick which spells and buffs stand in which bar.")
+        end
         if D.CameraIsMax() ~= nil then
             f:Label("Camera")
             local function CameraText()
@@ -1551,7 +1566,7 @@ end
 -- the debug commands of files a game's .toc may leave out
 local DEBUG_COMMANDS = {
     bars = "PrintBars", layout = "PrintLayout", ah = "PrintAuction", plates = "PlatesDebug",
-    targetarrow = "TargetArrowDebug", softtarget = "PrintSoftTarget", rolls = "PrintLootRolls",
+    targetarrow = "TargetArrowDebug", softtarget = "PrintSoftTarget", rolls = "PrintLootRolls", totems = "PrintTotems", cooldowns = "PrintCooldownManager", apis = "PrintApis", combat = "PrintCombat",
     gamepad = "PrintGamepad",
 }
 

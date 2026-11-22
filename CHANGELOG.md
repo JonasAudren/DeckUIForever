@@ -1,5 +1,74 @@
 # Changelog
 
+## 1.5.5
+
+- New: profiles (page "Profiles" under General, /df profiles). A profile
+  is a copy of all your DeckUIForever settings - which modules are on,
+  every option, and where the frames stand on the PC and on the Steam
+  Deck. Save as many as you like under names of your own and load one
+  with a click; the game reloads. What you had before a load is kept as
+  the profile "Before the last load", so you can go back.
+- Profiles can be shared: "Share" shows a profile as a text to copy,
+  "Import a profile" takes such a text from someone else. An imported
+  profile is only added to your list; nothing changes until you load it.
+  Waypoints, tracked items, auction prices, the week overview's
+  characters and the device you play on are never part of a profile.
+- New module: Combat (off until you switch it on). Four small pieces,
+  each on its own switch and movable on its own: a swing timer (a bar
+  per weapon from one auto attack to the next, red while the target is
+  out of reach), breath, fatigue and feign death timers in
+  DeckUIForever's look, an alert with icon and time when you are
+  stunned, feared or silenced, and your threat on the target in
+  percent. /df combat prints what the game reports.
+- New for shamans: totem timers (GitHub issue 2). A small row of icons
+  for your standing totems - fire, earth, water, air - each with the
+  time it has left; a totem that is recalled, destroyed, replaced or
+  runs out leaves the row. Off by default: General - Screen - "Totem
+  timers"; move it with Move on that page. /df totems prints what the
+  game reports for each slot.
+- New: Blizzard's Cooldown Manager in DeckUIForever's look. The game's
+  own bars for your cooldowns and tracked buffs get square icons, our
+  numbers and flat bars in place of the round frames. Off by default:
+  General - Screen - "Blizzard's Cooldown Manager in DeckUIForever's
+  look"; switching it on also switches the manager itself on. "Choose
+  the spells" opens the game's window for what stands in which bar; the
+  bars are moved in the game's Edit Mode. Switching the look off needs
+  a reload. /df cooldowns prints what the game reports. With the Orbs
+  module the manager's buff bars are green capsules like the debuff
+  window's rows.
+- New: the debuff window works with Blizzard's Cooldown Manager. Two
+  options, both off by default, under Orbs - Debuffs - More -
+  "Blizzard's Cooldown Manager": "Leave the target's debuffs to the
+  Cooldown Manager" takes a debuff that sits in the manager's buff bars
+  out of the window's target column (focus, the enemies you switched
+  away from and every debuff the manager does not offer stay; the red
+  "missing" capsule goes with it), and "Hang the window below the
+  Cooldown Manager's bars" makes the window follow those bars. /df
+  cooldowns and /orbs dots print, for each of your debuffs, whether
+  Blizzard offers it and whether it sits in a buff bar.
+- HoT window: two new sliders under "Layout (this device)" - "Health
+  bar height" (4 to 12 pixels) and "Name and bar width" (48 to 160
+  pixels). Both need a reload. In place of the party list the bars are
+  larger by default now: 8 pixels high and 96 wide instead of 5 and 64.
+- HoT window: new switch "Incoming heals on the health bar" (off). A
+  lighter piece ahead of each member's health shows how much the heals
+  being cast on them will bring back. Direct heals only.
+- Fixed: a HoT window dropped in the lower half of the screen grew
+  upwards, so the line for a target outside the group pushed your own
+  line away and stood in its place. The window now grows from its top
+  edge wherever it stands.
+- Fixed: DeckUIForever's loot roll window could not be moved (GitHub
+  issue 1). Unlocked, the window lay over its own drag area. It moves
+  now with Move on the Loot page or Devices - Unlock frames, and you can
+  also drag it by its title while a roll is open. The same fix helps the
+  loot window.
+- Fixed: "Incoming heals on the health bar" could show nothing (GitHub
+  issue 1). The bar now also reads the game's incoming heal the same
+  way Blizzard's own player frame does. Where the game reports nothing for
+  a heal you are casting yourself, an estimate read from the spell's
+  description stands in. /orbs heals prints for every cast what the
+  game reports and what we estimate.
+
 ## 1.5.4
 
 - Unit frames: the player frame and the target frame each have a switch

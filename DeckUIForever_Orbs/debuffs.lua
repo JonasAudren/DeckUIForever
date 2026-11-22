@@ -227,8 +227,39 @@ function ns.ApplyDotExclusion()
     end
 end
 
+-- Blizzard's Cooldown Manager beside this window (dotManager, off; owner
+-- 2026-11-22: "wie können wir unser DoT-Fenster umbauen, damit es gut mit
+-- dem CD-Manager von Blizz arbeitet"). The manager's two tracked-buff bars
+-- show your own debuffs on the current target (the hub's cdmanager.lua
+-- reads which spells sit there, by name, out of a fight). With the option
+-- on, such a debuff leaves the TARGET column - the manager shows it - and
+-- the window keeps what the manager cannot do: the focus column, the kept
+-- columns of the enemies you left, every debuff Blizzard does not offer,
+-- your other debuffs below. The red "missing" capsule of a debuff that
+-- left goes with it; that is the price, hence an option.
+local managerStamp, targetList = nil, nil
+local function ManagerOn()
+    return DeckUIForeverOrbsDB.dotManager and D.CooldownManagerScan and true or false
+end
+
+-- the target column's rows: the list without what the manager shows
+local function TargetEntries()
+    if not ManagerOn() then return entries end
+    D.CooldownManagerScan()
+    local stamp = D.CooldownManagerStamp()
+    if stamp ~= managerStamp or not targetList then
+        managerStamp = stamp
+        targetList = {}
+        for _, e in ipairs(entries) do
+            if not D.CooldownManagerShows(e.name) then targetList[#targetList + 1] = e end
+        end
+    end
+    return targetList
+end
+
 local function Rebuild()
     wipe(entries)
+    targetList = nil
     allIDs = {}
     for _, e in ipairs(LISTS[ListKey()] or {}) do
         if Known(e.known or e.id) then
@@ -752,14 +783,23 @@ local function FillColumn(c, unit)
     end
     SetColumnUnit(c, unit)
     local fighting = Fighting()
-    for i, e in ipairs(entries) do
+    local list = c == target and TargetEntries() or entries
+    for i, e in ipairs(list) do
         local r = Row(c, i)
         if r.entry ~= e then Assign(r, e) end
         SetStatic(r, fighting)
     end
     c.title:SetText(UnitName(unit))
     Title(c)
-    return Finish(c, #entries)
+    local any = Finish(c, #list)
+    if not any and #entries > 0 then
+        -- every row is the manager's: the column stays for your other
+        -- debuffs below, without a title over nothing
+        c.title:Hide()
+        c:Show()
+        return true
+    end
+    return any
 end
 
 local preview = false
@@ -775,6 +815,18 @@ local function Running(c)
             local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, c.unit, r.entry.name, "HARMFUL|PLAYER")
             if ok and data and not Secret(data) then return r.entry.name end
         end
+    end
+    return nil
+end
+
+-- the same for the whole list on a unit, rows or not: with dotManager the
+-- target column lacks the rows the manager took, and the unit must still
+-- count as carrying one of the list when you leave it (Keep)
+local function RunningAny(unit)
+    if not (C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName) then return nil end
+    for _, e in ipairs(entries) do
+        local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, e.name, "HARMFUL|PLAYER")
+        if ok and data and not Secret(data) then return e.name end
     end
     return nil
 end
@@ -899,9 +951,42 @@ local function UpdateKept(targetGUID, focusGUID, targetShown)
     return h
 end
 
+-- The window below the Cooldown Manager's bars (dotUnderManager, off):
+-- our holder hangs at Blizzard's tracked-buff bars - or at the tracked-buff
+-- icons while the bars are not shown - so the manager's rows for the
+-- target and our columns for everyone else stand as one block. Only our
+-- frame is anchored, to theirs; the viewers stay Edit Mode's to move.
+-- Without a shown viewer, or with the rows at the target frame, the
+-- window's own saved place again. `hung`: the viewer it hangs at now
+-- (false: place it afresh, after a drag).
+local hung = false
+local function ManagerAnchor()
+    if not DeckUIForeverOrbsDB.dotUnderManager or attached then return nil end
+    for _, name in ipairs({ "BuffBarCooldownViewer", "BuffIconCooldownViewer" }) do
+        local viewer = _G[name]
+        if viewer and Ask(viewer:IsShown()) == true then return viewer end
+    end
+    return nil
+end
+
+local function PlaceHolder()
+    local viewer = ManagerAnchor()
+    if viewer == hung then return end
+    hung = viewer
+    if viewer then
+        holder:ClearAllPoints()
+        if pcall(holder.SetPoint, holder, "TOPLEFT", viewer, "BOTTOMLEFT", 0, -GAP) then return end
+    end
+    -- our own place: the saved one, or the default
+    holder:ClearAllPoints()
+    holder:SetPoint(unpack(holder.defaultPoint))
+    D.ApplyPosition(holder)
+end
+
 local lastGUID, lastRunning = nil, false
 
 local function Update()
+    PlaceHolder()
     if preview then return end
     local guid = Attackable("target") and GUID("target") or nil
     if guid ~= lastGUID then
@@ -909,7 +994,7 @@ local function Update()
         lastGUID, lastRunning = guid, false
     end
     local any = FillColumn(target, "target")
-    if any and Running(target) then lastRunning = true end
+    if any and (Running(target) or (ManagerOn() and RunningAny("target"))) then lastRunning = true end
     local focusOn = UnitExists("focus") and Ask(UnitIsUnit("focus", "target")) == false
     if focusOn then
         focusOn = FillColumn(focus, "focus")
@@ -965,6 +1050,7 @@ end)
 local function ShowPreview(on)
     preview = on
     if not on then
+        hung = false   -- a drag may have taken the window off the manager's bars
         if DeckUIForeverOrbsDB.dotTracker then Update() else holder:Hide() end
         return
     end
@@ -1069,4 +1155,38 @@ function ns.DotDebug()
         print(("  kept %d: %s (%s), %.0f s ago, running by name: %s"):format(i, token and tostring(UnitName(token)) or "?",
             tostring(token), GetTime() - k.since, tostring(Running(k.column))))
     end
+    ns.DotCoverage()
 end
+
+-- Each debuff of the list against Blizzard's Cooldown Manager: whether
+-- Blizzard's data knows the spell at all (and in which category), and
+-- whether it sits in a tracked-buff bar now. Part of /orbs dots and of
+-- /df cooldowns (D.CooldownReport).
+function ns.DotCoverage()
+    if not (D.CooldownManagerAvailable and D.CooldownManagerAvailable()) then
+        print("  Cooldown Manager: not in this client")
+        return
+    end
+    print(("  debuff window and the Cooldown Manager: leave the target's debuffs to it %s, hang below its bars %s%s"):format(
+        DeckUIForeverOrbsDB.dotManager and "on" or "off", DeckUIForeverOrbsDB.dotUnderManager and "on" or "off",
+        hung and (" (at " .. tostring(hung:GetName()) .. ")") or ""))
+    -- the list is only read while the window is on (SetDotTracker): the
+    -- owner's first printout said "no debuffs known" with the window off
+    if not DeckUIForeverOrbsDB.dotTracker then
+        print("    the debuff window is off (Orbs - Debuffs - Show the debuff window): both options do nothing until it is on")
+        Rebuild()
+    end
+    if #entries == 0 then
+        print("    no debuffs of this class known")
+        return
+    end
+    local fight = InCombatLockdown()
+    local offered = D.CooldownManagerOffers()
+    for _, e in ipairs(entries) do
+        local viewer = D.CooldownManagerShows(e.name)
+        print(("    %s: %s, %s"):format(e.name,
+            fight and "offered ? (not read in combat)" or (offered[e.name] and ("offered by Blizzard (" .. offered[e.name] .. ")") or "not offered by Blizzard"),
+            viewer and ("in " .. viewer) or "not in a buff bar"))
+    end
+end
+D.CooldownReport = ns.DotCoverage

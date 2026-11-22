@@ -44,8 +44,9 @@ D.MODULE_ADDONS = {
     Tooltip = "DeckUIForever_Tooltip",
     Nav   = "DeckUIForever_Nav",
     Week  = "DeckUIForever_Week",
+    Combat = "DeckUIForever_Combat",
 }
-D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Questing", "Map", "Tooltip", "Nav", "Week" }
+D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Questing", "Map", "Tooltip", "Nav", "Week", "Combat" }
 -- the module checkboxes in the General tab
 D.MODULE_TITLES = {
     Orbs   = "Orbs (unit frames)",
@@ -59,12 +60,13 @@ D.MODULE_TITLES = {
     Tooltip = "Tooltip (mouse-over window)",
     Nav    = "Nav (compass and waypoints)",
     Week   = "Week (lockouts, legacy, weeklies)",
+    Combat = "Combat (swing timer, breath, control, threat)",
 }
 
 -- Modules that start switched off, for new installs and for players who
 -- update into them alike. Replacing the bag window, the quest tracker or
 -- the maps is not something an update should do to anyone unasked.
-D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Questing = true, Map = true, Tooltip = true, Nav = true, Week = true }
+D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Questing = true, Map = true, Tooltip = true, Nav = true, Week = true, Combat = true }
 
 -- Forever is its own project, WOW_PROJECT_CAMELOT (18 in build 70707;
 -- Blizzard_ProjectConstants/Camelot). Asked by the named constant, never
@@ -549,6 +551,8 @@ local function LoadModule(key)
     end
     return loaded
 end
+-- profiles.lua loads a module before it writes the module's settings
+D.LoadModule = LoadModule
 
 function D.SetModuleEnabled(key, state)
     DeckUIForeverDB.modules[key] = state
@@ -633,6 +637,17 @@ function D.MakeMovable(frame, key, db)
     overlay:EnableMouse(true)
     overlay:RegisterForDrag("LeftButton")
     overlay:Hide()
+    -- A window in a strata above HIGH (the loot rolls, the loot window) lay
+    -- over its own overlay with its rows and buttons, so the drag never
+    -- reached it (GitHub issue 1, owner 2026-11-22). The overlay goes one
+    -- strata above the frame's then. Not the same strata with a high
+    -- level: the loot window is top-level, and the raise on show put the
+    -- window over its overlay again (owner's screenshot the same day).
+    local ABOVE = { DIALOG = "FULLSCREEN", FULLSCREEN = "FULLSCREEN_DIALOG",
+                    FULLSCREEN_DIALOG = "TOOLTIP", TOOLTIP = "TOOLTIP" }
+    overlay:SetScript("OnShow", function(self)
+        self:SetFrameStrata(ABOVE[frame:GetFrameStrata()] or "HIGH")
+    end)
 
     local bg = overlay:CreateTexture(nil, "OVERLAY")
     bg:SetAllPoints()
@@ -765,6 +780,8 @@ local DEFAULTS = {
     fastLoot      = false,   -- take every slot at once when auto looting (loot.lua)
     lootWindow    = false,   -- DeckUIForever's loot window instead of Blizzard's
     lootRolls     = false,   -- group loot rolls in DeckUIForever's look (lootroll.lua)
+    totemTimers   = false,   -- a shaman's standing totems with their time left (totems.lua)
+    cdManager     = false,   -- Blizzard's Cooldown Manager in our look (cdmanager.lua)
     softTargetName = false,  -- the interact target's name under its icon (softtarget.lua)
     softTargetCast = true,   -- and a ring that fills while you cast on it
     rankMarks     = true,    -- elite/rare/boss emblems before enemy names (rankmark.lua)

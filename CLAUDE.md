@@ -854,6 +854,26 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   "Needs a reload." closes it where it does; no engine words (secure, state driver, CVar, taint) and no
   Final Fantasy lore beyond what names the look. Keep that style for new options.
 
+- **Profiles (2026-11-18, owner: "Profile einbauen, mit denen man seine Einstellungen speichern kann und auch
+  einfach mit anderen teilen"; for 1.5.5, untested in game)**: `DeckUIForever/profiles.lua` (after console.lua in
+  the toc; its header has the design), page `Profiles` second in the General group. `DeckUIForeverDB.profiles[name]
+  = { saved, addon, data = { Hub = ..., Orbs = ..., ... } }`: a copy of the hub's DB and of every **loaded**
+  module's `DeckUIForever<Module>DB`, perDevice with the positions included. **Data keys stay out** - `HUB_SKIP`
+  and `MODULE_SKIP` in the file: a new hub key that is data or machine state (not a setting) must be added to
+  `HUB_SKIP`, a module's to `MODULE_SKIP` (the same keys as `PAGE_RESET`'s `keep`, plus Nav's `waypoints`).
+  `D.SaveProfile`, `D.LoadProfile` (never in combat; keeps the settings of now as "Before the last load", clears
+  every setting key and writes the profile's, loads a module the profile switches on before writing its DB -
+  `D.LoadModule` in core.lua -, then `C_UI.Reload`), `D.DeleteProfile`, `D.ExportProfile`, `D.ImportProfile`
+  (stores only, under a free name). The share text is `DFP1` + `z` (deflate through `C_EncodingUtil`, only when
+  the round trip is clean) or `p` + base64 of a format of our own (`Write`/`Read`: T, F, `N..;`, `S<len>:`,
+  `{}`) - **never loadstring**; size and depth are limited, skipped keys are stripped on import, and on a load a
+  value whose type differs from the one in use is dropped. The page has no list: one button steps through the
+  profiles (the Flow rule against showing and hiding by hand), Load / Share / Delete act on it; the text window
+  is `DeckUIForeverProfileWindow`. The pure parts were run outside the game (lupa: base64, round trip, broken
+  texts, save/import/load/undo, with and without compression). Open in game: whether `C_EncodingUtil.
+  CompressString` takes our call (else the text is just longer), pasting a long text into the field, and a load
+  that has to switch on several modules at once.
+
 - **"Stop syncing UI and keys" (2026-11-10, owner: "einen Knopf, damit UI und Tastenkombis nicht mehr mit dem
   Server synchronisiert werden")**: a toggle button on the Devices page above the "Key bindings" checkbox.
   `D.SYNC_CVARS` in core.lua (`synchronizeConfig`, `synchronizeChatFrames`, `synchronizeBindings`),
@@ -947,6 +967,143 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   on player and target in all three styles - a PillBar hands its caps as `bar.round`, the orb a second round mask
   of the health orb. Open: whether Forever fires UNIT_HEAL_PREDICTION and hands out values (Classic has no heal
   prediction API without a library), and whether a mask of the health orb cuts the child bar's texture.
+  **Reporter 2026-11-18 (1.5.4): nothing showed** for a Healing Wave on himself while XIVPlayer drew it (its method
+  is unknown, the addon was not found). Built the same day for 1.5.5, untested in game: a second bar
+  `health.healEstimate` for the player's own cast, in a clipping frame over the health bar (cuts the overheal
+  without a number) - name from UNIT_SPELLCAST_SENT, amount `HealAmount(spellID)` = middle of the first number
+  range in `C_Spell.GetSpellDescription`, only where the text has a heal word (`HEAL_WORDS`, "heal[^t]" keeps
+  "health" of a resurrection out); gone at STOP / INTERRUPTED / SUCCEEDED, or FAILED with the same cast GUID;
+  hidden where `UnitGetIncomingHeals` gives a readable number above 0. Heals of others still need the game's
+  prediction. `/orbs heals` (`ns.HealDebug`) toggles a report per cast: what the game reports, our estimate.
+  Open: whether the description's numbers hold the spell power, whether SENT names the target on a self cast, and
+  what the game's own prediction returns in Forever (the report answers it).
+  **Checked again 2026-11-21 (owner: "das ist ja ein von Blizzard vorgegebener Wert, den wir nur anzapfen müssen")**:
+  Forever's own frames (Blizzard_UnitFrame `Mainline/UnitFrame.lua` `UnitFrameHealPredictionBars_Update`, loaded
+  for camelot; `Shared/CompactUnitFrame.lua`; the personal resource display) read plain
+  `UnitGetIncomingHeals(unit)` / `(unit, "player")` on UNIT_HEAL_PREDICTION - **nothing of Blizzard's uses the heal
+  prediction calculator** that oUF's health element goes through (`UnitGetDetailedHealPrediction` +
+  `calculator:GetIncomingHeals()`), so 1.5.4 stood on a path Blizzard's UI never exercises in Forever. No drawing
+  bug was found by reading (anchors, masks, event registration are in order), so the calculator path is the
+  suspect, unproven. `ns.HealPrediction` no longer sets `Health.HealingAll`: `health.healNative` (in the same
+  clipping frame as the estimate) gets `UnitGetIncomingHeals(unit)` handed straight to `SetValue` (secret or not)
+  from `PaintNative`, on UNIT_HEAL_PREDICTION / UNIT_HEALTH / UNIT_MAXHEALTH / target change. The estimate stays as
+  the fallback. `/orbs heals` prints per cast: the game's number, the player's share, the calculator's answer and
+  which pieces show - the first in-game run tells which path was empty. Classic's API predicts direct casts only
+  (no HoTs, no channels; warcraft.wiki.gg API_UnitGetIncomingHeals), and its second argument is a unit token.
+  **Same evening, owner's test: "vorher habe ich es gesehen, jetzt nicht mehr"** - so oUF's `HealingAll` did draw for
+  the owner (the calculator is not empty everywhere; why the reporter saw nothing is open again), and with every
+  piece inside the clipping frame nothing drew at all. Now three pieces are direct children of the health bar, one
+  colour (alpha 0.85, so stacked pieces look like one): `Health.HealingAll` (oUF, back in, `incomingHealOverflow = 1`),
+  `healNative`, `healEstimate`. **No clipping frame any more** - a mask texture as big as the health bar
+  (WHITE8x8, CLAMPTOBLACKADDITIVE) ends the pieces with the bar. Whether the estimate ever drew inside the clip is
+  unknown (it was never seen in game). Do not take `HealingAll` out again without the owner's test.
+
+- **HoT window bar size (2026-11-21, owner on the window as party list: "die sind mir etwas zu klein")**: device
+  settings `hotHealthH` (4-12) and `hotNameW` (48-160), **not** in `DEVICE_DEFAULTS`: unset means the standard,
+  5/64, and 8/96 while the window stands in for the party list (owner: "mach höhe 8 und breite 96 zum standard");
+  the sliders read `ns.HotBarSizes()` (what is in force). Sliders under
+  "Layout (this device)" on the HoTs page. hots.lua's `LoadBarSize` writes them into `NAME_W` / `HEALTH_H` /
+  `HEALTH_LIFT` once in the oUF factory, before `MakeLines`; a change only flags a reload
+  (`ns.HotBarSizeChanged`), because the PillBar's caps are cut for one height and the healer mode's buttons are
+  protected. `hotScale` still scales the icons (and the line's height) only. Untested in game.
+
+- **Incoming heals on the HoT window's health bars (2026-11-21, owner: "kann man die Heal auch auf den HoTs-Balken
+  projizieren")**: option `hotHeals` (off), checkbox on the HoTs page. core.lua's heal pieces are open to bars that
+  are not oUF's: `ns.HealPieces(health, shape, unit)` makes `healCalc` (the calculator asked as oUF asks, since no
+  oUF stands behind the bar), `healNative` and `healEstimate` and sets `health.healUnit`; `ns.HealPaint(health)`
+  paints them, `health.healOff` hides them. hots.lua's `UpdateHealth` makes them the first time the option is on,
+  on the bar in use (capsule or block). The watcher then listens to `UNIT_HEAL_PREDICTION` for every unit
+  (`WatchCasts(true)`). Untested in game.
+
+- **HoT window anchor (2026-11-21, owner: targeting someone moved their own line, "das Ziel ist dann auf meinem
+  Platz")**: the saved position was anchored at BOTTOM (the game anchors a dragged frame by its nearest edge), so
+  the stranger's line made the holder grow upwards. hots.lua's `PinHolder` (`D.PinTopLeft`, as the quest tracker)
+  runs in `Stack` before both `holder:SetSize` calls, out of combat only. Untested in game.
+
+- **Module Combat (built 2026-11-21, owner: "Ja, bauen" after the /df apis run)**: `DeckUIForever_Combat`
+  (LoadOnDemand, `DeckUIForeverCombatDB`, off by default; junction in the client's AddOns made the same day). Hub:
+  `Combat` in `MODULE_ADDONS`/`MODULE_ORDER`/`MODULE_TITLES`/`MODULE_OFF_BY_DEFAULT`, both description tables,
+  `START_GROUPS` (Frames), `PAGE_GROUPS` (Frames), `/df combat` (`D.PrintCombat`), `release-common.ps1`, README.
+  `PAGE_FRAMES.Combat` and `PAGE_RESET.Combat` are set by the module's config.lua. core.lua: defaults, `ns.Bar`
+  (flat bar with two texts), `ns.Holder`, `ns.pieces[name] = { key, Init, Apply, Preview, Print }`; unlocked, each
+  piece shows a sample. Pieces: **swing.lua** (PLAYER_SWING(duration, type) starts a bar per
+  `Enum.PlayerSwingType` 0/1/2; a duration above 60 is taken as milliseconds - the unit is undocumented;
+  `C_SwingTimer.EnableRangeCheck` + PLAYER_SWING_RANGE_UPDATE turn it red; a secret duration shows nothing),
+  **mirror.lua** (MIRROR_TIMER_START/STOP, `GetMirrorTimerProgress` in ms; Blizzard's `MirrorTimerContainer` /
+  `MirrorTimer1-3` faded by alpha), **control.lua** (highest-priority `C_LossOfControl` entry: icon, word, cooldown
+  frame for the time, nothing read; `LossOfControlFrame` faded), **threat.lua**
+  (`UnitDetailedThreatSituation("player","target")` percent as a bar, status colours, in a group unless
+  `threatSolo`). All four on by default inside the module. **Untested in game.**
+
+- **`/df apis` (2026-11-21)**: hub file `apis.lua`, `D.PrintApis` - prints, and keeps in
+  `DeckUIForeverDB.apiProbe` for reading after a /reload, which of the candidate APIs for a Combat module exist in
+  Forever (swing timer, loss of control, diminishing returns, mirror timers, threat, durability, death recap,
+  encounter timeline, loot history, cooldown viewer, whether the combat log is restricted). Blizzard's API
+  documentation is shared by all games, so presence there proves nothing. A probe only; nothing is built on it yet.
+  **Owner's run 2026-11-21 (1.60.1 build 71037, priest, apparently in a fight with a target)**: swing timer there
+  (`C_SwingTimer`, events PLAYER_SWING / PLAYER_SWING_RANGE_UPDATE valid; `UnitAttackSpeed` secret); loss of control
+  there (counts readable, events valid); **diminishing returns not supported** (`IsSystemSupported` false); mirror
+  timers there; `UnitDetailedThreatSituation(player, target)` readable in the fight (true, 3, 100, 255, 85);
+  durability and item counts readable; death recap there (`C_DeathRecap`); **encounter timeline and warnings not
+  available**; loot history there; cooldown viewer available; **combat log restricted**
+  (`IsCombatLogRestricted` true, no `CombatLogGetCurrentEventInfo`). Also: `UnitGetIncomingHeals(player)` and all
+  of `GetTotemInfo(1)` came back **secret** in that fight - the totem timers will run on their secret path there.
+
+- **Totem timers (GitHub issue 2, built 2026-11-21, owner: "bau den totem timer für issue 2")**: hub file
+  `DeckUIForever/totems.lua` (in the hub, not in Bars - the reporter uses Bartender4). Option `totemTimers` (off),
+  shown on the Screen page for shamans only (`D.TotemTimersAvailable`), `D.ApplyTotemTimers`, frame
+  `DeckUIForeverTotemTimers`, movable as "Totem timers" (`PAGE_FRAMES.Screen`, `SCREEN_KEYS`), `/df totems`
+  (`D.PrintTotems`). Four fixed places (slot 1 fire, 2 earth, 3 water, 4 air), icon + cooldown sweep + written time
+  ("1:42", red under 10 s) from `GetTotemInfo(slot)` on `PLAYER_TOTEM_UPDATE`; with secret values the icon, the
+  duration object (`GetTotemDuration` -> `SetCooldownFromDurationObject`) and `SetAlphaFromBoolean` are fed unread
+  and the game's countdown numbers show. Unlocked, empty places show sample icons. **Blizzard's TotemFrame is not
+  loaded for camelot, so nothing of Blizzard's exercises these functions in Forever** - every call is pcall'd.
+  **Untested in game: the owner plays a priest**; the reporter is asked to test.
+
+- **Cooldown Manager in our look (2026-11-22, owner: "können wir den Cooldown Manager bei uns einbauen?" -
+  "Ja, bauen"; for 1.5.5, untested in game)**: hub file `DeckUIForever/cdmanager.lua` (after totems.lua in the
+  toc; its header has the design and the rules). `Blizzard_CooldownViewer` loads for camelot: four Edit Mode
+  systems (`EssentialCooldownViewer`, `UtilityCooldownViewer`, `BuffIconCooldownViewer`, `BuffBarCooldownViewer`)
+  with an `itemFramePool` each; nothing is rebuilt, the item frames are dressed once (round mask off, ring atlas
+  `UI-HUD-CoolDownManager-IconOverlay` to alpha 0, trimmed icon, black edge and light outline, square swipe, our
+  countdown font, flat tracked-buff bars) from post-hooks on each viewer's `OnAcquireItemFrame` and
+  `RefreshLayout`. **No script or HookScript on an item frame, no field of ours on Blizzard's frames** (a weak
+  table), nothing the layout reads is written. Option `cdManager` (off; Screen page, `SCREEN_KEYS`; switching on
+  sets CVar `cooldownViewerEnabled` to 1, switching off flags a reload), button "Choose the spells"
+  (`D.OpenCooldownSettings` -> `CooldownViewerSettings:TogglePanel()`, out of combat), `/df cooldowns`
+  (`D.PrintCooldownManager`: availability, the CVar, each viewer's items, dressed count, the last caught error).
+  The bars are moved in Edit Mode, not with our Move. Open: whether the hooks taint the viewers' updates in a
+  fight (an "action blocked" or secret-value error would be the sign), whether saving in Blizzard's settings
+  window works when our button opened it, and the look itself.
+  **The debuff window beside it (the same day, owner: "bitte bauen wie du vorgeschlagen hast"; untested in
+  game)**: Blizzard's two tracked-buff viewers look for an item's aura on the player, then on the target - on an
+  enemy `HARMFUL|PLAYER` (`CooldownViewerItemData.lua`, `scanUnits`), so a DoT in those bars is shown for the
+  current target, with Blizzard's pandemic alert; no focus, no other targets, only spells Blizzard's data has.
+  Hub: `D.CooldownManagerScan(force)` (out of combat, every 5 s at most: each active item's `cooldownID` field
+  and `C_CooldownViewer.GetCooldownViewerCooldownInfo` -> spell, override and linked spells **by name**; a viewer
+  counts while the CVar is on and its `visibleSetting` is not Hidden), `D.CooldownManagerShows(name)`,
+  `D.CooldownManagerStamp()`, `D.CooldownManagerOffers()` (every category's set, for the printout). Works
+  without the look. debuffs.lua: `dotManager` (off) - `TargetEntries()` drops what the manager shows from the
+  TARGET column only (focus and kept columns keep the whole list; the column stays without a title for the
+  "others" when no row is left; `RunningAny` keeps the Keep logic honest; the red missing capsule is lost for
+  those debuffs - the price, said in the option text); `dotUnderManager` (off) - `PlaceHolder` hangs the holder
+  below `BuffBarCooldownViewer` (or `BuffIconCooldownViewer`) while one is shown, else the saved place; a drag
+  holds until the frames are locked again. Both under Debuffs - More - "Blizzard's Cooldown Manager".
+  `ns.DotCoverage` (in `/orbs dots`, and `/df cooldowns` through `D.CooldownReport`) prints per debuff
+  "offered by Blizzard (category)" and "in <viewer>". The look's buff bars are green capsules when the Orbs
+  module is loaded (its cap textures). **Seen in game 2026-11-22**: the look ran with 15 items dressed and 0
+  errors; Forever's data offers the priest's Shadow Word: Pain and Devouring Plague (both in
+  `BuffBarCooldownViewer` on the owner's character); with `dotManager` on the owner's DoTs ran in Blizzard's
+  bars only ("funktioniert"). `ns.DotCoverage` rebuilds the list itself while the window is off (the first
+  printout said "no debuffs known"). The kept columns with `dotManager` on were seen the same day (owner:
+  "verlassene gegner bekommen ihre spalte"). `dotUnderManager` too ("das fenster hängt unter blizzards
+  balken"). Not reported yet: whether the owner likes the bars' capsule look.
+
+- **The move overlay and high windows (2026-11-22, GitHub issue 1; seen fixed in game the same day)**:
+  `D.MakeMovable`'s overlay sat in strata HIGH, under a DIALOG window's own rows - the loot roll window could not
+  be dragged. The overlay now goes one strata above a DIALOG / FULLSCREEN / FULLSCREEN_DIALOG frame on show (not
+  the same strata with a high level: the top-level loot window raised itself over it). lootroll.lua also calls
+  `D.MakeDraggable` (title band, while a roll is open - that part unseen).
 
 - **Module check (2026-11-17, owner: "großer Check ... für jedes Modul Verbesserungsvorschläge in einem Bericht")**:
   `MODUL_CHECK_BERICHT.md` (German) - every module read in full, nothing run in game; per module bugs, risks and

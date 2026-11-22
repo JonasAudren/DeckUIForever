@@ -65,6 +65,8 @@ ns.DEFAULTS = {
     dotIdle         = false,       -- out of a fight: dimmed empty capsules for what is not running; off = only running ones
     hotIdle         = false,       -- the same for the HoT window
     dotKeep         = true,        -- an enemy you leave keeps a column under the target column while a DoT runs (its nameplate)
+    dotManager      = false,       -- a debuff in Blizzard's Cooldown Manager's buff bars leaves the target column (debuffs.lua)
+    dotUnderManager = false,       -- the debuff window hangs below the Cooldown Manager's buff bars instead of its own place
     hotAllBuffs     = false,       -- the HoT window's buff rows: every buff on the member; off = yours up to a minute
     hotHealer       = false,       -- the HoT window's click to cast: secure buttons on the icons and names; /reload
     hotPadHints     = true,        -- the HoT window: Blizzard's targeting key before each name, gamepad style only
@@ -74,6 +76,7 @@ ns.DEFAULTS = {
     hotMana         = true,        -- a thin mana line under it, for members with mana (on: owner 2026-11-16)
     hotCooldown     = false,       -- a clock on a HoT-window slot while its spell is on cooldown
     hotRegen        = false,      -- your mana regeneration (MP5) above the HoT window
+    hotHeals        = false,      -- incoming heals on the line's health bar (core.lua's pieces)
     hotHealthBlock  = false,      -- ... or the flat bar behind the whole name
     hotStatus       = false,       -- Dead / Ghost / Offline over the icons
     hotRange        = false,       -- a member out of range is dimmed
@@ -879,6 +882,9 @@ SlashCmdList.DECKORBS = function(msg)
     elseif msg == "hots" then
         -- the HoT window's list and which unit it shows (hots.lua)
         ns.HotDebug()
+    elseif msg == "heals" then
+        -- incoming heals on the health bar: what the game reports per cast (core.lua)
+        ns.HealDebug()
     elseif msg == "buffs" then
         -- the buff window: the class's buffs and what each member lacks (buffcheck.lua)
         ns.BuffCheckDebug()
