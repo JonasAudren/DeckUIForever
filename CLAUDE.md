@@ -1234,3 +1234,10 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    maximum is secret; commit b41dfec, Release workflow run 44124404587, CurseForge file id 9668846). Seen in
    game before: nothing of it; the owner reported the mana line missing for the party the same day and the
    class fallback is a guess at the cause (`/orbs hots` prints the mana answers per member).
+   **Released**: v1.5.5 on 2026-11-22 (profiles, the Combat module, totem timers (issue 2), Blizzard's Cooldown
+   Manager in our look, the debuff window's two Cooldown Manager options, the HoT window's bar sizes, incoming
+   heals and anchor fix, the loot roll window's move fix and the heal bar's second source (issue 1); commit
+   3a24222, Release workflow run 45039031647, CurseForge file id 9753081). Seen in game before by the owner:
+   everything except the totem timers (owner plays a priest) and, unreported, whether the capsule look of
+   Blizzard's buff bars pleases. Replies posted the same day on issue 1 (issuecomment-7081412212) and issue 2
+   (issuecomment-7081412460); both issues stay open until the reporter has tested.
