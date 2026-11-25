@@ -34,6 +34,14 @@ function ns.NumSlots(bag)
     return C_Container.GetContainerNumSlots(bag) or 0
 end
 
+-- A quiver, an ammo pouch, a soul bag or a profession bag: it takes its
+-- own kind of item only. The second answer of GetContainerNumFreeSlots is
+-- the bag's family, 0 for an ordinary bag.
+function ns.IsSpecialBag(bag)
+    local _, family = C_Container.GetContainerNumFreeSlots(bag)
+    return type(family) == "number" and family ~= 0
+end
+
 -------------------------------------------------------------------
 -- Item buttons, pooled per bag
 -------------------------------------------------------------------
@@ -103,6 +111,10 @@ local function NewButton(grid, bag)
     -- the template's OnClick and leaves that one untouched and secure.
     b:SetScript("PreClick", function(self, mouse)
         if ns.BankDeposit then ns.BankDeposit(self, mouse) end
+    end)
+    -- puts back an item the bank refused (held through Blizzard's click)
+    b:HookScript("PostClick", function(self)
+        if ns.BankDepositDone then ns.BankDepositDone(self) end
     end)
     return b
 end
@@ -209,7 +221,7 @@ function ns.UpdateButton(b)
 
     local price = info and DeckUIForeverBagsDB.markValuable and D.AuctionPrice and D.AuctionPrice(info.itemID)
     -- price is false with the switch off and nil without a known price
-    b.DeckValuable:SetShown(price and price * (info.stackCount or 1) >= (DeckUIForeverBagsDB.valuableGold or 100) * 10000 or false)
+    b.DeckValuable:SetShown(price and price * (info.stackCount or 1) >= (DeckUIForeverBagsDB.valuableGold or 5) * 10000 or false)
 
     local level = DeckUIForeverBagsDB.itemLevel and info and ItemLevel(bag, slot, info.itemID, info.hyperlink)
     b.DeckLevel:SetText(level or "")

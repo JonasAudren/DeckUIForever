@@ -41,6 +41,8 @@ D.RegisterModule("Bags", {
             "New, equipment, consumables, trade goods, quest items, other, junk. The bank keeps its tabs.")
         f:Checkbox("Keyring in the bag window", db, "keyring", function() ns.RequestLayout(); ns.FlushAll() end,
             "Your keys as a section of their own. Off, the keyring is only Blizzard's button on the bag bar.")
+        f:Checkbox("Whole bank in one window", db, "bankGrid", function() if ns.ApplyBankGrid then ns.ApplyBankGrid() end end,
+            "The bank's own slots and every bank bag below each other, each under its name. Off, the icons at the top switch between them.")
         f:Checkbox("Item level on gear", db, "itemLevel", Refresh)
         f:Checkbox("Coin on junk (grey items)", db, "markJunk", Refresh)
 
@@ -49,10 +51,17 @@ D.RegisterModule("Bags", {
         f:Checkbox("Value of the window in its footer", db, "ahValue", Refresh,
             "What everything in the window would sell for at the auction house, from your last scan there.")
         f:Checkbox("Gold coin on valuable items", db, "markValuable", Refresh)
-        f:Slider("Valuable from", 10, 1000, 10, gold, db, "valuableGold", function(v)
+        f:Slider("Valuable from", 1, 500, 1, gold, db, "valuableGold", function(v)
             DeckUIForeverBagsDB.valuableGold = v
             Refresh()
         end, "A stack counts as valuable from this value on.")
+        local relayout = function() ns.RequestLayout(); ns.FlushAll() end
+        f:Checkbox("Group \"For the auction house\"", db, "auctionGroup", relayout,
+            "In the category view, items you can trade and whose stack is worth enough in your last scan get a group of their own.")
+        f:Slider("Group from", 1, 100, 1, gold, db, "auctionGroupGold", function(v)
+            DeckUIForeverBagsDB.auctionGroupGold = v
+            relayout()
+        end, "A stack joins the group from this auction value on.")
         f:Gap(4)
         f:Hint("Drop an item on the row above the gold to count it there like a currency; right-click it to stop.")
     end,

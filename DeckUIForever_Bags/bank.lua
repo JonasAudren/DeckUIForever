@@ -113,14 +113,54 @@ local function Locked(bankType)
     return C_Bank.FetchBankLockedReason(bankType) ~= nil
 end
 
+-- One grid for the whole bank (2026-11-23, owner: "bau das Bank-Raster").
+-- One tab at a time was right for retail's 98-slot tabs; in Forever a tab
+-- is the bank's own 24 slots or a single bank bag, and clicking through
+-- nine of them to find an item was the price. With the client keeping
+-- bags in its bank and the option on (DeckUIForeverBagsDB.bankGrid), every
+-- tab is a section of one grid, under the bag's name. The tab icons stay:
+-- they are the bank's bag slots.
+local function OneGrid()
+    return playerBags and DeckUIForeverBagsDB and DeckUIForeverBagsDB.bankGrid ~= false
+end
+
+-- what a tab is called: its own name, else the bag in its slot
+local function TabTitle(bankType, tab)
+    if tab.name and tab.name ~= "" then return tab.name end
+    local pseudo, slot = BagSlotOf(bankType, tab.ID)
+    if not pseudo then return "" end
+    if slot == 1 then return BANK or "Bank" end
+    local bag = C_Container.GetContainerItemInfo(pseudo, slot)
+    return bag and bag.itemName or ("Bank bag slot %d"):format(slot)
+end
+
+-- every slot the bank type holds right now; a bag put into a bank slot
+-- changes it, and no event we know says so for certain
+local function SlotSum(bankType)
+    local sum = 0
+    for _, tab in ipairs(TabData(bankType)) do sum = sum + ns.NumSlots(tab.ID) end
+    return sum
+end
+
 function window.Layout()
     local d = ns.DeviceDB()
-    local tab = not Locked(activeType) and SelectedTab(activeType)
     local sections = {}
-    if tab then
-        sections[1] = { title = tab.name, bags = { tab.ID } }
+    window.slotSum = SlotSum(activeType)
+    if Locked(activeType) then return sections, d.bankColumns, d.scale end
+    if OneGrid() then
+        for _, tab in ipairs(TabData(activeType)) do
+            sections[#sections + 1] = { title = TabTitle(activeType, tab), bags = { tab.ID } }
+        end
+    else
+        local tab = SelectedTab(activeType)
+        if tab then sections[1] = { title = tab.name, bags = { tab.ID } } end
     end
     return sections, d.bankColumns, d.scale
+end
+
+function ns.ApplyBankGrid()
+    window.needLayout = true
+    ns.Flush(window)
 end
 
 -------------------------------------------------------------------
@@ -167,6 +207,7 @@ local function TabButton(i)
     b:SetScript("OnReceiveDrag", Drop)
     b:SetScript("OnClick", function(self)
         if Drop(self) then return end
+        if OneGrid() then return end   -- every tab is on show already
         selected[activeType] = self.tabID
         window.needLayout = true
         ns.RefreshBankChrome()
@@ -310,6 +351,8 @@ function ns.RefreshBankChrome()
 
     local tabs = locked and {} or TabData(activeType)
     SelectedTab(activeType)
+    -- a bank bag came or went: the grid is laid out again on the next frame
+    if window.slotSum and window.slotSum ~= SlotSum(activeType) then window.needLayout = true end
     for i, tab in ipairs(tabs) do
         local b = TabButton(i)
         b.tabID, b.tabName = tab.ID, tab.name
@@ -320,13 +363,11 @@ function ns.RefreshBankChrome()
         if pseudo then
             local bag = C_Container.GetContainerItemInfo(pseudo, slot)
             icon = bag and bag.iconFileID or (slot == 1 and 413587) or icon   -- 413587: a bank chest
-            if not (b.tabName and b.tabName ~= "") then
-                b.tabName = slot == 1 and (BANK or "Bank") or ("Bank bag slot %d"):format(slot)
-            end
+            b.tabName = TabTitle(activeType, tab)
         end
         b.icon:SetTexture(icon or 134400)   -- 134400: the question mark icon
         -- the chosen tab in full colour, the others greyed, like the spec bar
-        local isSelected = tab.ID == selected[activeType]
+        local isSelected = OneGrid() or tab.ID == selected[activeType]
         b.icon:SetDesaturated(not isSelected)
         b:SetAlpha(isSelected and 1 or 0.6)
         b:Show()
@@ -367,7 +408,16 @@ end
 -------------------------------------------------------------------
 -- Sorting, with Blizzard's confirmation when the player keeps it on
 -------------------------------------------------------------------
+-- core.lua hides the button without C_Container.SortBags; the bank has a
+-- call of its own, and without it the button goes and the row closes up
+if not C_Container.SortBank then
+    window.sort:Hide()
+    window.auction:ClearAllPoints()
+    window.auction:SetPoint("TOPRIGHT", -12, -32)
+end
+
 window.sort:SetScript("OnClick", function()
+    if not C_Container.SortBank then return end
     PlaySound(SOUNDKIT.UI_BAG_SORTING_01)
     if C_Bank.FetchNumPurchasedBankTabs(activeType) == 0 then return end
     if GetCVarBool("bankConfirmTabCleanUp") then
@@ -497,7 +547,8 @@ local function BankPlace(bankType, itemID, amount)
         for slot = 1, ns.NumSlots(bag) do
             local info = C_Container.GetContainerItemInfo(bag, slot)
             if not info then
-                if not freeBag then freeBag, freeSlot = bag, slot end
+                -- not a free slot of a quiver or soul bag: it takes its own kind only
+                if not freeBag and not ns.IsSpecialBag(bag) then freeBag, freeSlot = bag, slot end
             elseif max > 1 and info.itemID == itemID and not info.isLocked
                 and (info.stackCount or 1) + amount <= max then
                 return bag, slot
@@ -505,6 +556,27 @@ local function BankPlace(bankType, itemID, amount)
         end
     end
     return freeBag, freeSlot
+end
+
+--
+-- When the bank cannot take the item (full, or not an item for this bank),
+-- Blizzard's click must not run on it either: at the bank it would use the
+-- item - drink the potion that was meant to be put away (module check
+-- 2026-11-17, built 2026-11-23). So the item is held on the cursor through
+-- Blizzard's click, which then finds the slot locked, and PostClick
+-- (ns.BankDepositDone, core.lua) puts it back.
+local held   -- the button whose item is on the cursor through Blizzard's click
+
+local function Hold(button, bag, slot, text)
+    if not GetCursorInfo() then C_Container.PickupContainerItem(bag, slot) end
+    if GetCursorInfo() then held = button end
+    if text and UIErrorsFrame then UIErrorsFrame:AddMessage(text, 1, 0.1, 0.1) end
+end
+
+local function Allowed(bankType, bag, slot)
+    if not (C_Bank.IsItemAllowedInBankType and ItemLocation) then return true end
+    local ok, allowed = pcall(C_Bank.IsItemAllowedInBankType, bankType, ItemLocation:CreateFromBagAndSlot(bag, slot))
+    return not ok or allowed ~= false
 end
 
 function ns.BankDeposit(button, mouse)
@@ -516,11 +588,23 @@ function ns.BankDeposit(button, mouse)
     if Locked(activeType) or not C_Bank.CanUseBank(activeType) then return end
     local info = C_Container.GetContainerItemInfo(bag, slot)
     if not info or info.isLocked or not info.itemID then return end
+    if not Allowed(activeType, bag, slot) then
+        return Hold(button, bag, slot, "This bank does not take that item.")
+    end
     local toBag, toSlot = BankPlace(activeType, info.itemID, info.stackCount or 1)
-    if not toBag then return end
+    if not toBag then
+        return Hold(button, bag, slot, ERR_BANK_FULL or "The bank is full.")
+    end
     C_Container.PickupContainerItem(bag, slot)
     C_Container.PickupContainerItem(toBag, toSlot)
-    if GetCursorInfo() then ClearCursor() end   -- the bank did not take it: back where it was
+    -- the bank did not take it: held through Blizzard's click, then back
+    if GetCursorInfo() then Hold(button, bag, slot) end
+end
+
+function ns.BankDepositDone(button)
+    if held ~= button then return end
+    held = nil
+    if GetCursorInfo() then ClearCursor() end
 end
 
 -- Closing our window (X, Escape) ends the conversation with the banker;

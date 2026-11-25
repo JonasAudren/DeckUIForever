@@ -1034,6 +1034,13 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   frame for the time, nothing read; `LossOfControlFrame` faded), **threat.lua**
   (`UnitDetailedThreatSituation("player","target")` percent as a bar, status colours, in a group unless
   `threatSolo`). All four on by default inside the module. **Untested in game.**
+  **control.lua, owner's two screenshots 2026-11-25 (for 1.5.6)**: (1) "Asleep" stood there twice -
+  Blizzard's `LossOfControlFrame` sets its alpha in its OnUpdate every frame, so `FadeBlizzard` now holds it at 0
+  with a SetAlpha post-hook and an OnShow hook; seen fixed in game ("jetzt ist nur unseres"). (2) "aber keine
+  Zeit": `SetCooldown(startTime, duration)` did not show (assumed: both secret for an addon in a fight,
+  `SecretWhenLossOfControlRestricted`). `ShowTime` now asks `C_LossOfControl.GetActiveLossOfControlDuration(
+  "player", index)` (a duration object, in Forever's API docs) into `SetCooldownFromDurationObject` first, the
+  plain numbers second; `/df combat` prints "time by ...". Untested in game.
 
 - **`/df apis` (2026-11-21)**: hub file `apis.lua`, `D.PrintApis` - prints, and keeps in
   `DeckUIForeverDB.apiProbe` for reading after a /reload, which of the candidate APIs for a Combat module exist in
@@ -1129,6 +1136,160 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   unchanged. The same day the HoT window's slot order became HoTs and shield, heals, cures, resurrection (owner:
   "zuerst Instant Spells, dann Heals, dann Debuffer und dann Buffs"). Open: raid groups other than yours have no
   lines; the window shows nothing while the frames are unlocked and nobody lacks a buff.
+
+- **Bags check (2026-11-23, owner: "checken wir mal das Taschen-Modul", then "Ja, bauen"; for 1.5.6, CHANGELOG
+  section exists, uncommitted, untested in game)**: (1) bank.lua `ns.BankDeposit`: an item the bank cannot take
+  (`Allowed` = `C_Bank.IsItemAllowedInBankType`, no place from `BankPlace`, or the put-down failed) is **held on
+  the cursor through Blizzard's click** (`Hold`, `held`) so `UseContainerItem` finds the slot locked and does not
+  use the item; core.lua's `PostClick` hook calls `ns.BankDepositDone`, which puts it back. A red line says why.
+  Open: what the engine prints for the locked slot, and whether PostClick always follows. (2) bags.lua's window
+  OnHide runs `C_NewItems.ClearAll()` - Blizzard's parked bag frames never fire OnHide. (3) `ns.IsSpecialBag(bag)`
+  (core.lua; the family from `GetContainerNumFreeSlots`): the category view's empty stand-ins are bags / special /
+  reagents, and `BankPlace` takes no free slot of a special bag. Open: whether Forever returns the family.
+  (4) the bank's sort button hides without `C_Container.SortBank`. **The bank as one grid (the same day, owner:
+  "bau das Bank-Raster"; untested in game)**: `bankGrid` (on, Bags page "Whole bank in one window") - with
+  `playerBags`, bank.lua's `window.Layout` gives a section per tab (`OneGrid`, `TabTitle` = the bag's name), the
+  tab icons stay as bag slots and no longer select, `ns.ApplyBankGrid`; `window.slotSum` against `SlotSum` in
+  `RefreshBankChrome` lays the grid out again when a bank bag came or went. Still wanted (owner has not
+  decided): partial stacks on deposit, a category for
+  ammo and soul shards.
+
+- **Auction prices, storage (2026-11-23, owner: "prüfe nochmal das Scannen des Auktionshauses", then "Ja, robuster";
+  for 1.5.6, untested in game)**: the scan works in Forever - the owner's SavedVariables held a full scan of
+  2026-11-16 (about 2400 items). auction.lua's header section "Where the prices are kept":
+  `ahPrices[<realm>-<Alliance|Horde|Other>] = { time, prices, old, oldTimes }`; `Save` carries what the last scan
+  did not see into `old` for `KEEP` 30 days, moves the old `<realm>` store to the character's key at the first
+  scan, and puts a scan under a quarter of a store younger than a week into `<realm>-Other` (`SmallScan`, taken
+  for the neutral house). `D.AuctionPrice` looks in the own store, then the realm's others (`Stores`, cached).
+  The storage part was run outside the game (lupa). Open: whether Forever has separate houses at all.
+  **Auction value on loot (the same day, owner: "Ja, Beute-Wert"; untested in game)**: `D.AuctionWorth(link,
+  count)` in auction.lua (text or nil; option `ahLoot`, on, in DEFAULTS and `LOOT_KEYS`, checkbox in the Auction
+  house section of the Loot page; nil for a secret link or count). loot.lua: `r.worth` on the window's rows and
+  the feed's rows (`Worth(slot, ...)`, item slots only); lootroll.lua: `r.worth` left of the time. **Junk guard (the same day, owner:
+  "bau den Händler-Schutz"; untested in game)**: merchant.lua `Junk` / `SellAround`, option `junkGuard` (on) -
+  a grey item with an auction price of `GUARD` 2 times the merchant's (or no known merchant price) is kept; while
+  one is in the bags the rest is sold by `PickupContainerItem` + `PickupMerchantItem(0)`, twelve a visit. **Open:
+  whether Forever lets an addon sell that way** - if not, the item stays on the cursor, is put back, nothing is
+  sold and the chat says so; then the guard can only skip the whole sale. **Bag group "For the auction house" (the
+  same day; untested in game)**: bags.lua `ForAuction` in `Categorize` (after junk, new and quest): not bound and
+  the stack's scan value at least `auctionGroupGold` (1); `auctionGroup` (on); both on the Bags page under
+  "Auction prices"; a finished scan requests a layout. `valuableGold` defaults to 5 g since the same day (owner: "Ja, 5 Gold";
+  slider 1-500; a saved 100 is lowered once, flag `valuableLowered`). **Auction watch (the same day, owner:
+  "eine Art Fenster mit Beobachtung der AH-Preise"; untested in game)**: hub file `ahwatch.lua` (after auction.lua
+  in the toc - a new file, the client needs a restart; its header has the design). `DeckUIForeverAuctionWatch`,
+  movable "Auction watch" (`PAGE_FRAMES.Loot`), `/df watch [link|id]` (`D.AuctionWatchCommand`), dock button
+  "auctionwatch" (order 4, option `ahWatchDock`, on). `ahWatchItems` (12 at most) and
+  `ahHistory[store][itemID] = { t, p, ... }` (30 points) are data, in `HUB_SKIP`; a point is added by the
+  `D.OnAuctionPrices` callback for a price younger than 120 s. auction.lua exports `D.AuctionStoreKey` and
+  `D.AuctionScanAge`. The history is the price history idea, for watched items only.
+  **Rebuilt as a broker's desk on 2026-11-24 (owner: "wie ein Broker-Tool mit Diagrammen, Listen"; untested in
+  game; the first small window was seen in game that day)**: three tabs of twelve lines each, no scrolling -
+  Watched, Movers (`D.AuctionMovers`: auction.lua's `Movers(before, after)` in `Save`, six up and six down
+  stored flat as `store.movers` with `store.prevTime`), My bags (unbound items by scan value) - and a pane for
+  the picked item: `Plot` draws `Points(itemID)` (history, else a mover's two scans, else the one price) with
+  `chart:CreateLine` and dot textures, an average line from three points, five figures and a verdict (`CHEAP`
+  0.85 / `DEAR` 1.15 against the average). `Points`, `Summary`, `ChangeText` and `Movers` were run outside the
+  game (lupa). Open: whether `CreateLine` draws in Forever (the dots show either way) and the look. Ideas the
+  owner has seen and not yet picked: the bags'
+  value per character in Week, a price history.
+
+- **Profile load on a new character: ADDON_ACTION_BLOCKED on `Reload()` (owner 2026-11-24, 1.5.5)**:
+  `D.LoadProfile` ended in `C_UI.Reload()` straight from the dialog's click; refused on a character where the
+  profile's modules were load-on-demand loaded inside the same call (**assumed** reason: the addon loads
+  between the click and the reload - the other reload buttons, same dialog, work). The settings were already
+  filled in, only the reload was missing. Now: `loadedNow` skips the direct reload after a module load, and in
+  every case `D.NeedReload("profile")` plus, 0.2 s later, a `D.Dialog` "Reload now" whose click reloads.
+  Untested in game.
+
+- **Auction prices "völlig falsch" (owner 2026-11-24, open)**: no example yet. The saved data read outside the
+  game shows nothing systematic (kept price = lowest buyout / count per item ID; basics like linen, silk,
+  copper steady between scans, others jump 10-50x both ways, as a lowest listing in a thin house does; one
+  listing at 9,999,999g). Forever's realm name is an empty string now (`GetRealmName()` - keys "Kalroth-",
+  store "-Alliance"; the store "CAMWOWEU4Realm5PvE" of 2026-11-16 is no longer read), which is consistent, not
+  the cause. Built to find it: `/df ah <item link or ID>` (`D.AuctionCheck`) prints the kept price and, with
+  the scan's list still in the client, that item's listings. **Owner's example the same day: Earthroot,
+  "mehrere Gold ein Stack"** - saved 25s a piece (99c on 2026-11-16), and Silverleaf, Mageroyal, Briarthorn,
+  Bruiseweed absent from the scan though seen hours before; the store held 2,608 "older kept" items beside
+  2,993 scanned after two days. Read as: every scan was a part of the house. **Cause, confirmed by the owner's next scan ("jetzt hat er viel mehr gescannt"; prices not yet compared)**:
+  `BeginRead` read at the first sign of the list (the event or the one-second poll) while it was still
+  arriving. Changed: `BeginRead` now watches `GetNumReplicateItems` and reads once it stood still for
+  `SETTLE` 3 s (cap 120 s, `settling`, status "Receiving the listings ... N"); `ReadSlice` follows a list
+  that grows later; the store keeps `listings` (shown by `/df ah` and the status line). If the next scans
+  still differ wildly in listings or keep thousands of "older" items, the game itself sends a part only -
+  then merge scans instead of replacing, or take a sturdier price than the lowest.
+
+- **Module Chat (built 2026-11-24, owner: "lass uns mal am Chat arbeiten", asked and picked all four: look,
+  comfort, highlighting and filtering, Steam Deck; for 1.5.6, untested in game)**: `DeckUIForever_Chat`
+  (LoadOnDemand, `DeckUIForeverChatDB`, off by default; junction in the client's AddOns made the same day; core.lua's
+  header has the design). Hub: `Chat` in `MODULE_ADDONS`/`MODULE_ORDER`/`MODULE_TITLES`/`MODULE_OFF_BY_DEFAULT`,
+  both description tables, `START_GROUPS` (Bags and info), `PAGE_GROUPS` (Info), `/df chat` (`D.PrintChat`),
+  `release-common.ps1`, README. Blizzard's chat frames are never rebuilt or reparented. **style.lua**: textures
+  of theirs emptied with `SetTexture(nil)` (`CHAT_FRAME_TEXTURES`, the tab's and the edit box's parts - no way
+  back without a reload), `frame.deckPanel` a texture of the chat frame, the side buttons and
+  `ChatFrameNButtonFrame` held at alpha 0 by a SetAlpha post-hook (`Hold`), post-hooks on `FCFTab_UpdateColors`
+  and `FCF_SetChatWindowFontSize`; device keys `sizeOn`/`fontSize`/`editScale` (Deck 16 and 1.2).
+  **text.lua**: `frame.AddMessage` wrapped on every chat frame but ChatFrame2, only once a rewriting option is
+  on; a secret or non-string text is handed on unread, `Rewrite` runs in a pcall (short channels, addresses as
+  `|Haddon:DeckUIForever:url:...|h` links answered by the `SetItemRef` EventRegistry callback with a copy box,
+  keywords of three letters or more in gold through `OutsideLinks`); the alert is a frame of ours on the
+  CHAT_MSG events; the repeat filter is a message event filter keyed by line ID. `Rewrite` was run outside the
+  game (lupa). **phrases.lua**: `DeckChatPhrases`, movable "Chat phrases", six buttons, `SendChatMessage` to
+  instance group / raid / party / say. The time stamps are the game's CVar `showTimestamps`, class colours
+  `SetChatColorNameByClass` once per click. **Open, in this order**: whether the wrapped AddMessage causes
+  errors with secret chat lines in a fight or instance (`/df chat` counts "handed on unread"), whether Forever
+  knows the "addon" link kind (a click on an address would error if not), whether the texture and tab part
+  names match Forever's chat frames, and whether the edit box keeps its scale.
+  **Phrases with short words (2026-11-25, owner: "die Liste der Antworten ist noch sehr lang, in der Liste
+  sollten Shorts sein ... wir geben schon ein paar vor und die kann man ändern"; untested in game)**:
+  `phraseList` is now "short=sentence" pieces between semicolons (`ns.Phrases()` in phrases.lua; a piece without
+  "=" takes its first word, 10 letters at most), a button is as wide as its short word. An untouched old
+  default list is swapped for `ns.PHRASE_DEFAULT` at Init. config.lua: `PhraseRows`, six rows of two edit boxes
+  (short word, sentence) saved on Enter or focus lost (`SavePhrases`; Escape drops the edit), button "Our
+  sentences again". The same day: `phrasesSolo` became `phrasesAlone` (on - the row also shows without a group),
+  `phrasesFit` (on: the row is as wide as ChatFrame1's panel, the buttons share it, follows OnSizeChanged) and
+  `phrasesDock` (on: `Place` anchors the row under ChatFrame1 and hides it while the edit box has focus - the first build stepped below the edit box on `IsShown`, which is true while invisible, and covered the info bar; off, the
+  movable's saved place). All three untested in game.
+  **whisper.lua (same day, owner: "kleine Chatfenster für Whisper, die aufgehen")**: frames of ours, nothing of
+  Blizzard's (the whisper still shows in the chat; the game's own "new tab" whisper mode is not used). Anchor
+  `DeckChatWhispers` (movable "Whisper windows", always shown, no mouse), up to four windows `DeckChatWhisperN`
+  stacked upwards, each a ScrollingMessageFrame and an EditBox without auto focus (Enter sends and drops the
+  focus). `talks[key]` keeps 60 lines per conversation for the session only, key = full sender name or
+  `bn<id>` (13th event argument; answer through `C_BattleNet.SendWhisper`/`BNSendWhisper`). A fifth
+  conversation takes the window quiet the longest. Each window drags by its title bar (owner: "frei
+  verschiebbar") and keeps the place per device and window number (`whisperPlaces`, UIParent units; settings
+  button "Windows back into the stack"); unplaced ones stack at the anchor. Secret sender: no window (counted in `/df chat`); secret
+  text: handed to the window unread in a pcall, a note is kept in its place. Options `whispers` (on),
+  `whisperWait` (off: new windows wait for PLAYER_REGEN_ENABLED), device key `whisperScale` (Deck 1.2). The
+  open/reuse/send/wait logic was run outside the game (lupa). **Open**: whether the events carry the Battle.net
+  id where expected, whether a sent whisper is allowed from our edit box in an instance, how the windows sit
+  on the Deck's screen.
+  **tabs.lua (2026-11-25, owner: "dünne farbige Reiter über dem Chat ... nach der Farbe des Chats anordnen,
+  Grün = Gildenchat, Blau = Gruppe ... als Option Standard und unserer"; untested in game; the file's header has
+  the design)**: `DeckChatTabs`, a row of our buttons over ChatFrame1 - All, Guild, Party, Raid, Whisper, Say,
+  Channels in `ChatTypeInfo`'s colours, then a grey one per other docked window (`GENERAL_CHAT_DOCK.
+  DOCKED_CHAT_FRAMES`, picked with `FCF_SelectDockFrame`). No window is made: ChatFrame1's `AddMessage` is
+  wrapped (`Wrap`, only passes through while `tabs` is off), every line is sorted by the fifth argument
+  (`info.id` -> `byId` from ChatTypeInfo, digits cut so CHANNELn is one group; without an id by colour) and kept
+  (`lines`, 600); a tab `Clear`s the window and writes its group back through the wrapped function (`Replay`).
+  Untyped lines (print) show in every tab, typed ones without a tab (system, loot) in All only. Blizzard's tabs
+  of docked windows are held out with `ns.Hold` (exported by style.lua). Keys `tabs` (on), `tabLabels` (on),
+  `tabsType` (on: Guild/Party/Raid/Say set the edit box's chat type, pcall'd, `SetChatType` or the attributes),
+  device `tabScale` (Deck 1.3). A right click runs the Blizzard tab's own OnClick with "RightButton". The
+  filter was run outside the game (lupa). **Owner's first test, 2026-11-25: guild lines stood in All, the Guild
+  tab was empty.** Read against the `forever` branch of Gethe/wow-ui-source the same day
+  (Blizzard_ChatFrameBase: Mainline/ChatFrameOverrides.lua `MessageEventHandler` ends in `self:AddMessage(msg,
+  info.r, info.g, info.b, info.id, accessID, typeID, event, eventArgs, MessageFormatter)`, Camelot adds nothing
+  to it; Blizzard_SharedXML/ScrollingMessageFrame.lua: `AddMessage`, `Clear`, `GetMessageInfo`,
+  `RemoveMessagesByPredicate` are plain Lua on a circular buffer of 120; `ChatFrameEditBoxBaseMixin:SetChatType/
+  SetStickyType/UpdateHeader`, `FCF_SelectDockFrame`, `FCFDock_GetSelectedWindow`, `GENERAL_CHAT_DOCK.
+  DOCKED_CHAT_FRAMES`, `isDocked`, `FCF_Tab_OnClick` all exist). The source gives no reason for the failure;
+  the one piece that cannot be read is the engine's `GetChatTypeIndex` behind `info.id` (two types sharing an
+  id would overwrite `byId`). `GroupOf` now sorts by the **event's name first** (`CHAT_MSG_GUILD` -> guild),
+  then the id where it names a tab, then the colour; `Replay` counts failed writes. `/df chat` prints how the
+  lines were sorted, the replay count with the last error, and GUILD's id and colour. **Owner's second test the same day: \"jetzt gehts\".** The same day (owner: "im All-Reiter keine Whisper mehr bitte"): `Fits` keeps the
+  whisper group out of "All" (no option; the Whisper tab lights up instead; untested in game). **Open**:
+  whether the right click opens the menu, the bar over the combat log's filter row, and that
+  `Clear` drops what the window held before the tabs were switched on.
 
 ## Audit
 

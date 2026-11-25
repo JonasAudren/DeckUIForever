@@ -63,6 +63,7 @@ local POOR = Enum.ItemQuality.Poor
 
 local CATEGORIES = {
     { key = "new",        title = "New" },
+    { key = "auction",    title = "For the auction house" },
     { key = "equipment",  title = "Equipment" },
     { key = "consumable", title = "Consumables" },
     { key = "trade",      title = "Trade Goods" },
@@ -84,12 +85,23 @@ local CLASS_CATEGORY = {
     [C.Questitem]       = "quest",
 }
 
+-- "For the auction house" (2026-11-23, owner's pick from the uses of the
+-- auction scan): what is not bound and whose stack is worth at least
+-- auctionGroupGold by the last scan (D.AuctionPrice, hub auction.lua).
+-- Nothing lands there without a scan or with the option off.
+local function ForAuction(info)
+    if not (DeckUIForeverBagsDB.auctionGroup and D.AuctionPrice) or info.isBound then return false end
+    local price = D.AuctionPrice(info.itemID)
+    return price ~= nil and price * (info.stackCount or 1) >= (DeckUIForeverBagsDB.auctionGroupGold or 1) * 10000
+end
+
 local function Categorize(bag, slot, info)
     -- junk before "new": a grey drop is junk the moment it arrives
     if info.quality == POOR and not info.hasNoValue then return "junk" end
     if C_NewItems.IsNewItem(bag, slot) then return "new" end
     local quest = C_Container.GetContainerItemQuestInfo(bag, slot)
     if quest.isQuestItem or quest.questID then return "quest" end
+    if ForAuction(info) then return "auction" end
     local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(info.itemID)
     local key = classID and CLASS_CATEGORY[classID]
     -- armor class also holds cosmetic odds and ends that cannot be worn
@@ -113,8 +125,11 @@ end
 -- the item into that very slot, which is as good as any free one.
 -- Each stand-in is labelled, the reagent one in green: side by side the
 -- two are otherwise just two numbers.
+-- A quiver or a soul bag among the held bags takes its own kind only, so
+-- its empty slots are a stand-in of their own (`special`), in blue.
 local EMPTY_KINDS = {
-    { bags = HELD,        label = "bags",     color = { 0.7, 0.7, 0.7 } },
+    { bags = HELD,        label = "bags",     color = { 0.7, 0.7, 0.7 },   special = false },
+    { bags = HELD,        label = "special",  color = { 0.45, 0.7, 1 },    special = true },
     { bags = { REAGENT }, label = "reagents", color = { 0.4, 0.85, 0.4 } },
 }
 
@@ -123,10 +138,12 @@ local function EmptySection()
     for _, kind in ipairs(EMPTY_KINDS) do
         local first, free = nil, 0
         for _, bag in ipairs(kind.bags) do
-            for slot = 1, C_Container.GetContainerNumSlots(bag) do
-                if not C_Container.GetContainerItemInfo(bag, slot) then
-                    free = free + 1
-                    first = first or { bag, slot }
+            if kind.special == nil or ns.IsSpecialBag(bag) == kind.special then
+                for slot = 1, C_Container.GetContainerNumSlots(bag) do
+                    if not C_Container.GetContainerItemInfo(bag, slot) then
+                        free = free + 1
+                        first = first or { bag, slot }
+                    end
                 end
             end
         end
@@ -312,6 +329,11 @@ end)
 window:SetScript("OnHide", function(self)
     -- a focused search box would keep swallowing the keyboard
     self.search:ClearFocus()
+    -- Blizzard's bag frames are parked under a hidden parent, so their
+    -- OnHide never runs and nothing ever took the "new" mark off: the New
+    -- group only shrank by the items the mouse had touched. Closing the
+    -- bags is "seen" (2026-11-23).
+    if C_NewItems and C_NewItems.ClearAll then C_NewItems.ClearAll() end
 end)
 
 -- the D-pad on the Steam Deck (hub, gamepad.lua); Blizzard's combined bag,
@@ -358,12 +380,23 @@ local function Init()
     if DeckUIForeverBagsDB.markJunk  == nil then DeckUIForeverBagsDB.markJunk  = true end
     if DeckUIForeverBagsDB.categories == nil then DeckUIForeverBagsDB.categories = true end
     if DeckUIForeverBagsDB.keyring == nil then DeckUIForeverBagsDB.keyring = true end
+    if DeckUIForeverBagsDB.bankGrid == nil then DeckUIForeverBagsDB.bankGrid = true end
     -- auction prices from DeckUIForever/auction.lua's scan
     if DeckUIForeverBagsDB.ahValue == nil then DeckUIForeverBagsDB.ahValue = true end
     if DeckUIForeverBagsDB.markValuable == nil then DeckUIForeverBagsDB.markValuable = true end
-    if DeckUIForeverBagsDB.valuableGold == nil then DeckUIForeverBagsDB.valuableGold = 100 end
+    -- 5 g since 2026-11-23: the first default, 100 g, was retail's scale and
+    -- never reached in Forever's economy. A saved 100 is that old default,
+    -- lowered once (valuableLowered); set again by hand, it stays.
+    if DeckUIForeverBagsDB.valuableGold == nil
+        or (DeckUIForeverBagsDB.valuableGold == 100 and not DeckUIForeverBagsDB.valuableLowered) then
+        DeckUIForeverBagsDB.valuableGold = 5
+    end
+    DeckUIForeverBagsDB.valuableLowered = true
+    if DeckUIForeverBagsDB.auctionGroup == nil then DeckUIForeverBagsDB.auctionGroup = true end
+    if DeckUIForeverBagsDB.auctionGroupGold == nil then DeckUIForeverBagsDB.auctionGroupGold = 1 end
     if D.OnAuctionPrices then
         D.OnAuctionPrices(function()
+            ns.RequestLayout()   -- the auction group follows the new prices
             ns.RequestRefresh()
             ns.FlushAll()
         end)

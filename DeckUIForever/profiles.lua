@@ -42,7 +42,7 @@ local MAX_DEPTH = 8
 local HUB_SKIP = {
     profiles = true,
     -- what this machine or this account has collected
-    errors = true, errorSession = true, ahPrices = true, ahLastScan = true, alts = true, mailRecent = true,
+    errors = true, errorSession = true, ahPrices = true, ahLastScan = true, ahWatchItems = true, ahHistory = true, alts = true, mailRecent = true,
     restockItems = true, barLayouts = true, editLayouts = true, apiProbe = true,
     -- this machine's state, and what is kept to be put back
     device = true, deckTest = true, plateCVars = true, plateNameOnly = true, migratedCrossPC = true,
@@ -349,6 +349,7 @@ function D.LoadProfile(name)
     if name ~= BACKUP then
         Store()[BACKUP] = { saved = time(), addon = Version(), data = Snapshot() }
     end
+    local loadedNow = false   -- a module was loaded for this (see the reload below)
     local hub = type(data.Hub) == "table" and data.Hub or nil
     if hub then
         Fill(DeckUIForeverDB, hub, HUB_SKIP)
@@ -360,6 +361,7 @@ function D.LoadProfile(name)
             -- its saved table is the game's to load: the module first
             if not ModuleLoaded(key) and DeckUIForeverDB.modules[key] and D.ModuleAllowed(key) then
                 D.LoadModule(key)
+                loadedNow = true
             end
             if ModuleLoaded(key) then
                 local dbName = DBName(key)
@@ -368,7 +370,22 @@ function D.LoadProfile(name)
             end
         end
     end
-    C_UI.Reload()
+    -- The reload is the game's to allow, and only straight from a click. On
+    -- a new character, where the profile's modules were loaded just above,
+    -- it was refused ("DeckUIForever tried to call Reload()", owner
+    -- 2026-11-24) and the profile seemed not to load. So: after loading a
+    -- module the reload is not tried at all, and in every case a question
+    -- with a Reload button follows - its click is a click of its own. Where
+    -- the reload went through, that question is never seen.
+    if D.NeedReload then D.NeedReload("profile", true) end
+    if not loadedNow then C_UI.Reload() end
+    C_Timer.After(0.2, function()
+        D.Dialog({
+            width = 360, accept = "Reload now",
+            text = ("The profile \"%s\" is in place.\n\nReload the game to apply it."):format(name),
+            onAccept = function() C_UI.Reload() end,
+        })
+    end)
     return true
 end
 

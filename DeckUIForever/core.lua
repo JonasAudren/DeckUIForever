@@ -45,8 +45,9 @@ D.MODULE_ADDONS = {
     Nav   = "DeckUIForever_Nav",
     Week  = "DeckUIForever_Week",
     Combat = "DeckUIForever_Combat",
+    Chat   = "DeckUIForever_Chat",
 }
-D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Questing", "Map", "Tooltip", "Nav", "Week", "Combat" }
+D.MODULE_ORDER = { "Orbs", "Cross", "Bars", "Pad", "Spec", "Bags", "Quests", "Questing", "Map", "Tooltip", "Nav", "Week", "Combat", "Chat" }
 -- the module checkboxes in the General tab
 D.MODULE_TITLES = {
     Orbs   = "Orbs (unit frames)",
@@ -61,12 +62,13 @@ D.MODULE_TITLES = {
     Nav    = "Nav (compass and waypoints)",
     Week   = "Week (lockouts, legacy, weeklies)",
     Combat = "Combat (swing timer, breath, control, threat)",
+    Chat   = "Chat (look, links, keywords, quick phrases)",
 }
 
 -- Modules that start switched off, for new installs and for players who
 -- update into them alike. Replacing the bag window, the quest tracker or
 -- the maps is not something an update should do to anyone unasked.
-D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Questing = true, Map = true, Tooltip = true, Nav = true, Week = true, Combat = true }
+D.MODULE_OFF_BY_DEFAULT = { Pad = true, Bags = true, Quests = true, Questing = true, Map = true, Tooltip = true, Nav = true, Week = true, Combat = true, Chat = true }
 
 -- Forever is its own project, WOW_PROJECT_CAMELOT (18 in build 70707;
 -- Blizzard_ProjectConstants/Camelot). Asked by the named constant, never
@@ -798,6 +800,9 @@ local DEFAULTS = {
     mainMenu      = false,   -- the micro menu as FFXIV's round buttons (mainmenu.lua)
     dock          = true,    -- the dock: settings, week and compendium buttons in a row (dock.lua)
     ahScan        = true,    -- scan the auction house when it opens, every 15 min (auction.lua)
+    junkGuard     = true,    -- junk the auction house pays more for is not sold by itself (merchant.lua)
+    ahLoot        = true,
+    ahWatchDock   = true,    -- the auction watch's button in the dock (ahwatch.lua)    -- the auction value beside loot and loot rolls (D.AuctionWorth)
     ahStyle       = false,   -- the auction house window in DeckUIForever's look (auctionstyle.lua)
     restock       = false,   -- buy reagents, food, ammunition up to a count at merchants (restock.lua)
     mailHelper    = false,   -- your characters in the mail's "To" field, what Open All took (mail.lua)

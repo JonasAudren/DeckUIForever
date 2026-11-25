@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: DeckUIForever Chat
+## Notes: DeckUIForever module: the chat in DeckUIForever's look, short channel names, links to copy, keyword alerts and quick phrases
+## Author: Gottlieb
+## Version: 1.5.6
+## IconTexture: Interface\AddOns\DeckUIForever\textures\face_a
+## X-Website: https://github.com/JonasAudren/DeckUIForever
+## X-Category: Chat & Communication
+## Dependencies: DeckUIForever
+## LoadOnDemand: 1
+## SavedVariables: DeckUIForeverChatDB
+
+core.lua
+style.lua
+tabs.lua
+text.lua
+phrases.lua
+whisper.lua
+config.lua

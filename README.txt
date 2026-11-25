@@ -43,6 +43,10 @@ loaded.
   DeckUIForever Combat   a swing timer, breath and fatigue timers, an alert
                        when you lose control, your threat on the target
                                                (off until you switch it on)
+  DeckUIForever Chat     the chat in the same look, short channel names,
+                       web addresses to copy, keyword alerts, and buttons
+                       for prepared sentences on the Steam Deck
+                                               (off until you switch it on)
 
 Runs in World of Warcraft: Forever (1.60.1, Interface 16001) only. For
 Retail and Mists of Pandaria Classic use DeckUI.

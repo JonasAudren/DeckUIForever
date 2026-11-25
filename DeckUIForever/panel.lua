@@ -65,7 +65,7 @@ D.PAGE_GROUPS = {
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
     { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
-    { title = "Info",      pages = { "Tooltip", "Week" } },
+    { title = "Info",      pages = { "Tooltip", "Week", "Chat" } },
 }
 -- the sidebar's name where the module's title is too short to say it
 D.PAGE_NAMES = {
@@ -370,7 +370,7 @@ D.PAGE_FRAMES = {
     Tooltip = { "Tooltip" },
     Nav     = { "Compass", "Navigation target", "Waypoint list" },
     Week    = { "Week" },
-    Loot    = { "Loot", "Loot list", "Loot rolls" },
+    Loot    = { "Loot", "Loot list", "Loot rolls", "Auction watch" },
     Screen  = { "Server info", "Gold", "Bag overview", "Main menu", "Dock", "Totem timers" },
     Windows = { "Group listing" },
 }
@@ -382,7 +382,7 @@ D.PAGE_FRAMES = {
 -- positions" on the Devices page does that. The game reloads right after,
 -- and each module fills what is missing with its defaults as it loads.
 local LOOT_KEYS = { autoSellJunk = true, autoRepair = true, repairGuild = true, fastLoot = true, lootWindow = true, lootRolls = true,
-                    restock = true, mailHelper = true, ahScan = true, ahStyle = true }
+                    restock = true, mailHelper = true, ahScan = true, ahStyle = true, ahLoot = true, junkGuard = true, ahWatchDock = true }
 local function GroupKey(k) return k == "showParty" or k == "groupStyle" or k:find("^party") ~= nil end
 local function RaidKey(k) return k == "showRaid" or k:find("^raid") ~= nil end
 local function DotKey(k) return k:find("^dot") ~= nil end
@@ -926,6 +926,7 @@ D.MODULE_DESCRIPTIONS = {
     Nav     = "A compass bar, the navigation target with distance and arrival time, and /way waypoints.",
     Week    = "The week at a glance for all your characters: lockouts, renown, dailies, reputation, weekly quests.",
     Combat  = "Small pieces for a fight: a swing timer, breath and fatigue timers, an alert when you lose control, and your threat on the target.",
+    Chat    = "The chat in DeckUIForever's look: short channel names, web addresses to copy, your keywords in gold with a sound, and buttons for prepared sentences on the Steam Deck.",
 }
 
 local function ModuleLoaded(key)
@@ -1020,6 +1021,7 @@ D.MODULE_SHORT = {
     Nav      = "A compass, the distance to your goal and /way waypoints.",
     Week     = "Lockouts and weekly goals of all your characters.",
     Combat   = "Swing timer, breath timers, loss of control and threat.",
+    Chat     = "A calmer chat with links to copy, keyword alerts and quick phrases.",
 }
 
 -- the modules by what they are for, in the order a new player meets them
@@ -1027,7 +1029,7 @@ local START_GROUPS = {
     { "Frames",           { "Orbs", "Combat" } },
     { "Action bars",      { "Bars", "Pad", "Cross", "Spec" } },
     { "Quests and world", { "Quests", "Questing", "Map", "Nav" } },
-    { "Bags and info",    { "Bags", "Tooltip", "Week" } },
+    { "Bags and info",    { "Bags", "Tooltip", "Week", "Chat" } },
 }
 
 local function ToggleModule(key)
@@ -1410,6 +1412,8 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
             f:Checkbox("Repair", db, "autoRepair", nothing,
                 "Everything is repaired when a merchant can repair.")
             f:More()
+            f:Checkbox("Keep junk the auction house pays more for", db, "junkGuard", nothing,
+                "A grey item that sold for at least twice the merchant's price in your last auction scan is not sold by itself. The chat names what was kept.")
             f:Checkbox("Repair with guild funds first", db, "repairGuild", nothing,
                 "Uses the guild bank where you may; your own gold covers the rest.")
 
@@ -1444,6 +1448,12 @@ EventUtil.ContinueOnAddOnLoaded("DeckUIForever", function()
                 f:MoreSection("Auction house")
                 f:Checkbox("Scan button at the auction house", db, "ahScan", function() end,
                     "A Scan button below the auction house reads all prices, at most every 15 minutes. Tooltips and the bags then show them.")
+                if D.ToggleAuctionWatch then
+                    f:Checkbox("Auction watch in the dock", db, "ahWatchDock", function() if D.DockUpdate then D.DockUpdate() end end,
+                        "A button in the dock opens the auction watch: drop items on it and every scan notes their price, so you see how it moves. /df watch opens it too.")
+                end
+                f:Checkbox("Auction value on loot", db, "ahLoot", nothing,
+                    "DeckUIForever's loot window, loot list and loot rolls show what an item sells for at the auction house, from your last scan.")
                 f:Checkbox("Auction house window in DeckUIForever's look", db, "ahStyle", function(v)
                     D.NeedReload("ahStyle", true)
                 end, "Blizzard's auction house in our dark look. Needs a reload.")
@@ -1566,7 +1576,7 @@ end
 -- the debug commands of files a game's .toc may leave out
 local DEBUG_COMMANDS = {
     bars = "PrintBars", layout = "PrintLayout", ah = "PrintAuction", plates = "PlatesDebug",
-    targetarrow = "TargetArrowDebug", softtarget = "PrintSoftTarget", rolls = "PrintLootRolls", totems = "PrintTotems", cooldowns = "PrintCooldownManager", apis = "PrintApis", combat = "PrintCombat",
+    targetarrow = "TargetArrowDebug", softtarget = "PrintSoftTarget", rolls = "PrintLootRolls", totems = "PrintTotems", cooldowns = "PrintCooldownManager", apis = "PrintApis", combat = "PrintCombat", chat = "PrintChat",
     gamepad = "PrintGamepad",
 }
 
@@ -1593,6 +1603,10 @@ SlashCmdList.DECKUIFOREVER = function(msg)
         D.PrintCamera()
     elseif msg:match("^vibrate") then
         D.TestVibration(msg:match("^vibrate%s*(.*)$"))
+    elseif msg:match("^watch") and D.AuctionWatchCommand then
+        D.AuctionWatchCommand(msg:match("^watch%s*(.*)$"))
+    elseif msg:match("^ah%s+%S") and D.AuctionCheck then
+        D.AuctionCheck(msg:match("^ah%s+(.*)$"))
     elseif msg == "cvars" then
         if D.PrintCVars then D.PrintCVars() end
     elseif msg == "build" then

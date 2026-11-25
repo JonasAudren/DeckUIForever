@@ -160,11 +160,22 @@ local function Row(i)
     r.note = r:CreateFontString(nil, "OVERLAY")
     r.note:SetFont(D.FONT, 10, "OUTLINE")
     r.note:SetPoint("BOTTOMLEFT", r.icon, "BOTTOMRIGHT", 8, 2)
+    -- what it sells for at the auction house (auction.lua, option ahLoot)
+    r.worth = r:CreateFontString(nil, "OVERLAY")
+    r.worth:SetFont(D.FONT, 10, "OUTLINE")
+    r.worth:SetPoint("BOTTOMRIGHT", -4, 5)
     r:SetScript("OnClick", RowOnClick)
     r:SetScript("OnEnter", RowOnEnter)
     r:SetScript("OnLeave", GameTooltip_Hide)
     rows[i] = r
     return r
+end
+
+-- the auction value of an item slot, as text, or nil
+local function Worth(slot, quantity, isCoin, currencyID)
+    if isCoin or currencyID or not D.AuctionWorth then return nil end
+    if GetLootSlotType(slot) ~= Enum.LootSlotType.Item then return nil end
+    return D.AuctionWorth(GetLootSlotLink(slot), quantity)
 end
 
 -- an appearance the player has not collected yet
@@ -211,6 +222,7 @@ local function Fill()
                 note = "|cff999999" .. (LOCKED or "Locked") .. "|r"
             end
             r.note:SetText(note)
+            r.worth:SetText(Worth(slot, quantity, isCoin, currencyID) or "")
             r:Show()
         end
     end
@@ -314,8 +326,11 @@ local function FeedRow(i)
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.name = r:CreateFontString(nil, "OVERLAY")
     r.name:SetFont(D.FONT, 12, "OUTLINE")
+    r.worth = r:CreateFontString(nil, "OVERLAY")
+    r.worth:SetFont(D.FONT, 10, "OUTLINE")
+    r.worth:SetPoint("RIGHT", -4, 0)
     r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
-    r.name:SetPoint("RIGHT", -4, 0)
+    r.name:SetPoint("RIGHT", r.worth, "LEFT", -6, 0)
     r.name:SetJustifyH("LEFT")
     r.name:SetWordWrap(false)
     feedRows[i] = r
@@ -328,6 +343,7 @@ local function DrawFeed()
         r.icon:SetTexture(e.texture)
         r.name:SetText(e.count and e.count > 1 and ("%s |cffffffffx%d|r"):format(e.name, e.count) or e.name)
         r.name:SetTextColor(e.color[1], e.color[2], e.color[3])
+        r.worth:SetText(e.worth or "")
         r:Show()
     end
     for i = #entries + 1, #feedRows do feedRows[i]:Hide() end
@@ -373,7 +389,8 @@ local function CaptureSlots()
                 color = { q.r, q.g, q.b }
             end
             local count = not isCoin and quantity and Plain(quantity) and quantity or nil
-            table.insert(entries, 1, { texture = texture, name = name, count = count, color = color, time = now })
+            table.insert(entries, 1, { texture = texture, name = name, count = count, color = color, time = now,
+                worth = Worth(slot, quantity, isCoin, currencyID) })
         end
     end
     while #entries > FEED_MAX do table.remove(entries) end

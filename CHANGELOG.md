@@ -1,5 +1,103 @@
 # Changelog
 
+## 1.5.6
+
+- New module: Chat (off until you switch it on, page "Chat" under Info).
+  Blizzard's chat keeps its tabs, channels and settings and gets:
+  - the look: a flat dark panel behind every chat window, plain tabs
+    with the picked one in gold, a plain input line, the buttons beside
+    the chat faded out, DeckUIForever's font;
+  - thin coloured tabs over the chat in place of Blizzard's (option
+    "Thin coloured tabs", on): one per kind of chat in that chat's
+    colour - All, Guild, Party, Raid, Whisper, Say, Channels - and a grey
+    one for the combat log and every other docked window. A tab shows
+    only its lines and lights up when a new one came; All shows
+    everything but the whispers, which have their own tab; a click on Guild,
+    Party, Raid or Say also starts the input line there. A right click
+    opens the chat's own menu. Off, Blizzard's tabs are back;
+  - a font size and an input line size per device - larger on the Steam
+    Deck;
+  - short channel names ([1], [P], [G], [R]), web addresses as links
+    that open a box to copy them from, the game's time stamps, the arrow
+    keys for what you typed before, and a button that sets class
+    colours for names in every channel;
+  - keywords: your words in gold, and a sound when one of them or your
+    name is said by someone else; optionally the same line from the same
+    player is shown only once a minute;
+  - quick phrases: a row of small buttons that say a prepared sentence
+    to your party or raid, for a Deck without a keyboard. Each button
+    wears a short word (Hi, Thx, Ready, Wait, Mana, Bye), the tooltip
+    shows the sentence; the settings page has a row per phrase to change
+    the short word and the sentence, six at most;
+  - whisper windows: a whisper you get or send opens a small window
+    with that conversation alone and a line to answer in - up to four at
+    once, Battle.net friends too. Drag a window by its title bar and it
+    stays where you drop it. The chat shows the whisper as before (with
+    our tabs: in the Whisper tab).
+    Optionally a new window waits until a fight is over.
+  /df chat prints what the module is doing.
+- New: the auction watch, a small broker's desk for auction prices. Open
+  it with its button in the dock or /df watch. Three lists: "Watched" -
+  items you drop on the window (or /df watch with an item link), up to
+  twelve, each with its price from your last auction scan and how it
+  moved against the scan before; "Movers" - what rose and fell most
+  between your last two scans; "My bags" - what you carry that can be
+  traded, by auction value. A click on a line shows the item on the
+  right: a chart of its price over your scans, the average, lowest and
+  highest, what you hold, the merchant's price and whether it is cheap
+  or dear right now. Every scan at the auction house adds a point; a
+  watched item keeps its last thirty.
+- Bags: the gold coin on valuable items now starts at a stack value of
+  5 gold instead of 100, and the slider goes down to 1 gold. A saved
+  100 is lowered once.
+- Bags: a new group "For the auction house" in the category view - what
+  you can trade and whose stack is worth at least one gold in your last
+  auction scan. Option and the limit under Bags, Auction prices.
+- Bags: the bank shows everything at once - its own slots and every bank
+  bag below each other, each under the bag's name - instead of one bag at
+  a time. The icons at the top are still the bank's bag slots: drop a bag
+  on one to put it in. Option "Whole bank in one window", on by default.
+- New: "Sell junk" keeps grey items the auction house pays more for (at
+  least twice the merchant's price in your last scan) and names them in
+  the chat. Option "Keep junk the auction house pays more for" under
+  Loot and merchant, on by default.
+- New: the auction value on loot. DeckUIForever's loot window, the list
+  of what auto loot took and the loot rolls show what an item sells for
+  at the auction house, from your last scan - handy for Need or Greed.
+  Option "Auction value on loot" under Loot and merchant, on by default;
+  it shows nothing until you have scanned an auction house.
+- Auction prices: a new scan no longer throws away what it did not see.
+  An item that was not on offer at that moment keeps its last price for
+  30 days, shown with its own age.
+- Auction prices are kept per faction, and a scan much smaller than the
+  one before (the neutral auction house) is kept apart instead of
+  replacing your prices. A character without prices of its own still
+  sees the realm's other scans. /df ah lists what is stored.
+- Fixed: the auction scan could read the list before the game had sent
+  all of it. Each scan then held only a part of the auction house, and a
+  price was the cheapest of the few listings that happened to be there -
+  often far too high. The scan now waits until the list has stopped
+  growing ("Receiving the listings ...") and says how many listings it
+  read. /df ah with an item link shows that item's listings from the
+  scan, to check a price.
+- Fixed: loading a profile on a new character could do nothing and
+  leave the error "DeckUIForever tried to call Reload()". The game
+  refused the reload when the profile's modules had to be switched on
+  first. A "Reload now" question follows the load now.
+- Bags: a right click at the bank no longer uses an item the bank cannot
+  take. When the bank is full or does not accept the item, nothing
+  happens and a red line says why - before, a potion could be drunk
+  instead of put away.
+- Bags: the "New" group empties when you close the bags. It used to keep
+  every item you had not pointed at.
+- Bags: the free slots of a quiver, ammo pouch or soul bag are counted
+  on a stand-in of their own ("special", in blue) instead of among the
+  ordinary free slots, and the bank deposit no longer aims at them.
+- Bags: the bank's sort button is hidden where the game has no bank
+  sorting, instead of throwing an error on a click.
+- Combat: with our loss-of-control display on, Blizzard's own alert no
+  longer shows beside it, and ours counts the time down on the icon.
+
 ## 1.5.5
 
 - New: profiles (page "Profiles" under General, /df profiles). A profile

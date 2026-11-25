@@ -47,10 +47,26 @@ local ev = CreateFrame("Frame")
 
 local function On() return DeckUIForeverCombatDB.lossOfControl and true or false end
 
+-- Blizzard's alert sets its own alpha whenever it comes up and while it
+-- fades (owner's screenshot 2026-11-25: "Asleep" stood there twice, ours
+-- and theirs), so one SetAlpha(0) does not last: a post-hook holds it at 0
+-- while ours is on, and its OnShow is answered the same way.
+local hooked = false
 local function FadeBlizzard(on)
+    local frame = _G.LossOfControlFrame
     if not on and not faded then return end
     faded = on
-    if _G.LossOfControlFrame then _G.LossOfControlFrame:SetAlpha(on and 0 or 1) end
+    if not frame then return end
+    if on and not hooked then
+        hooked = true
+        hooksecurefunc(frame, "SetAlpha", function(self, alpha)
+            if faded and alpha ~= 0 then self:SetAlpha(0) end
+        end)
+        frame:HookScript("OnShow", function(self)
+            if faded then self:SetAlpha(0) end
+        end)
+    end
+    frame:SetAlpha(on and 0 or 1)
 end
 
 -- the entry that weighs most, or nil
@@ -65,15 +81,40 @@ local function Worst()
         if got and type(data) == "table" then
             local priority = data.priority
             if ns.Secret(priority) or type(priority) ~= "number" then priority = 0 end
-            if not best or priority > best.priority then best = { data = data, priority = priority } end
+            if not best or priority > best.priority then best = { data = data, priority = priority, index = i } end
         end
     end
-    return best and best.data
+    if best then return best.data, best.index end
+end
+
+-- The time on the icon. The entry's start and length are secret for an
+-- addon in a fight, and SetCooldown refuses them (owner's screenshot
+-- 2026-11-25: the icon and "Asleep", no time). The game hands out a
+-- duration object for the same entry, which a cooldown frame takes unread;
+-- the plain numbers are the second way.
+local timeBy = "none yet"
+local function ShowTime(data, index)
+    local api = C_LossOfControl
+    if index and api.GetActiveLossOfControlDuration and cooldown.SetCooldownFromDurationObject then
+        local got, object = pcall(api.GetActiveLossOfControlDuration, "player", index)
+        if got and object ~= nil and pcall(cooldown.SetCooldownFromDurationObject, cooldown, object) then
+            timeBy = "duration object"
+            return true
+        end
+    end
+    if data.startTime ~= nil and data.duration ~= nil
+        and pcall(cooldown.SetCooldown, cooldown, data.startTime, data.duration) then
+        timeBy = "start and length"
+        return true
+    end
+    timeBy = "no way worked"
+    return false
 end
 
 local function Update()
     if preview then return end
-    local data = On() and Worst()
+    local data, index
+    if On() then data, index = Worst() end
     if not data then
         holder:Hide()
         return
@@ -82,12 +123,7 @@ local function Update()
     icon:SetTexture(data.iconTexture)
     word:SetText(data.displayText)
     -- no length: it lasts until it is taken off, nothing to count
-    if data.startTime == nil or data.duration == nil
-        or not pcall(cooldown.SetCooldown, cooldown, data.startTime, data.duration) then
-        cooldown:Hide()
-    else
-        cooldown:Show()
-    end
+    cooldown:SetShown(ShowTime(data, index))
     holder:Show()
 end
 
@@ -130,8 +166,8 @@ ns.pieces.control = {
     Print = function()
         local count = C_LossOfControl and C_LossOfControl.GetActiveLossOfControlDataCount
             and select(2, pcall(C_LossOfControl.GetActiveLossOfControlDataCount))
-        print(("  loss of control: option %s, C_LossOfControl %s, active now %s, events %d, shown %d, Blizzard's faded %s"):format(
+        print(("  loss of control: option %s, C_LossOfControl %s, active now %s, events %d, shown %d, Blizzard's faded %s, time by %s"):format(
             tostring(DeckUIForeverCombatDB.lossOfControl), C_LossOfControl and "yes" or "no",
-            ns.Secret(count) and "hidden by the game" or tostring(count), seen.events, seen.shown, tostring(faded)))
+            ns.Secret(count) and "hidden by the game" or tostring(count), seen.events, seen.shown, tostring(faded), timeBy))
     end,
 }
