@@ -1402,3 +1402,11 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    everything except the totem timers (owner plays a priest) and, unreported, whether the capsule look of
    Blizzard's buff bars pleases. Replies posted the same day on issue 1 (issuecomment-7081412212) and issue 2
    (issuecomment-7081412460); both issues stay open until the reporter has tested.
+   **Released**: v1.5.6 on 2026-11-25 (the Chat module with tabs, quick phrases and whisper windows, the auction
+   watch, auction values on loot, the junk guard, the bags' auction group, the bank as one grid, the auction
+   scan and storage fixes, the profile reload fix, the bank deposit fixes, the loss-of-control fixes; commit
+   feb132c, Release workflow run 45651388415, CurseForge file id 9811677). Seen in game before by the owner: the
+   chat tabs ("jetzt gehts"), the phrase bar in a group, the small auction watch window, the fuller auction scan,
+   Blizzard's loss-of-control alert gone. Not seen: the time on our loss-of-control display, "All" without
+   whispers, the phrase bar's short words / dock / width, the whisper windows, the broker's desk, the junk
+   guard, the bank grid, the auction value on loot, the profile reload dialog.
