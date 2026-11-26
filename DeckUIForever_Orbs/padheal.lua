@@ -112,7 +112,6 @@ local layer            -- DeckHealLayer, made the first time the option is on
 local picks, casts = {}, {}
 local spells = {}      -- what the four buttons cast: { name, id, icon }
 local unknown = {}     -- what of padHealSpells the game did not know
-local rings = {}       -- the gold frames in the HoT window, by unit token
 local seen = { down = 0, up = 0, picks = 0, casts = 0 }   -- for /orbs deckheal
 local previewing = false
 -- who the layer starts on and who each direction picks (Assign)
@@ -263,7 +262,7 @@ local function ApplyPicks()
         end
         layer:SetAttribute("home", assigned.home)
         for i, b in ipairs(picks) do b:SetAttribute("pickunit", assigned[i]) end
-        if ns.ApplyHotHints and DeckUIForeverOrbsDB.hotTracker then ns.ApplyHotHints() end
+        if ns.PartyHealRefresh then ns.PartyHealRefresh() end
     end)
 end
 
@@ -503,7 +502,10 @@ end
 -- above the bar says what the next press does.
 local round, roundNow
 
-local tag = CreateFrame("Frame", nil, bar)
+-- a frame of its own, only anchored to the bar: the bar may stay hidden
+-- while the party row shows the keys (ns.PartyHealShowsKeys)
+local tag = CreateFrame("Frame", nil, UIParent)
+tag:SetFrameStrata("MEDIUM")
 tag:SetSize(BAR_W, 20)
 tag:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 0, 2)
 tag:Hide()
@@ -626,50 +628,40 @@ bar:SetScript("OnUpdate", function(_, dt)
     Feedback(unit, DeckUIForeverOrbsDB.padHealR and layer:GetAttribute("page") or 1)
 end)
 
--------------------------------------------------------------------
--- The gold frame around the picked member's line in the HoT window
--------------------------------------------------------------------
--- made once per line, out of a fight (Setup runs there): a child of the
--- line that fills it, four thin lines, alpha 0 until its member is picked
-local function MakeRings()
-    if not ns.HotLine then return end
-    for _, unit in ipairs(UNITS) do
-        local c = not rings[unit] and ns.HotLine(unit)
-        if c then
-            local r = CreateFrame("Frame", nil, c)
-            r:SetPoint("TOPLEFT", c, "TOPLEFT", -2, 2)
-            r:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 2, -2)
-            r:SetFrameLevel(c:GetFrameLevel() + 20)
-            local function Edge(a, b, horizontal)
-                local t = r:CreateTexture(nil, "OVERLAY")
-                t:SetTexture(WHITE)
-                t:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 0.95)
-                t:SetPoint(a)
-                t:SetPoint(b)
-                if horizontal then t:SetHeight(1) else t:SetWidth(1) end
-            end
-            Edge("TOPLEFT", "TOPRIGHT", true)
-            Edge("BOTTOMLEFT", "BOTTOMRIGHT", true)
-            Edge("TOPLEFT", "BOTTOMLEFT", false)
-            Edge("TOPRIGHT", "BOTTOMRIGHT", false)
-            r:SetAlpha(0)
-            rings[unit] = r
-        end
-    end
-end
-
 -- everything of ours that shows the layer's state; nothing protected, so
 -- the snippets may call it in a fight
 local function Refresh()
     local active = layer and layer:GetAttribute("active") and true or false
     local unit = active and layer:GetAttribute("unit") or "player"
-    local frame = active and Wanted("padHealFrame")
-    for u, r in pairs(rings) do r:SetAlpha((frame and u == unit) and 1 or 0) end
-    local show = previewing or (active and Wanted("padHealBar"))
+    -- the party row shows the keys on its own icons: no bar then
+    local onRows = ns.PartyHealShowsKeys and ns.PartyHealShowsKeys() or false
+    local show = previewing or (active and Wanted("padHealBar") and not onRows)
     if show then PaintBar(unit) end
     bar:SetShown(show)
-    -- the key pictures before the HoT window's names light up with the layer
-    if DeckUIForeverOrbsDB.hotTracker and ns.ApplyHotHints then ns.ApplyHotHints() end
+    -- the gold frame, the D-pad pictures and the keys on the party rows (partyheal.lua)
+    if ns.PartyHealRefresh then ns.PartyHealRefresh() end
+end
+
+-- for partyheal.lua's key pictures on the picked row's icons (owner
+-- 2026-11-26: "haeng die Zauber-Icons an die Gruppenzeile"): while the
+-- layer is on, the picked token, the set in force, every spell of both
+-- sets, the face buttons' definitions and how many a set holds
+function ns.PadHealKeys()
+    if not (layer and layer:GetAttribute("active")) then return nil end
+    local page = DeckUIForeverOrbsDB.padHealR and layer:GetAttribute("page") or 1
+    return layer:GetAttribute("unit") or "player", page, spells, CASTS, SLOTS
+end
+
+-- what the buttons cast, whether the layer is on or not
+function ns.PadHealSpellList()
+    return spells
+end
+
+-- for partyheal.lua's gold frame: the unit token the layer is on, nil
+-- while it is off or the frame is not wanted
+function ns.PadHealPicked()
+    if not (layer and layer:GetAttribute("active") and Wanted("padHealFrame")) then return nil end
+    return layer:GetAttribute("unit") or "player"
 end
 
 -------------------------------------------------------------------
@@ -917,7 +909,6 @@ function ns.ApplyPadHeal()
             Refresh()
             return
         end
-        if on then MakeRings() end
         layer:SetAttribute("enabled", on)
         layer:SetAttribute("toggle", Opt("padHealToggle"))
         local test = D.DeckTestOn and D.DeckTestOn() or false
@@ -1020,9 +1011,10 @@ function ns.PadHealDebug()
     end
     print(("  while the layer was last on, A ran: %s, D-pad up ran: %s"):format(
         tostring(seen.face or "-"), tostring(seen.dpad or "-")))
-    print(("  bar %s, frame in the HoT window %s (%d lines framed)"):format(
+    print(("  bar %s, gold frame on the party row %s, keys on the party row %s (rows show them all: %s)"):format(
         Wanted("padHealBar") and "on" or "off", Wanted("padHealFrame") and "on" or "off",
-        (function() local n = 0 for _ in pairs(rings) do n = n + 1 end return n end)()))
+        Wanted("padHealRows") and "on" or "off",
+        tostring(ns.PartyHealShowsKeys and ns.PartyHealShowsKeys() or false)))
     print(("  cockpit %s, icon feedback %s, round %s (key %s, pressed %d times): next %s"):format(
         Wanted("padHealCockpit") and "on" or "off", Wanted("padHealFeedback") and "on" or "off",
         Wanted("padHealRound") and "on" or "off", tostring(layer and layer:GetAttribute("roundkey") or "-"),

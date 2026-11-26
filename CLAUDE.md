@@ -327,6 +327,120 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   Blizzard's gamepad action bar for the D-pad and face buttons. A new file and a Bindings.xml entry: the client
   needs a restart, not only a reload.
 
+## The HoT window is removed (2026-11-26, owner: "loese die gemeinsame Logik heraus und entferne das HoT-Fenster"; unreleased, untested in game)
+
+- **`hots.lua` is deleted, `heals.lua` replaces it in the toc** (same place, before partyheal.lua; a new file, so the
+  client needs a restart). heals.lua is the part others stand on, cut out of hots.lua unchanged: `LISTS`, `BUFFS`,
+  `CASTS`, `RankIDs`, `ns.HotTopRank`, `CustomList`, `Rebuild` (the `CASTS` always), `ns.ApplyHotExclusion` (only
+  while `ns.PartyHealOn()`), `BuffState`, `Remaining`, `EntryCooldown`, the mana regeneration line (its box is a
+  frame of UIParent and shows only once `ns.HotRegenAttach` was called), `ns.HotLayerSpells`, `ns.HotBuffEntries`,
+  `ns.HotBuffState`, `ns.HOT_DISPEL_FILTER`, `ns.HotLayerIDs`, `ns.HotRoundNext`, `ns.HotRebuild`, `ns.HotEntries`,
+  `ns.HotDebug` (`/orbs hots`: class, regen, lists, then `ns.PartyHealDebug`). **The `Hot` names and the `hot*` keys
+  stay** - they are what padheal.lua, buffcheck.lua, partyheal.lua and saved settings use.
+- Gone with the window: `DeckOrbsHots` and its mover "HoTs", the settings page `HoTs` (config.lua's module and
+  panel.lua's `PAGE_GROUPS`, titles, parents, `PAGE_FRAMES`, `PAGE_RESET` - the `hot*` keys are `GroupKey` now, so
+  "Reset this page" on Group takes them), `ns.HotAsParty`/`hotAsParty`, `ns.ApplyPartyMerge`, `ns.SetHotTracker`,
+  `ns.ApplyHotLayout`/`Hints`/`Stranger`/`Buffs`/`Size`/`List`, `ns.HotLine`, `ns.HotBarSizes`, padheal.lua's
+  `MakeRings`/`rings`. Dead keys (no default any more, old saved values ignored): `hotTracker` (only read for the
+  one-time note), `hotHealer`, `hotHealth`, `hotMana`, `hotHeals`, `hotHealthBlock`, `hotStatus`, `hotRange`,
+  `hotDispel`, `hotCastSlots`, `hotIdle`, `hotPreview`, `hotAcross`, `hotAsParty`, `hotHealthH`, `hotNameW`.
+  Live keys, all on the Group page under "Healing": `partyHeal`, `hotPets`, `hotStranger`, `hotRaid`, `hotAllBuffs`,
+  `hotRegen`, `hotExclude`, `hotPadHints`, `hotCustom` (the edit box, `ns.PartyHealSync`), `hotCooldown`, `hotWarn`,
+  `hotWarnSound`, `hotWarnAt`, device `hotScale`.
+- A user who had `hotTracker` on and not `partyHeal` gets one chat line at login (`hotWindowGone` remembers it) -
+  nothing is switched for them, because the rows need `showParty`, which replaces Blizzard's party frames.
+- **Everything below that says "hots.lua" or "the HoT window" is history**: the sections on the window's lines,
+  healer mode, `Locked`, `Stack`, glyphs, `hotAsParty` describe code that no longer exists. The copy of the last
+  hots.lua is in git (`git show feb132c:DeckUIForever_Orbs/hots.lua`, the 1.5.6 release).
+- Checks run for the cut: every file parses, no `ns.` name is used without a definition in the module
+  (`nsdefs.py` in the session's scratchpad), no top-level local of hots.lua is used in heals.lua without its
+  declaration. **None of it ran in the game.**
+
+## Party list as the healer's window (2026-11-26, owner: "ich will vom HoT-Fenster weg kommen und die Gruppe so umbauen, dass sie zum HoT-Fenster wird"; unreleased, untested in game)
+
+- His complaint: two windows for one group, and information that came only after the fight. The cause of the
+  second: with click to cast (`hotHealer`, on in his settings) the HoT window's lines are protected and laid out
+  by our Lua, so `Locked()` held back new members, the role order, new slots and the target line until
+  PLAYER_REGEN_ENABLED. The party rows are SecureGroupHeader buttons - the engine adds and sorts them in a fight.
+- `partyHeal` (off, reload; Group page, "Healing"). `ns.PartyHealOn()` in layout.lua answers once per session
+  (`ns.partyHealMode` = the key and `showParty`); `ns.HotAsParty()` is false while it holds.
+- `DeckUIForever_Orbs/partyheal.lua` (after hots.lua in the toc - a new file, the client needs a restart): party.lua's
+  `BuildRow` calls `ns.PartyHealStart()` before its aura icons and `ns.PartyHealRow(row)` at the end. Per row
+  `row.DeckPartyHeal = { slots, casts, ring, glyph }`. A slot (plain frame, child of the row, fixed place after
+  the row or under it with `partyAcross`): our icon, a one-slot `CustomAuraContainer` for a HoT, hots.lua's cure
+  container, a "dead" icon lit by `SetAlphaFromBoolean(UnitIsDeadOrGhost)`. **The cast button is a child of the
+  row itself with `useparent-unit`** (SecureTemplates.lua `SecureButton_GetModifiedAttribute`, read in the
+  forever source) and is anchored to the row, never to the slot - a protected frame protects its parents and what
+  it is anchored to. The containers follow the row's unit through the oUF element `DeckPartyHeal` (`Follow`:
+  `SetUnit`) and on GROUP_ROSTER_UPDATE. `Paint` (0.2 s) sets only alpha and colour.
+- `Precreate`: header attribute `startingIndex` set to `count - 4` and back to 1 while the header is visible and
+  out of combat, so all five buttons exist before a fight; a row the header still makes in a fight gets its cast
+  buttons after it (`pending`).
+- hots.lua in this mode (`PartyMode()`): the factory returns before `MakeMovable`/`MakeLines`, `Update` and
+  `SetHotTracker` return early, `Rebuild` always adds the `CASTS`, `ApplyHotSize` hands on to
+  `ns.ApplyPartyHealSize`, `/orbs hots` prints `ns.PartyHealDebug`. New exports `ns.HotRebuild`, `ns.HotEntries`.
+  padheal.lua: `ns.PadHealPicked()`, and `Refresh`/`ApplyPicks` call `ns.PartyHealRefresh`.
+- party.lua: `AuraPoint` is forward-declared and now runs for every new row (it ran only from the layout before);
+  the row's `HELPFUL|PLAYER` icons leave out the list's IDs; `ns.HealPrediction` on the row's health bar.
+- **Slot groups** (same day, owner: "bau jetzt noch Pets und die Ziel-Zeile ein"): `NewGroup{anchor, owner, secure,
+  size, place, unit, click, allow, setup}` with `Fill`/`Secure`/`FollowGroup`/`PaintGroup` for all three kinds; a
+  slot keeps its entry's index, so the columns line up and a left-out entry is an empty place. **Pets**
+  (`hotPets`, read once, `PetsOn`): `PetLine(row)` - a plain line under the row (name, 4 px health bar, hidden
+  without a pet by `PaintPet`), slots at `PET_SCALE` 0.8 centred under the member's, no resurrection; the cast
+  buttons are the row's children with `useparent-unit` + `unitsuffix = "pet"` (`SecureButton_GetModifiedUnit`
+  maps party2pet to partypet2) and always stand - no macro condition can name a row's pet. The rows stand
+  `ns.PartyHealPetGap()` further apart (party.lua's `RowGap()` in the header's yOffset, the holder, the test rows).
+  **Target line** (`hotStranger`, on): `DeckOrbsPartyTarget`, a frame of UIParent anchored above
+  `ns.partyHolder`, unit "target", state driver `[@target,help,nodead,noparty,noraid]`, transparent while the
+  target is you (`SetAlphaFromBoolean(UnitIsUnit)`), built out of combat at the factory, scaled with the list
+  (`ns.PartyHealScale`). Both switches sit under "Healing" on the Group page and need a reload.
+- **Raid and mana regeneration** (same day, owner: "bau jetzt noch Raid und Manareg ein"): `ns.RaidHealOn()` =
+  `partyHeal`, `hotRaid` (the HoT window's key, off in the owner's settings) and `showRaid`, read once. raid.lua's
+  `BuildTile` ends with `ns.RaidHealTile(tile)`: one more slot group (`tile.DeckPartyHeal.group`, `tiles`), a line
+  under the tile, `RaidSize()` = the tile's width shared by the entries, 8 to 16 px (a priest's ten entries give
+  8 px at 96 - small; a wider tile helps). raid.lua's `VGap()` adds `ns.RaidHealGap()` to the vertical gap
+  (`Offset`, yOffset in columns, columnSpacing in rows, the holder). `PrecreateRaid` runs the `startingIndex`
+  step per visible header (five per group header, forty for the whole-raid header). The tile's own buff icons
+  leave out the list's IDs. No pets, no glyphs, no Deck Heal in the raid. `Relayout` now resizes every group
+  out of combat when the list's length changes (the raid's icon size depends on it); the raid width slider
+  calls `ns.ApplyPartyHealSize`. **hotRegen**: hots.lua exports `ns.HotRegenAttach(anchor, x, y, scale)` (the
+  box moves to UIParent) and `ns.HotRegenUpdate`; partyheal.lua's `PlaceRegen` hangs it above the party
+  holder (above the target line), in a raid above `ns.raidHolder`, and `PaintAll` refreshes it.
+- **Warning and cooldowns** (same day, owner: "bau jetzt noch Ablauf-Warnung und Abklingzeiten ein"): hots.lua
+  exports `ns.HotRemaining` and `ns.HotEntryCooldown`. partyheal.lua: every slot has the pulse frame (`SetWarn`),
+  `Warn(s, e, unit)` runs from `PaintGroup` for HoT slots on `hotWarn`/`hotWarnSound`/`hotWarnAt` (a secret time
+  in a fight = no warning, as in the window); `ApplyCooldowns` over every group when `cdDirty`
+  (SPELL_UPDATE_COOLDOWN, `Assign`, `Resize`, the switch through `ns.PartyHealCooldowns`), `StyleCooldown` as the
+  window's, the resurrection's clock on `s.dead`. The four switches are repeated under "Healing" on the Group page.
+- **Solo (same day, owner: "jetzt fehlen mir die Healtasten auf mir")**: the party header was hidden outside a
+  group (`showSolo` false, `[group:party] show; hide`), so the player had no row and no icons - the HoT window had
+  always listed "You". party.lua's `Visibility()` and `showSolo` now follow `ns.PartyHealOn()`: solo, one row of
+  the player; in a raid the list still hides (the raid tiles take over, icons there only with `hotRaid`).
+- **Deck Heal's keys on the row (same day, owner: "haeng die Zauber-Icons an die Gruppenzeile")**: `padHealRows`
+  (on; Deck Heal page). padheal.lua exports `ns.PadHealKeys()` (unit, page, `spells`, `CASTS`, `SLOTS` while the
+  layer is on) and `ns.PadHealSpellList()`; partyheal.lua's `PaintKeys` puts a face button's picture
+  (`KeyPicture`, a plain child of the row, level +14) on the slot whose entry has the spell's name, on the picked
+  row only. `ns.PartyHealShowsKeys()` is true while every spell of the layer has such a slot - padheal.lua's
+  `Refresh` then keeps the bar hidden (the cockpit and the icon feedback go with it; the row has health, HoTs,
+  cures, range and the cooldown clocks). The round's tag is a frame of UIParent now, still anchored to the bar's
+  place. A spell of `padHealSpells` without a slot brings the bar back.
+- **The gaps of the check (same day, owner: "schliesse alle Luecken 2 bis 5")**: (2) party.lua's `Visibility()` is
+  `custom show` while `ns.RaidHealOn()` is false - in a raid the party header then lists the player's raid group
+  (its `showParty` branch), the strip's driver drops `noraid` (`StripShown`), the mana line stays at the party
+  holder. (3) `hotAllBuffs` on the rows: party.lua's aura group becomes `HELPFUL`, ten icons, container fourteen
+  wide; read in `BuildRow`, reload; checkbox under "Healing". (4) `PetTarget(row)`: a secure target button of the
+  row (`useparent-unit` + `unitsuffix`) over the pet's name, hidden side by side, made out of combat
+  (`ns.PartyHealPetTargets` from `SecureAll`). (5) the hub's healer preset (panel.lua) sets `showParty`,
+  `partyHeal`, `hotPets`, `hotStranger`, `buffCheck` instead of the HoT window's keys. Also fixed in the check:
+  `ns.ApplyHotList` (the `hotCustom` box) calls `ns.PartyHealSync` in this mode.
+  **Still open for removing the HoT window**: (1) it worked with Blizzard's party and raid frames, the rows need
+  `showParty`; hots.lua's lists, ranks, `BuffState`, regen, `HotLayerSpells`, `HotRoundNext` serve partyheal.lua,
+  padheal.lua and buffcheck.lua and must move to a file of their own first; nothing of partyheal.lua was seen in game.
+- Not moved over: the cure-by-kind dimming only. Icon size is the device's `hotScale` (100% = 24 px here).
+- **Open, only the game answers**: whether a child with `useparent-unit` casts on the row's unit in Forever,
+  whether `SetUnit` on a container is allowed in a fight, whether the `startingIndex` step upsets oUF's header,
+  whether making plain child frames of a protected row in a fight is allowed.
+
 ## What phase 3 changed against DeckUI's modules (2026-11-05; owner's first test the same day: "all good" after the two fixes below)
 
 - **Spec**: `core.lua` is DeckUI's `core_mists.lua` (one button per talent group,

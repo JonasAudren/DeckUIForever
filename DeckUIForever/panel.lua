@@ -61,7 +61,7 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -- frames", the Overview "Modules", the Units group "Frames".
 D.PAGE_GROUPS = {
     { title = "General",   pages = { "General", "Profiles", "Devices", "Screen", "Targets", "Windows", "Console" } },
-    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "HoTs", "BuffCheck", "DeckHeal", "Group", "Raid", "Combat" } },
+    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "BuffCheck", "DeckHeal", "Group", "Raid", "Combat" } },
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
     { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
@@ -71,7 +71,7 @@ D.PAGE_GROUPS = {
 D.PAGE_NAMES = {
     Orbs = "Unit frames", Cross = "Cross hotbar", Spec = "Talent groups",
     Nav = "Navigation", Map = "Maps", Week = "Week overview", Bars = "Action bars", Pad = "Controller bar",
-    Debuffs = "Your debuffs", HoTs = "Your HoTs", BuffCheck = "Missing buffs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
+    Debuffs = "Your debuffs", BuffCheck = "Missing buffs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
     BuffBar = "Buff bar", Enemies = "Enemies and bosses", CrossController = "Controller",
     MapWorld = "World map",
 }
@@ -81,7 +81,7 @@ D.PAGE_NAMES = {
 -- target as many plus six sliders). A sub-page of a module registers with
 -- the module, so a module that is off shows only its stand-in.
 D.PAGE_PARENT = {
-    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", HoTs = "Orbs", DeckHeal = "Orbs",
+    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", DeckHeal = "Orbs",
     BuffBar = "Orbs", Enemies = "Orbs", BuffCheck = "Orbs",
     CrossController = "Cross",
     MapWorld = "Map",
@@ -353,7 +353,6 @@ D.PAGE_FRAMES = {
     FramePlayer = { "Player", "Player (FF)" },
     FrameTarget = { "Target", "Target (FF)" },
     Debuffs = { "Debuffs" },
-    HoTs    = { "HoTs" },
     BuffCheck = { "Buff check" },
     DeckHeal = { "Deck Heal" },
     BuffBar = { "Buffs" },
@@ -383,10 +382,11 @@ D.PAGE_FRAMES = {
 -- and each module fills what is missing with its defaults as it loads.
 local LOOT_KEYS = { autoSellJunk = true, autoRepair = true, repairGuild = true, fastLoot = true, lootWindow = true, lootRolls = true,
                     restock = true, mailHelper = true, ahScan = true, ahStyle = true, ahLoot = true, junkGuard = true, ahWatchDock = true }
-local function GroupKey(k) return k == "showParty" or k == "groupStyle" or k:find("^party") ~= nil end
+-- the heal icons on the party list keep the HoT window's keys (hot*): the Group page's to reset
+local function HotKey(k) return k:find("^hot") ~= nil end
+local function GroupKey(k) return k == "showParty" or k == "groupStyle" or k:find("^party") ~= nil or HotKey(k) end
 local function RaidKey(k) return k == "showRaid" or k:find("^raid") ~= nil end
 local function DotKey(k) return k:find("^dot") ~= nil end
-local function HotKey(k) return k:find("^hot") ~= nil end
 local function PadHealKey(k) return k:find("^padHeal") ~= nil end
 local function BuffCheckKey(k) return k:find("^buffCheck") ~= nil end
 local function PlayerKey(k) return k:find("^player") ~= nil end
@@ -416,7 +416,6 @@ D.PAGE_RESET = {
     FrameTarget = { db = "DeckUIForeverOrbsDB", match = TargetKey },
     FrameToT    = { db = "DeckUIForeverOrbsDB", match = ToTKey },
     Debuffs = { db = "DeckUIForeverOrbsDB", match = DotKey },
-    HoTs    = { db = "DeckUIForeverOrbsDB", match = HotKey },
     BuffCheck = { db = "DeckUIForeverOrbsDB", match = BuffCheckKey },
     DeckHeal = { db = "DeckUIForeverOrbsDB", match = PadHealKey },
     Group   = { db = "DeckUIForeverOrbsDB", match = GroupKey },
@@ -723,7 +722,7 @@ local function Jump(content, item)
     flashAnim:Play()
 end
 
--- where a page lives, as the sidebar shows it: "Unit frames > Your HoTs"
+-- where a page lives, as the sidebar shows it: "Unit frames > Your debuffs"
 local function PagePath(key)
     local parent = D.PAGE_PARENT[key]
     return parent and (PageName(parent) .. " > " .. PageName(key)) or PageName(key)
@@ -1109,11 +1108,12 @@ local PRESETS = {
     },
     healer = {
         text = "I am a healer",
-        tip = "Adds the healer's tools to whatever you have: the HoT window with click to cast, health bars, debuffs you can remove, missing buffs and your heals as buttons. On the Steam Deck also Deck Heal.",
+        tip = "Adds the healer's tools to whatever you have: our party list with your HoTs, heals and cures to click on every row, a line for pets and for a target outside the group, and the missing buffs. On the Steam Deck also Deck Heal.",
         modules = { Orbs = true },
-        orbs = { hotTracker = true, hotHealer = true, hotHealth = true, hotStatus = true, hotRange = true,
-                 hotDispel = true, hotCastSlots = true, buffCheck = true },
-        orbsText = "On the \"Your HoTs\" page: the HoT window with click to cast, health bars, dead and offline marks, range, debuffs you can remove and your heals as buttons. On \"Missing buffs\": the buff window.",
+        -- the party list as the healer's window (partyheal.lua) since 2026-11-26;
+        -- before, this button switched the HoT window on
+        orbs = { showParty = true, partyHeal = true, hotPets = true, hotStranger = true, buffCheck = true },
+        orbsText = "On the \"Group\" page: our party list in place of Blizzard's, with your HoTs, heals, cures and resurrection as icons to click on every row, pets under their owners and a line for a target outside the group. On \"Missing buffs\": the buff window.",
         deckOrbs = { padHeal = true },
         deckText = "On this Steam Deck also Deck Heal: hold L, pick a friend with the D-pad, heal with A, X, Y, B.",
     },

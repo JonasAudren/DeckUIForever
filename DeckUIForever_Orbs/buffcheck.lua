@@ -12,7 +12,7 @@ local oUF = ns.oUF
 -- a saved hotBuffSlots = true turns it on once, layout.lua's Factory).
 --
 -- A line per party token - you, party1-4 - with the member's name and one
--- round icon per buff of the class (hots.lua's BUFFS through
+-- round icon per buff of the class (heals.lua's BUFFS through
 -- ns.HotBuffEntries: Fortitude, Mark of the Wild, Arcane Intellect ...).
 -- An icon shows only while that member lacks the buff, whoever cast it
 -- (ns.HotBuffState, the HoT window's check: "there", "missing" or nil

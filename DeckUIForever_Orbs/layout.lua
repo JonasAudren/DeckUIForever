@@ -33,6 +33,7 @@ ns.DEFAULTS = {
     buffMaxDuration = 300,
     hpText          = "percent",   -- "percent" | "absolute" | "both"
     showParty       = false,       -- FFXIV-style party list (party.lua); replaces Blizzard's
+    partyHeal       = false,       -- the party list carries HoTs, heals and cures (partyheal.lua); /reload
     showRaid        = false,       -- compact raid grid (raid.lua); replaces Blizzard's raid frames
     groupStyle      = "panel",     -- party and raid: "panel" (dark panels) | "xiv" (capsule bars), /reload
     style           = "orbs",      -- player/target: "orbs", "ff" or "ffxiv" (ffstyle.lua), /reload
@@ -59,33 +60,22 @@ ns.DEFAULTS = {
     dotAttach       = false,       -- those rows bare at the target / focus frame instead of a window
     dotAbove        = false,       -- with dotAttach: above the frame instead of below
     dotNames        = true,        -- the debuff's name beside its icon; off = capsule only
-    dotIcons        = false,       -- the debuff window as round icons with a closing clock, like the HoT window; /reload
+    dotIcons        = false,       -- the debuff window as round icons with a closing clock, /reload
     dotPreview      = false,       -- three sample rows while the frames are unlocked; off = an empty box
-    hotPreview      = false,       -- the same for the HoT window (hots.lua; its other keys default in there)
     dotIdle         = false,       -- out of a fight: dimmed empty capsules for what is not running; off = only running ones
-    hotIdle         = false,       -- the same for the HoT window
     dotKeep         = true,        -- an enemy you leave keeps a column under the target column while a DoT runs (its nameplate)
     dotManager      = false,       -- a debuff in Blizzard's Cooldown Manager's buff bars leaves the target column (debuffs.lua)
     dotUnderManager = false,       -- the debuff window hangs below the Cooldown Manager's buff bars instead of its own place
-    hotAllBuffs     = false,       -- the HoT window's buff rows: every buff on the member; off = yours up to a minute
-    hotHealer       = false,       -- the HoT window's click to cast: secure buttons on the icons and names; /reload
-    hotPadHints     = true,        -- the HoT window: Blizzard's targeting key before each name, gamepad style only
-    hotStranger     = true,        -- the HoT window: a line for a friendly target outside the group; off = the group alone
-    -- the HoT window's extensions of 2026-11-10, all off (hots.lua's header has them)
-    hotHealth       = false,       -- a health capsule under each name
-    hotMana         = true,        -- a thin mana line under it, for members with mana (on: owner 2026-11-16)
-    hotCooldown     = false,       -- a clock on a HoT-window slot while its spell is on cooldown
-    hotRegen        = false,      -- your mana regeneration (MP5) above the HoT window
-    hotHeals        = false,      -- incoming heals on the line's health bar (core.lua's pieces)
-    hotHealthBlock  = false,      -- ... or the flat bar behind the whole name
-    hotStatus       = false,       -- Dead / Ghost / Offline over the icons
-    hotRange        = false,       -- a member out of range is dimmed
-    hotDispel       = false,       -- up to two debuffs you can remove, after the name
+    -- the heal icons on the party list (partyheal.lua) keep the keys of the HoT window they came from
+    hotAllBuffs     = false,       -- the party rows' buff icons: every buff on the member; off = your own four; /reload
+    hotPadHints     = true,        -- the controller key that targets (or, Deck Heal, picks) a row's member, gamepad style only
+    hotStranger     = true,        -- a line above the list for a friendly target outside the group; /reload
+    hotCooldown     = false,       -- a clock on a heal icon while its spell is on cooldown
+    hotRegen        = false,      -- your mana regeneration (MP5) above the party list
     buffCheck       = false,       -- the buff window (buffcheck.lua): who lacks a buff you can cast; /reload
-    hotCastSlots    = false,       -- your direct heals and cures as buttons (healer mode only)
     hotCustom       = "",          -- spells of your own, names or IDs between commas
-    hotPets         = false,       -- a line per party pet; /reload
-    hotRaid         = false,       -- in a raid a line per raid member; /reload
+    hotPets         = false,       -- a line under each row for that member's pet; /reload
+    hotRaid         = false,       -- the heal icons under our raid tiles too; /reload
     hotWarn         = false,       -- a HoT in its last seconds blinks
     hotWarnSound    = false,       -- and plays a sound
     hotWarnAt       = 3,           -- seconds before the end
@@ -101,7 +91,8 @@ ns.DEFAULTS = {
     padHealFeedback = true,        -- the bar's spell icons: cooldown, grey without mana, red out of range
     padHealRound    = true,        -- out of a fight the right stick's click casts the next missing buff or resurrection
     padHealBar      = true,        -- the small bar with the picked member and the four spells
-    padHealFrame    = true,        -- a gold frame around the picked member's line in the HoT window
+    padHealRows     = true,        -- with the heals on the party list: the keys on the picked row's icons, no bar
+    padHealFrame    = true,        -- a gold frame around the picked member's row of the party list
     xivCastCenter   = false,       -- "ffxiv" style: your cast in the screen's middle; /reload
     buffBar         = false,       -- own buff bar in FF style (buffs.lua), replaces Blizzard's; /reload
     -- the buff bar's switches (Buff bar page, 2026-10-30), live but for the two look ones
@@ -184,7 +175,7 @@ local BOSS_SPACING = 16   -- gap between boss orbs (the name sits above, the cas
 ns.auraContainers = {}
 ns.targetDebuffs  = {}
 -- the target's and focus's buff icons, with the filters they were made
--- with, for hots.lua's exclusion (it merges its IDs into `base`)
+-- with, for heals.lua's exclusion (it merges its IDs into `base`)
 ns.targetBuffs    = {}
 
 local function StyleAuraButton(element, button, options)
@@ -461,21 +452,23 @@ end
 -- groups side by side are 700 pixels wide, so the Deck starts smaller)
 local DEVICE_DEFAULTS = {
     deck = { partyScale = 1, partyAcross = false, raidScale = 0.85, raidW = 84, raidH = 34, raidRows = false,
-             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false, buffCheckScale = 100 },
+             buffSize = 24, buffPerRow = 10, dotScale = 100, hotScale = 100, buffCheckScale = 100 },
     pc   = { partyScale = 1, partyAcross = false, raidScale = 1,    raidW = 96, raidH = 36, raidRows = false,
-             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, hotAcross = false, hotAsParty = false, buffCheckScale = 100 },
+             buffSize = 30, buffPerRow = 12, dotScale = 100, hotScale = 100, buffCheckScale = 100 },
 }
 function ns.DeviceDB() return D.DeviceDB(DeckUIForeverOrbsDB, DEVICE_DEFAULTS) end
 
--- The HoT window in place of the party list (device hotAsParty, off;
--- owner 2026-11-16: on the Deck both were on the screen - "kann man das
--- nicht als Option verheiraten? Die HoTs etwas vergroessern und dafuer
--- Gruppe rausnehmen ... denke auch an dispellable Debuffs"). hots.lua then
--- shows health, removable debuffs, the status words and the range on every
--- line and draws a quarter bigger; party.lua hides its rows. Only while
--- the HoT window itself is on.
-function ns.HotAsParty()
-    return DeckUIForeverOrbsDB.hotTracker and ns.DeviceDB().hotAsParty and true or false
+-- The party list as the healer's window (partyHeal, off, /reload; owner 2026-11-26: "ich
+-- will vom HoT-Fenster weg kommen und die Gruppe so umbauen, dass sie zum
+-- HoT-Fenster wird"): the party list carries the HoTs, the heals to click
+-- and the cures (partyheal.lua); the HoT window it replaced is gone.
+-- Answered once per session - the first call comes from a factory, when
+-- the saved settings are there - because the buttons stay for the session.
+function ns.PartyHealOn()
+    if ns.partyHealMode == nil then
+        ns.partyHealMode = (DeckUIForeverOrbsDB.partyHeal and DeckUIForeverOrbsDB.showParty) and true or false
+    end
+    return ns.partyHealMode
 end
 
 -- The FF frames' width and bar height per device, as a percentage of the
@@ -880,7 +873,7 @@ SlashCmdList.DECKORBS = function(msg)
         -- the debuff window's list and what the target carries (debuffs.lua)
         ns.DotDebug()
     elseif msg == "hots" then
-        -- the HoT window's list and which unit it shows (hots.lua)
+        -- the healer's lists and the party rows' slots (heals.lua, partyheal.lua)
         ns.HotDebug()
     elseif msg == "heals" then
         -- incoming heals on the health bar: what the game reports per cast (core.lua)

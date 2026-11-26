@@ -30,6 +30,13 @@ local WHITE = "Interface\\Buttons\\WHITE8x8"
 local CLASS_ICONS = "Interface\\TargetingFrame\\UI-Classes-Circles"
 local GOLD = { 0.9, 0.75, 0.2 }
 local partyAuras = {}   -- every row's aura container, re-anchored by the layout
+local AuraPoint         -- below
+
+-- between two rows: wider while the pets have a line under their owners
+-- (partyheal.lua). Asked at run time only.
+local function RowGap()
+    return GAP + (ns.PartyHealPetGap and ns.PartyHealPetGap() or 0)
+end
 
 -- A fill and four one-pixel lines, anchored only (no BackdropTemplate)
 local function Edges(frame, r, g, b, a)
@@ -236,6 +243,8 @@ local function BuildRow(self, unit)
     -- class icon rides along
     health.PostUpdate = function(bar) UpdateClassIcon(bar.__owner) end
     self.Health = health
+    -- with the heals on the rows, the incoming ones too (option healPrediction)
+    if ns.PartyHealOn() then ns.HealPrediction(health, health.round) end
 
     local power = RowBar(self, barWidth, xiv and 4 or 3)
     power:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, xiv and -3 or -2)
@@ -245,6 +254,9 @@ local function BuildRow(self, unit)
 
     self.Range = { insideAlpha = 1, outsideAlpha = 0.4 }
 
+    -- the heals' list first: the aura icons below leave its HoTs out and
+    -- step aside for its slots (partyheal.lua)
+    if ns.PartyHealStart then ns.PartyHealStart() end
     if self.CreateAuras then
         local size, count = 20, 8
         local auras = self:CreateAuras({
@@ -254,6 +266,13 @@ local function BuildRow(self, unit)
             growthX       = "RIGHT",
             growthY       = "DOWN",
         })
+        -- with the heals on the rows: every buff on the member instead of
+        -- yours alone (hotAllBuffs, the HoT window's switch; read here, so /reload)
+        local allBuffs = ns.PartyHealOn() and DeckUIForeverOrbsDB.hotAllBuffs and true or false
+        if allBuffs then
+            count = 14
+            auras:SetFlowLayoutMaximumLineSize(count * (size + 2))
+        end
         auras:SetSize(count * (size + 2), size)
         auras.deckRow = self
         partyAuras[#partyAuras + 1] = auras
@@ -265,9 +284,19 @@ local function BuildRow(self, unit)
         -- every debuff first, dispellable ones with a coloured border;
         -- then the buffs you cast (heals over time, shields)
         auras:AddGroup("HARMFUL", { maxFrameCount = 4, showDebuffBorder = true })
-        auras:AddGroup("HELPFUL|PLAYER", { maxFrameCount = 4 })
+        if ns.PartyHealOn() and ns.PartyHealIDs then
+            -- the HoTs have their slots (partyheal.lua): not twice
+            auras:AddGroup(allBuffs and "HELPFUL" or "HELPFUL|PLAYER",
+                { maxFrameCount = allBuffs and 10 or 4,
+                  candidateFilters = { excludeSpellIDs = ns.PartyHealIDs() } })
+        else
+            auras:AddGroup("HELPFUL|PLAYER", { maxFrameCount = 4 })
+        end
         table.insert(ns.auraContainers, auras)
+        AuraPoint(auras, ns.DeviceDB().partyAcross)   -- a row made later than the layout
     end
+    -- HoTs, heals and cures to click, after the row (option partyHeal)
+    if ns.PartyHealOn() and ns.PartyHealRow then ns.PartyHealRow(self) end
 end
 
 oUF:RegisterStyle("DeckOrbsParty", BuildRow)
@@ -285,12 +314,15 @@ oUF:RegisterStyle("DeckOrbsParty", BuildRow)
 -- SecureGroupHeader_Update, which clears and sets the members' points
 -- itself. Attributes of a secure header cannot change in combat, so a
 -- switch there waits for the end of it.
-local function AuraPoint(auras, across)
+function AuraPoint(auras, across)
+    -- the heal slots come first (partyheal.lua): the auras after or under them
+    local dx, dy = 0, 0
+    if ns.PartyHealOn() and ns.PartyHealAuraOffset then dx, dy = ns.PartyHealAuraOffset(across) end
     auras:ClearAllPoints()
     if across then
-        auras:SetPoint("TOPLEFT", auras.deckRow, "BOTTOMLEFT", 0, -3)
+        auras:SetPoint("TOPLEFT", auras.deckRow, "BOTTOMLEFT", 0, -3 - dy)
     else
-        auras:SetPoint("LEFT", auras.deckRow, "RIGHT", 4, 0)
+        auras:SetPoint("LEFT", auras.deckRow, "RIGHT", 4 + dx, 0)
     end
 end
 
@@ -301,7 +333,20 @@ end
 -- party style - secure unit buttons like the real ones, so they appear and
 -- go only out of combat. While they show, the real list is hidden, so the
 -- two never lie on top of each other in a group.
-local VISIBILITY = "custom [group:raid] hide; [group:party] show; hide"
+-- With the heals on the rows (partyheal.lua) the list also shows solo, as
+-- one row of you: the HoT window always listed you, and without it your
+-- own heal icons were gone outside a group (owner 2026-11-26: "jetzt
+-- fehlen mir die Healtasten auf mir").
+-- And in a raid, while the raid tiles carry no heal icons (hotRaid off or
+-- Blizzard's raid frames): the header then lists your raid group, as the
+-- HoT window did - else a raid would leave you without any icons.
+local function Visibility()
+    if ns.PartyHealOn() then
+        if ns.RaidHealOn and ns.RaidHealOn() then return "custom [group:raid] hide; show" end
+        return "custom show"
+    end
+    return "custom [group:raid] hide; [group:party] show; hide"
+end
 local testFrames = {}
 
 local function LayoutTest(across)
@@ -310,7 +355,7 @@ local function LayoutTest(across)
         if across then
             f:SetPoint("TOPLEFT", ns.partyHolder, "TOPLEFT", (i - 1) * (W + GAP * 2), 0)
         else
-            f:SetPoint("TOPLEFT", ns.partyHolder, "TOPLEFT", 0, -(i - 1) * (H + GAP))
+            f:SetPoint("TOPLEFT", ns.partyHolder, "TOPLEFT", 0, -(i - 1) * (H + RowGap()))
         end
     end
 end
@@ -343,7 +388,7 @@ function ns.SetPartyTest(on)
         LayoutTest(across)
         -- the new rows' auras too
         for _, auras in ipairs(partyAuras) do AuraPoint(auras, across) end
-        ns.partyHeader:SetVisibility((on or ns.HotAsParty()) and "hide" or VISIBILITY)
+        ns.partyHeader:SetVisibility(on and "hide" or Visibility())
         print("DeckUIForever Orbs: party test mode " .. (on and "on - five rows of you." or "off."))
     end)
 end
@@ -356,7 +401,7 @@ function ns.ApplyPartyLayout()
     if across then
         ns.partyHolder:SetSize(5 * W + 4 * GAP * 2, H + 24)
     else
-        ns.partyHolder:SetSize(W, 5 * H + 4 * GAP)
+        ns.partyHolder:SetSize(W, 5 * H + 4 * RowGap())
     end
     for _, auras in ipairs(partyAuras) do AuraPoint(auras, across) end
     ns.OutOfCombat("partyLayout", function()
@@ -366,16 +411,7 @@ function ns.ApplyPartyLayout()
         header:SetAttribute("point", across and "LEFT" or "TOP")
         header:SetAttribute("xOffset", across and GAP * 2 or 0)
         header:SetAttribute("_ignore", nil)
-        header:SetAttribute("yOffset", across and 0 or -GAP)
-    end)
-end
-
--- the HoT window stands in for the rows (ns.HotAsParty): they hide, and
--- Blizzard's party frames stay away as before
-function ns.ApplyPartyMerge()
-    if not ns.partyHeader then return end
-    ns.OutOfCombat("partyMerge", function()
-        ns.partyHeader:SetVisibility((ns.partyTest or ns.HotAsParty()) and "hide" or VISIBILITY)
+        header:SetAttribute("yOffset", across and 0 or -RowGap())
     end)
 end
 
@@ -386,6 +422,7 @@ function ns.ApplyPartyScale()
     ns.OutOfCombat("partyScale", function()
         ns.partyHeader:SetScale(scale)
         for _, f in ipairs(testFrames) do f:SetScale(scale) end
+        if ns.PartyHealScale then ns.PartyHealScale(scale) end   -- the target line above the list
     end)
 end
 
@@ -394,7 +431,7 @@ oUF:Factory(function(self)
     self:SetActiveStyle("DeckOrbsParty")
 
     local holder = CreateFrame("Frame", "DeckOrbsPartyHolder", UIParent)
-    holder:SetSize(W, 5 * H + 4 * GAP)
+    holder:SetSize(W, 5 * H + 4 * RowGap())
     holder.defaultPoint = { "LEFT", UIParent, "LEFT", 24, 80 }
     holder:SetPoint(unpack(holder.defaultPoint))
     D.MakeMovable(holder, "Party", DeckUIForeverOrbsDB)
@@ -403,14 +440,14 @@ oUF:Factory(function(self)
     local header = self:SpawnHeader("DeckOrbsParty", nil,
         "showParty", true,
         "showPlayer", true,
-        "showSolo", false,
+        "showSolo", ns.PartyHealOn(),
         "point", "TOP",
-        "yOffset", -GAP,
+        "yOffset", -RowGap(),
         "groupBy", "ASSIGNEDROLE",
         "groupingOrder", "TANK,HEALER,DAMAGER,NONE",
         "oUF-initialConfigFunction", ("self:SetWidth(%d); self:SetHeight(%d)"):format(W, H))
     -- in a raid Blizzard's raid frames take over
-    header:SetVisibility(ns.HotAsParty() and "hide" or VISIBILITY)
+    header:SetVisibility(Visibility())
     header:SetPoint("TOPLEFT", holder, "TOPLEFT")
     ns.partyHeader = header
     ns.ApplyPartyScale()

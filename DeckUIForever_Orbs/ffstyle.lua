@@ -222,7 +222,7 @@ end
 -- and per kind { pos, max, right, filter, debuff, stealable, filters,
 -- style, register, registerBuffs }; register puts the container into
 -- ns.targetDebuffs (the own-debuffs switch and debuffs.lua's exclusion),
--- registerBuffs into ns.targetBuffs (hots.lua's exclusion). Sets self.DeckBelow /
+-- registerBuffs into ns.targetBuffs (heals.lua's exclusion). Sets self.DeckBelow /
 -- DeckAbove = the outermost line on each side, for whatever else wants to
 -- hang there (debuffs.lua).
 local function AuraRows(self, width, spec)

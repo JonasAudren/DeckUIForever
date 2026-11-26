@@ -766,7 +766,7 @@ local function Fighting()
 end
 
 -- a kept column reads a nameplate token that may change hands: every
--- container of the column is pointed at the new token (as hots.lua does)
+-- container of the column is pointed at the new token (as partyheal.lua does)
 local RefreshUnit   -- defined below; a local named only later was nil here (owner 2026-11-07, two errors)
 local function SetColumnUnit(c, unit)
     if c.unit == unit then return end

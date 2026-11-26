@@ -304,7 +304,7 @@ D.RegisterModule("Debuffs", {
             "A column for your target and a smaller one for your focus. One capsule per debuff, filled by the game while it runs. A debuff you have not cast is an empty capsule with a red edge in combat. Gold means the last third: refresh now and nothing is lost. Your other debuffs on the target follow below.")
         f:Checkbox("Round icons instead of capsules", db, "dotIcons", function(v)
             D.NeedReload("orbs:dotIcons", (v and true or false) ~= loaded.dotIcons)
-        end, "The look of the HoT window: the name, then one round icon per debuff with a clock that closes as it runs out, then your other debuffs as icons. Needs a reload.")
+        end, "The name, then one round icon per debuff with a clock that closes as it runs out, then your other debuffs as icons. Needs a reload.")
         f:More()
         f:Slider("Width, or icon size (this device)", 50, 175, 5, pct, ns.DeviceDB, "dotScale", function(v)
             ns.DeviceDB().dotScale = v
@@ -336,7 +336,7 @@ D.RegisterModule("Debuffs", {
 -- The healer's counterpart (owner 2026-11-06), rebuilt around the party
 -- on 2026-11-07: a line per party member - name, a round icon per heal
 -- with a closing clock, the buffs on them - a stranger only while
--- targeted. hots.lua.
+-- targeted. heals.lua.
 -- The buff window (buffcheck.lua): the missing buffs, out of the HoT window
 -- since 2026-11-17 (owner: "ein separates Buff-Fenster").
 D.RegisterModule("BuffCheck", {
@@ -355,117 +355,6 @@ D.RegisterModule("BuffCheck", {
                 ns.DeviceDB().buffCheckScale = v
                 D.NeedReload("orbs:buffCheckScale", v ~= loaded.buffCheckScale)
             end, "100% is 22 pixels. Needs a reload.")
-    end,
-})
-
-D.RegisterModule("HoTs", {
-    title = "HoTs",
-    build = function(c)
-        local f = D.Flow(c)
-        f:Hint("Your party in one window: who has your HoTs, and which buffs. Druids and priests have HoTs in Classic; the other classes see only the buffs. The buffs someone lacks have a window of their own, on the Missing buffs page. /orbs hots prints what the window sees.")
-        f:Label("Window")
-        f:Checkbox("Show the HoT window", db, "hotTracker", ns.SetHotTracker,
-            "One line per party member in the order of the game's group frames: in a raid your raid group with you at your place in it, in a party you first; solo it is just you. Each line: the name, one round icon per HoT - the dark clock closes as it runs out - then the buffs on them. A HoT you have not cast is a dimmed icon with a red rim in combat. Gold means the last third: refresh now and nothing is lost. A friendly target outside your party gets its own line while you target it.")
-        f:Checkbox("In place of the party list (this device)", ns.DeviceDB, "hotAsParty", function() ns.ApplyHotAsParty() end,
-            "One window instead of two: the party list hides and this window takes over. It draws a quarter bigger, and every line shows the health bar, debuffs you can remove, dead or offline, and dims a member out of range - whatever the switches below say. During a fight the party list changes over when the fight ends. The buff icons take the new size after a reload.")
-        f:Checkbox("A line for a target outside the group", db, "hotStranger", function() ns.ApplyHotStranger() end,
-            "A friendly target that is not in your group - an NPC, a raid member of another group - gets a line of its own at the end while you target it, however far away it is. Off, the window shows your group alone.")
-        f:Checkbox("Click to cast (healer mode)", db, "hotHealer", function(v)
-            D.NeedReload("orbs:hotHealer", (v and true or false) ~= loaded.hotHealer)
-        end, "Click a HoT icon to cast it on that member; click the name to target them. Works in combat. In this mode the window stays frozen during a fight and sorts itself again when the fight ends. Needs a reload.")
-        f:More()
-        f:Checkbox("Controller keys at the names (Steam Deck)", db, "hotPadHints", function() ns.ApplyHotHints() end,
-            "Shows which controller key targets each member while you hold the target modifier: the D-pad for party members 1 to 4, the bottom face button for you. Only in the gamepad style, not in a raid.")
-        if loaded.hotPets == nil then loaded.hotPets = DeckUIForeverOrbsDB.hotPets and true or false end
-        if loaded.hotRaid == nil then loaded.hotRaid = DeckUIForeverOrbsDB.hotRaid and true or false end
-        f:MoreSection("Who is listed")
-        f:Checkbox("Lines for pets", db, "hotPets", function(v)
-            D.NeedReload("orbs:hotPets", (v and true or false) ~= loaded.hotPets)
-        end, "Your pet and your party's pets get a line each, right under their owner - smaller, stepped in and the name pale blue. Not in the raid table. Needs a reload.")
-        f:Checkbox("The whole raid", db, "hotRaid", function(v)
-            D.NeedReload("orbs:hotRaid", (v and true or false) ~= loaded.hotRaid)
-        end, "In a raid, every raid member gets a line instead of only your group: one column per raid group, four columns side by side. To keep it narrow, the buff icons after the HoTs are left out there. Needs a reload.")
-        f:Label("On each line")
-        f:Checkbox("Health bar", db, "hotHealth", function() ns.ApplyHotLayout() end,
-            "A thin green bar under each name shows how much health the member has left.")
-        f:Checkbox("Mana bar", db, "hotMana", function() ns.ApplyHotLayout() end,
-            "A thin blue line under each name shows how much mana the member has left. Members without mana get none.")
-        f:Checkbox("Debuffs you can remove", db, "hotDispel", function() ns.ApplyHotLayout() end,
-            "Up to two debuffs your class can remove show with a red rim between the name and your HoTs. The icon size follows the slider after a reload.")
-        f:More()
-        f:Checkbox("Incoming heals on the health bar", db, "hotHeals", function() ns.ApplyHotLayout() end,
-            "With the health bar on: a lighter piece ahead of each member's health shows how much the heals being cast on them right now will bring back. Direct heals only, not heals over time.")
-        f:Checkbox("Health bar behind the name", db, "hotHealthBlock", function() ns.ApplyHotLayout() end,
-            "With the health bar on: a flat bar behind the whole name instead of the thin one under it.")
-        f:Checkbox("Dead, ghost or offline", db, "hotStatus", function() ns.ApplyHotLayout() end,
-            "A member who is dead, a ghost or offline is marked in words, and their icons step back.")
-        f:Checkbox("Dim members out of range", db, "hotRange", function() ns.ApplyHotLayout() end,
-            "The line of a member or pet too far away for your heals is dimmed.")
-        f:Checkbox("Cooldown timers", db, "hotCooldown", function() ns.ApplyHotLayout() end,
-            "While one of your spells is on cooldown, its spot shows the time left. A heal's button gets a dark sweep with the time in the middle; on a HoT the time sits small on the top edge, above the HoT's own clock. Not for the global cooldown.")
-        f:MoreSection("Above the window")
-        f:Checkbox("Your mana regeneration", db, "hotRegen", function() ns.ApplyHotLayout() end,
-            "A small line above the window: the mana you get back every five seconds right now (MP5). For five seconds after a spell that cost mana you get less; the grey number beside it is the other rate. Not for classes without mana.")
-        f:Label("More spells")
-        f:Checkbox("Your heals as buttons (healer mode)", db, "hotCastSlots", function() ns.ApplyHotList() end,
-            "With click to cast on: your direct heals, your cures and your resurrection get a button on every line. Click it to cast the spell on that member. A cure shows only while the member has a debuff you can remove, the resurrection only while the member is dead.")
-        f:More()
-        f:Hint("Your own spells, by name or ID, separated by commas. Each gets a spot like a HoT. Press Enter to save.")
-        f:Add(30, function(parent, y)
-            local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-            edit:SetSize(300, 20)
-            edit:SetPoint("TOP", 0, y)
-            edit:SetAutoFocus(false)
-            edit:SetFontObject(ChatFontNormal)
-            local function Save(self)
-                DeckUIForeverOrbsDB.hotCustom = strtrim(self:GetText() or "")
-                self:ClearFocus()
-                ns.ApplyHotList()
-            end
-            edit:SetScript("OnEnterPressed", Save)
-            edit:SetScript("OnEscapePressed", function(self)
-                self:SetText(DeckUIForeverOrbsDB.hotCustom or "")
-                self:ClearFocus()
-            end)
-            edit:SetScript("OnShow", function(self) self:SetText(DeckUIForeverOrbsDB.hotCustom or "") end)
-            edit:SetText(DeckUIForeverOrbsDB.hotCustom or "")
-            D.Tip(edit, "Your own spells", "For example: Blessing of Might, Fear Ward. Only spells your character knows are taken; /orbs hots lists what was not recognised. Empty the box and press Enter to remove them.")
-            return edit
-        end)
-        f:MoreSection("Warning before a HoT runs out")
-        f:Checkbox("Blink", db, "hotWarn", nil,
-            "A HoT in its last seconds pulses red. Where the game hides the time left during a fight, nothing blinks.")
-        f:Checkbox("Play a sound", db, "hotWarnSound", nil,
-            "A short sound when one of your HoTs enters its last seconds.")
-        f:Slider("Seconds before the end", 1, 10, 1, function(v) return v .. " s" end, db, "hotWarnAt",
-            function(v) DeckUIForeverOrbsDB.hotWarnAt = v end,
-            "How early the warning starts.")
-        f:MoreSection("Buffs")
-        f:Checkbox("Show every buff, not only yours", db, "hotAllBuffs", function() ns.ApplyHotBuffs() end,
-            "On: every buff on the member, long ones too, up to ten. Off: only your own buffs of a minute or less, up to six.")
-        f:Checkbox("Hide your HoTs from the target frame", db, "hotExclude", function() ns.ApplyHotExclusion() end,
-            "Your HoTs show here, so they leave the buff icons on the target frame. Off, the target frame keeps all its icons.")
-        f:Checkbox("Dimmed icons out of combat", db, "hotIdle", nil,
-            "Out of combat, a HoT you have not cast shows as a dimmed icon. Off, its spot stays empty until the HoT runs.")
-        f:Label("Layout (this device)")
-        f:Checkbox("Side by side", ns.DeviceDB, "hotAcross", function() ns.ApplyHotLayout() end,
-            "The lines next to each other instead of one below the other.")
-        f:Slider("Icon size", 50, 175, 5, pct, ns.DeviceDB, "hotScale", function(v)
-            ns.DeviceDB().hotScale = v
-            ns.ApplyHotSize()
-        end, "100% is 22 pixels. The HoT icons change at once, the buff icons after a reload.")
-        local px = function(v) return v .. " px" end
-        f:Slider("Health bar height", 4, 12, 1, px, ns.HotBarSizes, "hotHealthH", function(v)
-            ns.DeviceDB().hotHealthH = v
-            ns.HotBarSizeChanged()
-        end, "How thick the health bar under each name is. As shipped 5 pixels, and 8 while the window stands in for the party list. Needs a reload.")
-        f:Slider("Name and bar width", 48, 160, 4, px, ns.HotBarSizes, "hotNameW", function(v)
-            ns.DeviceDB().hotNameW = v
-            ns.HotBarSizeChanged()
-        end, "How wide the name and the health and mana bars under it are. As shipped 64 pixels, and 96 while the window stands in for the party list. Needs a reload.")
-        f:More()
-        f:Checkbox("Sample lines while moving", db, "hotPreview", nil,
-            "With Move or /df unlock the window shows two example lines instead of an empty box.")
     end,
 })
 
@@ -530,13 +419,15 @@ D.RegisterModule("DeckHeal", {
         f:Label("What you see")
         f:Checkbox("Bar with member and spells", db, "padHealBar", function() ns.ApplyPadHeal() end,
             "While the layer is on, a small bar shows who is picked and which button casts which spell. Move it with Move below.")
+        f:Checkbox("Keys on the party row instead of the bar", db, "padHealRows", function() ns.ApplyPadHeal() end,
+            "With the heals on the party list: while the layer is on, the picked member's row shows each button's picture on the icon it casts, and the bar stays away. If one of your own spells has no icon on the row, the bar shows as before.")
         f:Checkbox("Health, HoTs and debuffs on the bar", db, "padHealCockpit", function() ns.ApplyPadHeal() end,
             "The bar also shows the picked member's health under the name and, after the four spells, a debuff you can remove (red rim) and your HoTs on them with their clocks.")
         f:Checkbox("Spell icons show what is possible", db, "padHealFeedback", function() ns.ApplyPadHeal() end,
             "On the bar a spell on cooldown shows a closing clock with the time, a spell you lack the mana for turns grey, and a spell the picked member is too far away for turns red.")
         f:More()
-        f:Checkbox("Gold frame in the HoT window", db, "padHealFrame", function() ns.ApplyPadHeal() end,
-            "While the layer is on, the picked member's line in the HoT window gets a gold frame. Not in the whole-raid table.")
+        f:Checkbox("Gold frame around the picked member", db, "padHealFrame", function() ns.ApplyPadHeal() end,
+            "While the layer is on, the picked member's row of the party list gets a gold frame (with the heals on the party list). Not in the raid.")
     end,
 })
 
@@ -585,10 +476,75 @@ D.RegisterModule("Group", {
 
         f:Cycles(GroupLook())
 
+        if loaded.partyHeal == nil then loaded.partyHeal = DeckUIForeverOrbsDB.partyHeal and true or false end
+        f:Gap(4)
+        f:Label("Healing")
+        f:Checkbox("HoTs, heals and cures on the party list", db, "partyHeal", function(v)
+            D.NeedReload("orbs:partyHeal", (v and true or false) ~= loaded.partyHeal)
+        end, "The healer's window (it replaces the HoT window of earlier versions): after each row a round icon per HoT of yours - the clock closes as it runs out, gold in the last third, red in combat while it is missing - then your heals, a cure while there is something to remove, and the resurrection on a dead member. Click an icon to cast it on that member, in combat too. The game itself sorts and fills the rows during a fight, so nothing waits for the end of it. Deck Heal works on the rows. Needs the party list and a reload.")
+        if loaded.hotPets == nil then loaded.hotPets = DeckUIForeverOrbsDB.hotPets and true or false end
+        if loaded.hotStranger == nil then loaded.hotStranger = DeckUIForeverOrbsDB.hotStranger ~= false end
+        f:Checkbox("Pets under their owners", db, "hotPets", function(v)
+            D.NeedReload("orbs:hotPets", (v and true or false) ~= loaded.hotPets)
+        end, "With the heals on the party list: a small line under each row for that member's pet - name, health and your HoTs, heals and cures a size smaller, in the same columns. The rows stand a little further apart for it. Needs a reload.")
+        f:Checkbox("A line for a target outside the group", db, "hotStranger", function(v)
+            D.NeedReload("orbs:partyStranger", (v and true or false) ~= loaded.hotStranger)
+        end, "With the heals on the party list: a friendly target that is not in your group gets a line above the list while you target it, with the same icons to click. Needs a reload.")
+        if loaded.hotRaid == nil then loaded.hotRaid = DeckUIForeverOrbsDB.hotRaid and true or false end
+        f:Checkbox("Heal icons under the raid tiles", db, "hotRaid", function(v)
+            D.NeedReload("orbs:hotRaid", (v and true or false) ~= loaded.hotRaid)
+        end, "With the heals on the party list and our raid frames on: every raid tile gets the same icons to click in a line under it, as small as it takes to fit the tile's width - a wider tile gives bigger icons. The tiles stand a little further apart for it. Off, or with Blizzard's raid frames, the party list stays in a raid and lists your raid group. Needs a reload.")
+        if loaded.hotAllBuffs == nil then loaded.hotAllBuffs = DeckUIForeverOrbsDB.hotAllBuffs and true or false end
+        f:Checkbox("Every buff on the rows, not only yours", db, "hotAllBuffs", function(v)
+            D.NeedReload("orbs:partyAllBuffs", (v and true or false) ~= loaded.hotAllBuffs)
+        end, "With the heals on the party list: after the debuffs each row shows every buff on the member, up to ten, instead of your own four. Your HoTs stay out, they have their icons. Needs a reload.")
+        f:Checkbox("Mana regeneration above the list", db, "hotRegen", nil,
+            "Your mana per five seconds right now, and the other rate beside it in grey - above the party list, in a raid above the raid frames.")
+        f:Checkbox("Hide your HoTs from the target frame", db, "hotExclude", function() ns.ApplyHotExclusion() end,
+            "Your HoTs have their icons on the party list, so they leave the buff icons on the target frame. Off, the target frame keeps all its icons.")
+        f:Checkbox("Controller keys on the rows (Steam Deck)", db, "hotPadHints", nil,
+            "Shows at each row which controller key targets that member while you hold the target modifier - or, with Deck Heal on, which D-pad key picks them. Only in the gamepad style, not in a raid.")
+        f:Hint("Your own spells for the heal icons, by name or ID, separated by commas. Each gets an icon like a HoT. Press Enter to save.")
+        f:Add(30, function(parent, y)
+            local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+            edit:SetSize(300, 20)
+            edit:SetPoint("TOP", 0, y)
+            edit:SetAutoFocus(false)
+            edit:SetFontObject(ChatFontNormal)
+            local function Save(self)
+                DeckUIForeverOrbsDB.hotCustom = strtrim(self:GetText() or "")
+                self:ClearFocus()
+                if ns.PartyHealSync then ns.PartyHealSync() end
+            end
+            edit:SetScript("OnEnterPressed", Save)
+            edit:SetScript("OnEscapePressed", function(self)
+                self:SetText(DeckUIForeverOrbsDB.hotCustom or "")
+                self:ClearFocus()
+            end)
+            edit:SetScript("OnShow", function(self) self:SetText(DeckUIForeverOrbsDB.hotCustom or "") end)
+            edit:SetText(DeckUIForeverOrbsDB.hotCustom or "")
+            D.Tip(edit, "Your own spells", "For example: Blessing of Might, Fear Ward. Only spells your character knows are taken; /orbs hots lists what was not recognised. Empty the box and press Enter to remove them.")
+            return edit
+        end)
+        f:Checkbox("Cooldown timers on the heal icons", db, "hotCooldown", function()
+            if ns.PartyHealCooldowns then ns.PartyHealCooldowns() end
+        end, "A spell on cooldown shows it on its icon: the dark sweep with the time on a heal, a small number on the top edge of a HoT.")
+        f:Checkbox("Blink before a HoT ends", db, "hotWarn", nil,
+            "A red pulse over a HoT of yours in its last seconds. Where the game hides the time during a fight, the gold rim of the last third is the warning.")
+        f:Checkbox("Sound before a HoT ends", db, "hotWarnSound", nil,
+            "One short sound when a HoT of yours enters its last seconds, once a second at most.")
+        f:Slider("Seconds before the end", 1, 10, 1, function(v) return v .. " s" end, db, "hotWarnAt",
+            function(v) DeckUIForeverOrbsDB.hotWarnAt = v end)
+        f:Slider("Heal icon size", 50, 175, 5, function(v) return v .. "%" end, ns.DeviceDB, "hotScale", function(v)
+            ns.DeviceDB().hotScale = v
+            if ns.ApplyPartyHealSize then ns.ApplyPartyHealSize() end
+        end, "100% is 24 pixels. The places change at once out of combat, the icons after a reload.")
+
         f:Gap(4)
         f:Label("Layout (this device)")
         f:Checkbox("Side by side", ns.DeviceDB, "partyAcross", function()
             ns.ApplyPartyLayout()
+            if ns.ApplyPartyHealSize then ns.ApplyPartyHealSize() end
         end, "The rows next to each other instead of one below the other.")
         f:Slider("Size", 0.6, 1.6, 0.05, pct, ns.DeviceDB, "partyScale", function(v)
             ns.DeviceDB().partyScale = v
@@ -650,6 +606,7 @@ D.RegisterModule("Raid", {
         f:Slider("Width", 60, 140, 2, px, ns.DeviceDB, "raidW", function(v)
             ns.DeviceDB().raidW = v
             layout()
+            if ns.ApplyPartyHealSize then ns.ApplyPartyHealSize() end   -- the heal icons under the tiles fit the width
         end)
         f:Slider("Height", 30, 60, 2, px, ns.DeviceDB, "raidH", function(v)
             ns.DeviceDB().raidH = v

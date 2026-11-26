@@ -199,7 +199,16 @@ local function Bar(self, height, y, level)
     return bar
 end
 
+-- between two tiles one above the other: wider while the heal icons have
+-- a line under each tile (partyheal.lua). Asked at run time only.
+local function VGap()
+    return GAP + (ns.RaidHealGap and ns.RaidHealGap() or 0)
+end
+
 local function BuildTile(self, unit)
+    -- the heals' list first: the buff icons below leave its HoTs out
+    if ns.PartyHealStart then ns.PartyHealStart() end
+    local healIDs = ns.RaidHealOn and ns.RaidHealOn() and ns.PartyHealIDs() or nil
     local w, h = Size()
     ns.RowSetup(self, w, h)   -- not in a fight: a member may join in one
     self:SetScript("OnEnter", ns.GroupOnEnter)
@@ -293,7 +302,8 @@ local function BuildTile(self, unit)
         if buffs > 0 then
             Container("BOTTOMRIGHT", 9, 1, buffs)
                 -- heals over time and shields, not your long blessings and the like
-                :AddGroup("HELPFUL|PLAYER", { maxFrameCount = buffs, candidateFilters = { maxDuration = 120 } })
+                :AddGroup("HELPFUL|PLAYER", { maxFrameCount = buffs,
+                                              candidateFilters = { maxDuration = 120, excludeSpellIDs = healIDs } })
         end
 
         -- the dispel frame over the whole tile
@@ -317,6 +327,8 @@ local function BuildTile(self, unit)
 
     ns.raidTiles[#ns.raidTiles + 1] = self
     LookTile(self)
+    -- HoTs, heals and cures to click, under the tile (options partyHeal and hotRaid)
+    if ns.RaidHealTile then ns.RaidHealTile(self) end
 end
 
 oUF:RegisterStyle("DeckOrbsRaid", BuildTile)
@@ -361,9 +373,9 @@ local testFrames = {}
 local function Offset(group, slot)
     local w, h = Size()
     if ns.DeviceDB().raidRows then
-        return (slot - 1) * (w + GAP), -(group - 1) * (h + GAP)
+        return (slot - 1) * (w + GAP), -(group - 1) * (h + VGap())
     end
-    return (group - 1) * (w + GAP), -(slot - 1) * (h + GAP)
+    return (group - 1) * (w + GAP), -(slot - 1) * (h + VGap())
 end
 
 local function LayoutTest()
@@ -383,9 +395,9 @@ local function Configure(header, group)
     header:SetAttribute("_ignore", true)
     header:SetAttribute("point", rows and "LEFT" or "TOP")
     header:SetAttribute("xOffset", rows and GAP or 0)
-    header:SetAttribute("yOffset", rows and 0 or -GAP)
+    header:SetAttribute("yOffset", rows and 0 or -VGap())
     header:SetAttribute("columnAnchorPoint", rows and "TOP" or "LEFT")
-    header:SetAttribute("columnSpacing", GAP)
+    header:SetAttribute("columnSpacing", rows and VGap() or GAP)
     header:SetAttribute("maxColumns", whole and GROUPS or 1)
     header:SetAttribute("groupFilter", whole and "1,2,3,4,5,6,7,8" or tostring(group))
     header:SetAttribute("groupBy", sort == "role" and "ASSIGNEDROLE" or sort == "class" and "CLASS" or nil)
@@ -405,9 +417,9 @@ function ns.ApplyRaidLayout()
     if not ns.raidHeaders then return end
     local w, h = Size()
     local rows = ns.DeviceDB().raidRows
-    local across, down = GROUPS * (w + GAP) - GAP, PER_GROUP * (h + GAP) - GAP
+    local across, down = GROUPS * (w + GAP) - GAP, PER_GROUP * (h + VGap()) - GAP
     if rows then
-        across, down = PER_GROUP * (w + GAP) - GAP, GROUPS * (h + GAP) - GAP
+        across, down = PER_GROUP * (w + GAP) - GAP, GROUPS * (h + VGap()) - GAP
     end
     ns.raidHolder:SetSize(across, down)
     ns.OutOfCombat("raidLayout", function()
@@ -428,6 +440,7 @@ function ns.ApplyRaidScale()
     ns.OutOfCombat("raidScale", function()
         for _, header in ipairs(ns.raidHeaders) do header:SetScale(scale) end
         for _, f in ipairs(testFrames) do f:SetScale(scale) end
+        if ns.PartyHealPlaceRegen then ns.PartyHealPlaceRegen() end   -- the mana line above the raid
     end)
 end
 
@@ -485,7 +498,7 @@ oUF:Factory(function(self)
             "showRaid", true,
             "groupFilter", tostring(group),
             "point", "TOP",
-            "yOffset", -GAP,
+            "yOffset", -VGap(),
             "oUF-initialConfigFunction", ("self:SetWidth(%d); self:SetHeight(%d)"):format(w, h))
         header:SetVisibility(VISIBILITY)
         ns.raidHeaders[group] = header

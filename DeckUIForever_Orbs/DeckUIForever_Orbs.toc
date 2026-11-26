@@ -23,7 +23,8 @@ raid.lua
 buffs.lua
 enemies.lua
 debuffs.lua
-hots.lua
+heals.lua
+partyheal.lua
 buffcheck.lua
 padheal.lua
 config.lua
