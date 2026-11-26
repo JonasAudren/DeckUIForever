@@ -1555,3 +1555,9 @@ hub's toc, made 2026-11-05); the secret and the variable in the GitHub repo are 
    Blizzard's loss-of-control alert gone. Not seen: the time on our loss-of-control display, "All" without
    whispers, the phrase bar's short words / dock / width, the whisper windows, the broker's desk, the junk
    guard, the bank grid, the auction value on loot, the profile reload dialog.
+   **Released**: v1.6.0 on 2026-11-26 as a FULL release, at the owner's word ("Volles Release" - a beta was
+   recommended and declined): the heals on the party list (partyheal.lua), the debuffs on the enemy list, the
+   HoT window and the debuff window removed (commit 8c911d8, Release workflow run 45849133911, CurseForge file id
+   9828801). **Nothing of it had run in the game at release, not even a login** - only the static checks
+   (every file parses, no undefined `ns.` name, the audit). The first /df errors after this release are the
+   first evidence there is; the open questions stand in the three sections of 2026-11-26.
