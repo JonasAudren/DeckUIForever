@@ -97,7 +97,7 @@ D.CONSOLE_SECTIONS = {
         { cvar = "autoLootRate", kind = "slider", label = "Looting speed", min = 0, max = 300, step = 10, fmt = Millis,
           tip = "The pause between two items when you loot. Lower is faster." },
         { cvar = "nameplateMaxDistance", kind = "slider", label = "Nameplates: how far", min = 20, max = 60, step = 1, fmt = Yards,
-          tip = "From how far away nameplates show. The debuff window's kept columns need the enemy's nameplate." },
+          tip = "From how far away nameplates show. The enemy list, and your debuffs on it, need the enemy's nameplate." },
     } },
     { title = "Looks", items = {
         { cvar = "nameplateOverlapV", kind = "slider", label = "Nameplates: vertical spacing", min = 0.3, max = 1.5, step = 0.1, fmt = tenth,

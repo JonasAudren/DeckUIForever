@@ -39,6 +39,8 @@ ns.DEFAULTS = {
     style           = "orbs",      -- player/target: "orbs", "ff" or "ffxiv" (ffstyle.lua), /reload
     bossStyle       = "auto",      -- bosses: "auto" (follows style), "orbs", "ff" or "xiv"; /reload
     enemyList       = false,       -- FFXIV's enemy list from the nameplate units (enemies.lua)
+    enemyDots       = true,        -- your debuffs as round icons after each enemy of the list (the debuff window's successor)
+    enemyDotsExclude = true,       -- what the list shows leaves the target frame's debuff icons
     -- player, target and target of target in the Final Fantasy styles, each on
     -- a page of its own (owner's wish 2026-10-28); all need a /reload since
     -- oUF builds a frame once. Widths and bar heights are per device (below).
@@ -56,16 +58,6 @@ ns.DEFAULTS = {
     targetDebuffMax = 8,
     targetBuffMax   = 6,
     totDebuffs      = false,       -- your debuffs under the target of target
-    dotTracker      = false,       -- your debuffs on target and focus, per spec (debuffs.lua)
-    dotAttach       = false,       -- those rows bare at the target / focus frame instead of a window
-    dotAbove        = false,       -- with dotAttach: above the frame instead of below
-    dotNames        = true,        -- the debuff's name beside its icon; off = capsule only
-    dotIcons        = false,       -- the debuff window as round icons with a closing clock, /reload
-    dotPreview      = false,       -- three sample rows while the frames are unlocked; off = an empty box
-    dotIdle         = false,       -- out of a fight: dimmed empty capsules for what is not running; off = only running ones
-    dotKeep         = true,        -- an enemy you leave keeps a column under the target column while a DoT runs (its nameplate)
-    dotManager      = false,       -- a debuff in Blizzard's Cooldown Manager's buff bars leaves the target column (debuffs.lua)
-    dotUnderManager = false,       -- the debuff window hangs below the Cooldown Manager's buff bars instead of its own place
     -- the heal icons on the party list (partyheal.lua) keep the keys of the HoT window they came from
     hotAllBuffs     = false,       -- the party rows' buff icons: every buff on the member; off = your own four; /reload
     hotPadHints     = true,        -- the controller key that targets (or, Deck Heal, picks) a row's member, gamepad style only
@@ -870,7 +862,7 @@ SlashCmdList.DECKORBS = function(msg)
         -- the enemy list's filter, unit by unit (enemies.lua)
         ns.EnemyDebug()
     elseif msg == "dots" then
-        -- the debuff window's list and what the target carries (debuffs.lua)
+        -- your class's debuffs and the enemy list's slots (debuffs.lua, enemies.lua)
         ns.DotDebug()
     elseif msg == "hots" then
         -- the healer's lists and the party rows' slots (heals.lua, partyheal.lua)

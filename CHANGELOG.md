@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- The debuff window is gone - your debuffs live on the enemy list now:
+  after each enemy fighting you one round icon per debuff your class
+  keeps up, each in its fixed place, with a clock that closes as it runs
+  out and gold in the last third (a debuff that is not on the enemy
+  leaves its place empty); then up to four of your other debuffs ("Your debuffs on each enemy" on the
+  Enemies page, on with the enemy list). Whoever had the window on
+  without the enemy list is told so once in the chat. Gone with the
+  window: the capsule bars, the column at the target or focus frame, the
+  two Cooldown Manager options, and debuffs on an enemy that has no
+  nameplate. The settings page "Your debuffs" is gone too.
 - The HoT window is gone - its icons live on the party list now (next
   entry). Whoever had the window on is told so once in the chat; the
   settings page "Your HoTs" is gone too, its switches are under "Healing"

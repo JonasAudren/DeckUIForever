@@ -232,13 +232,13 @@ function D.OpenCooldownSettings()
 end
 
 -------------------------------------------------------------------
--- What the manager shows, for the debuff window (Orbs, debuffs.lua)
+-- What the manager shows, for /orbs dots and /df cooldowns (Orbs, debuffs.lua's ns.DotCoverage)
 -------------------------------------------------------------------
 -- Blizzard's two tracked-buff viewers look for an item's aura on the
 -- player first and then on the target - on an enemy your own debuffs
 -- (CooldownViewerItemData.lua: scanUnits, "HARMFUL|PLAYER"). So a DoT
 -- that sits in one of those bars is shown there for the current target,
--- and the debuff window can leave it out (its option dotManager).
+-- (the debuff window, which could leave such a debuff out, is gone since 2026-11-26).
 --
 -- Read, never written, and only out of a fight: each item frame's
 -- cooldownID (a plain field) and what C_CooldownViewer says about it.

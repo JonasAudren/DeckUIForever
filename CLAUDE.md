@@ -327,6 +327,37 @@ PADLTRIGGER and **Ctrl = PADLSHOULDER** (not RT); `PVEFrame` and `PlayerSpellsFr
   Blizzard's gamepad action bar for the D-pad and face buttons. A new file and a Bindings.xml entry: the client
   needs a restart, not only a reload.
 
+## The debuff window is removed, the enemy list carries the debuffs (2026-11-26, owner: "jetzt bauen wir Debuffs um, will das Fenster auch entfernen und mit dem Mobs-am-Kampf-beteiligt-Fenster verschmelzen"; unreleased, untested in game)
+
+- **enemies.lua**: every row (plain frames on `nameplate1-40`, eight at most, engaged enemies only) gets
+  `row.dots[i]` - `DotSlot`: a one-slot `CustomAuraContainer` in a fixed place (**no "missing" layer** - the
+  dimmed icon with the red rim was taken out the same day, owner: "fehlende Debuffs nicht mehr anzeigen wird
+  nicht mehr benoetigt"; an absent debuff is an empty place)
+  (`HARMFUL|PLAYER`, `includeSpellIDs` = the entry's rank IDs, `ns.AuraIconButton`) - and `row.dotOthers`, an aura
+  group of four excluding the list's IDs. Made lazily at run time (`ApplyDots`; the file loads before debuffs.lua).
+  `DotUnit(row, unit)` from `Fill` points the containers at the row's token when the list shifts (`SetUnit`) or
+  re-reads them when the token changed hands (`stale`, NAME_PLATE_UNIT_ADDED/REMOVED). `ApplyDots` re-reads the
+  list on the spec events, sizes and places everything (device `dotScale`, capped at the row's 26 px), and is the
+  callback of the switch. Keys `enemyDots` (on), `enemyDotsExclude` (on); `ns.EnemyDotsOn()` = `enemyList` and
+  `enemyDots`. Nothing is secure here - the list is not clickable - so nothing waits for the end of a fight.
+- **debuffs.lua is rewritten in place** (same name, same toc line): the round-icon pieces `ns.RoundIcon`,
+  `ns.IconRim`, `ns.AuraIconButton` (partyheal.lua, padheal.lua, buffcheck.lua and enemies.lua use them), `LISTS`,
+  `RankIDs`, `Rebuild`, `ns.DotRebuild`, `ns.DotEntries`, `ns.ApplyDotExclusion` (now on `ns.EnemyDotsOn()` and
+  `enemyDotsExclude`), `ns.DotDebug` (`/orbs dots`: list, then `ns.EnemyDebug`, then `ns.DotCoverage`),
+  `ns.DotCoverage` (= `D.CooldownReport`, the list against Blizzard's Cooldown Manager).
+- Gone: `DeckOrbsDebuffs` and its mover "Debuffs", the capsule rows, the target and focus columns, the kept
+  columns (every engaged enemy has a row instead), the icon mode switch, `dotAttach`/`dotAbove`, `dotNames`,
+  `dotIdle`, `dotPreview`, `dotKeep`, **`dotManager` and `dotUnderManager`** (the owner had both on - the list
+  cannot tell which row is the target in a fight, so it cannot leave the target's debuffs to the manager), the
+  settings page `Debuffs` (config.lua's module and panel.lua's entries; `EnemyKey` takes the `dot*` and
+  `enemyDots*` keys for "Reset this page"). `dotTracker` is only read for the one-time chat note
+  (`dotWindowGone`). The hub's `D.CooldownManagerScan`/`Shows`/`Stamp` stay; only the coverage print uses them.
+- **Limits against the window**: an enemy without a nameplate (nameplates off, out of nameplate range, a ninth
+  enemy) has no row and no icons; no focus column; no bars. The last window file is `git show
+  660c6f3:DeckUIForever_Orbs/debuffs.lua`.
+- **Open, only the game answers**: whether a container on a `nameplateN` token is filled in a fight as the one
+  on `target` was (the kept columns did this, never confirmed in game), and how the icons look beside the rows.
+
 ## The HoT window is removed (2026-11-26, owner: "loese die gemeinsame Logik heraus und entferne das HoT-Fenster"; unreleased, untested in game)
 
 - **`hots.lua` is deleted, `heals.lua` replaces it in the toc** (same place, before partyheal.lua; a new file, so the

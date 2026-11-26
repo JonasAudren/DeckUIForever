@@ -61,7 +61,7 @@ close:SetPoint("TOPRIGHT", 2, 2)
 -- frames", the Overview "Modules", the Units group "Frames".
 D.PAGE_GROUPS = {
     { title = "General",   pages = { "General", "Profiles", "Devices", "Screen", "Targets", "Windows", "Console" } },
-    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "Debuffs", "BuffCheck", "DeckHeal", "Group", "Raid", "Combat" } },
+    { title = "Frames",    pages = { "Orbs", "FramePlayer", "FrameTarget", "FrameToT", "BuffBar", "Enemies", "BuffCheck", "DeckHeal", "Group", "Raid", "Combat" } },
     { title = "Actions",   pages = { "Bars", "Pad", "Spec", "Cross", "CrossController" } },
     { title = "World",     pages = { "Quests", "Questing", "Map", "MapWorld", "Nav" } },
     { title = "Inventory", pages = { "Bags", "Loot" } },
@@ -71,7 +71,7 @@ D.PAGE_GROUPS = {
 D.PAGE_NAMES = {
     Orbs = "Unit frames", Cross = "Cross hotbar", Spec = "Talent groups",
     Nav = "Navigation", Map = "Maps", Week = "Week overview", Bars = "Action bars", Pad = "Controller bar",
-    Debuffs = "Your debuffs", BuffCheck = "Missing buffs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
+    BuffCheck = "Missing buffs", FramePlayer = "Player", FrameTarget = "Target", FrameToT = "Target of target",
     BuffBar = "Buff bar", Enemies = "Enemies and bosses", CrossController = "Controller",
     MapWorld = "World map",
 }
@@ -81,7 +81,7 @@ D.PAGE_NAMES = {
 -- target as many plus six sliders). A sub-page of a module registers with
 -- the module, so a module that is off shows only its stand-in.
 D.PAGE_PARENT = {
-    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", Debuffs = "Orbs", DeckHeal = "Orbs",
+    FramePlayer = "Orbs", FrameTarget = "Orbs", FrameToT = "Orbs", DeckHeal = "Orbs",
     BuffBar = "Orbs", Enemies = "Orbs", BuffCheck = "Orbs",
     CrossController = "Cross",
     MapWorld = "Map",
@@ -352,7 +352,6 @@ D.PAGE_FRAMES = {
     Orbs    = { "EXP bar", "Cast bar" },
     FramePlayer = { "Player", "Player (FF)" },
     FrameTarget = { "Target", "Target (FF)" },
-    Debuffs = { "Debuffs" },
     BuffCheck = { "Buff check" },
     DeckHeal = { "Deck Heal" },
     BuffBar = { "Buffs" },
@@ -396,7 +395,8 @@ local function ToTKey(k) return k:find("^tot") ~= nil end
 local BUFFBAR_KEYS = { buffSize = true, buffPerRow = true, buffRows = true, buffDebuffMax = true }
 local ENEMY_KEYS = { enemyList = true, showFocus = true, showBoss = true, bossStyle = true }
 local function BuffBarKey(k) return BUFFBAR_KEYS[k] == true or k:find("^buffBar") ~= nil end
-local function EnemyKey(k) return ENEMY_KEYS[k] == true end
+-- your debuffs on the enemy list keep the debuff window's keys (dot*) beside their own (enemyDots*)
+local function EnemyKey(k) return ENEMY_KEYS[k] == true or DotKey(k) or k:find("^enemyDots") ~= nil end
 -- the Overview's three sub-pages share DeckUIForeverDB with everything else of the hub
 local SCREEN_KEYS = { infoServer = true, infoParts = true, infoGold = true, infoBags = true, hideBagBar = true, mainMenu = true, dock = true, totemTimers = true, cdManager = true }
 local TARGET_KEYS = { targetArrow = true, xivPlates = true, xivPlatesFriendly = true, xivPlatesNameOnly = true, plateSpace = true, rankMarks = true,
@@ -415,7 +415,6 @@ D.PAGE_RESET = {
     FramePlayer = { db = "DeckUIForeverOrbsDB", match = PlayerKey },
     FrameTarget = { db = "DeckUIForeverOrbsDB", match = TargetKey },
     FrameToT    = { db = "DeckUIForeverOrbsDB", match = ToTKey },
-    Debuffs = { db = "DeckUIForeverOrbsDB", match = DotKey },
     BuffCheck = { db = "DeckUIForeverOrbsDB", match = BuffCheckKey },
     DeckHeal = { db = "DeckUIForeverOrbsDB", match = PadHealKey },
     Group   = { db = "DeckUIForeverOrbsDB", match = GroupKey },
@@ -722,7 +721,7 @@ local function Jump(content, item)
     flashAnim:Play()
 end
 
--- where a page lives, as the sidebar shows it: "Unit frames > Your debuffs"
+-- where a page lives, as the sidebar shows it: "Unit frames > Player"
 local function PagePath(key)
     local parent = D.PAGE_PARENT[key]
     return parent and (PageName(parent) .. " > " .. PageName(key)) or PageName(key)

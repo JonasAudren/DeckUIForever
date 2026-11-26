@@ -23,7 +23,6 @@ D.RegisterModule("Orbs", {
         loaded.style = loaded.style or DeckUIForeverOrbsDB.style or "orbs"
         loaded.buff = loaded.buff or DeckUIForeverOrbsDB.buffMaxDuration
         if loaded.xivCast == nil then loaded.xivCast = DeckUIForeverOrbsDB.xivCastCenter and true or false end
-        if loaded.dotIcons == nil then loaded.dotIcons = DeckUIForeverOrbsDB.dotIcons and true or false end
         if loaded.hotHealer == nil then loaded.hotHealer = DeckUIForeverOrbsDB.hotHealer and true or false end
         if loaded.showPlayer == nil then loaded.showPlayer = DeckUIForeverOrbsDB.showPlayer ~= false end
         if loaded.showTarget == nil then loaded.showTarget = DeckUIForeverOrbsDB.showTarget ~= false end
@@ -167,6 +166,15 @@ D.RegisterModule("Enemies", {
         f:Label("Enemy list")
         f:Checkbox("Enemy list", db, "enemyList", ns.SetEnemyList,
             "Final Fantasy XIV's list of the enemies fighting you: name, health, a red square while one targets you. Needs enemy nameplates on. Move it with Move below.")
+        f:Checkbox("Your debuffs on each enemy", db, "enemyDots", function() ns.ApplyEnemyDots() end,
+            "After each enemy of the list: one round icon per debuff your class keeps up - DoTs, bleeds, curses. Each has its fixed place, so they line up down the list; the clock closes as it runs out, gold means the last third, and a debuff that is not on the enemy leaves its place empty. Then up to four of your other debuffs. This replaces the debuff window of earlier versions. /orbs dots prints the list.")
+        f:Checkbox("Hide them from the target frame", db, "enemyDotsExclude", function() ns.ApplyDotExclusion() end,
+            "The debuffs with an icon on the enemy list leave the debuff icons at the target frame. Off, the target frame keeps all its icons.")
+        f:Slider("Debuff icon size (this device)", 50, 120, 5, function(v) return math.floor(v + 0.5) .. "%" end,
+            ns.DeviceDB, "dotScale", function(v)
+                ns.DeviceDB().dotScale = v
+                ns.ApplyEnemyDots()
+            end, "100% is 22 pixels; a row of the list is 26 high. The time's font follows after a reload.")
 
         f:Label("Focus and bosses")
         f:Checkbox("Focus frame", db, "showFocus", ns.SetFocusShown)
@@ -289,47 +297,6 @@ D.RegisterModule("FrameToT", {
         f:Label("Debuffs")
         f:Checkbox("Your debuffs under it", db, "totDebuffs", function(v) Need("totDebuffs", v) end,
             "Up to six. Needs a reload.")
-    end,
-})
-
--- Your debuffs have a page of their own under the unit frames (owner's
--- wish 2026-10-28, easier to find; D.PAGE_PARENT indents it there).
-D.RegisterModule("Debuffs", {
-    title = "Debuffs",
-    build = function(c)
-        local f = D.Flow(c)
-        f:Hint("The debuffs your class keeps on enemies - DoTs, bleeds, curses - for your target and your focus. /orbs dots prints what the window sees.")
-        f:Label("Window")
-        f:Checkbox("Show the debuff window", db, "dotTracker", ns.SetDotTracker,
-            "A column for your target and a smaller one for your focus. One capsule per debuff, filled by the game while it runs. A debuff you have not cast is an empty capsule with a red edge in combat. Gold means the last third: refresh now and nothing is lost. Your other debuffs on the target follow below.")
-        f:Checkbox("Round icons instead of capsules", db, "dotIcons", function(v)
-            D.NeedReload("orbs:dotIcons", (v and true or false) ~= loaded.dotIcons)
-        end, "The name, then one round icon per debuff with a clock that closes as it runs out, then your other debuffs as icons. Needs a reload.")
-        f:More()
-        f:Slider("Width, or icon size (this device)", 50, 175, 5, pct, ns.DeviceDB, "dotScale", function(v)
-            ns.DeviceDB().dotScale = v
-            ns.ApplyDotWidth()
-        end, "Capsules: how wide the rows are, 100% is 240 pixels. Round icons: how big they are, 100% is 22 pixels.")
-        f:Checkbox("Show the names", db, "dotNames", function() ns.ApplyDotNames() end,
-            "Capsules only: the debuff's name between icon and capsule. Off, the capsule gets that room. Running capsules follow after a reload.")
-        f:Checkbox("Empty capsules out of combat", db, "dotIdle", nil,
-            "Out of combat, a dimmed empty capsule (or icon) for every debuff you have not cast. Off, only running debuffs show - nothing at all when none runs.")
-        f:Checkbox("Keep enemies you switch away from", db, "dotKeep", nil,
-            "An enemy you stop targeting keeps a small column while your debuffs run on it, up to four. Needs its nameplate on screen. Window only.")
-        f:MoreSection("Place")
-        f:Checkbox("At the target frame instead of a window", db, "dotAttach", function() ns.ApplyDotLayout() end,
-            "The rows hang at your target frame, the focus column at your focus frame. Off, the debuffs have a window of their own - move it with Move below.")
-        f:Checkbox("Above the frame instead of below", db, "dotAbove", function() ns.ApplyDotLayout() end,
-            "With the rows at the target frame: above it rather than below.")
-        f:Checkbox("Sample rows while moving", db, "dotPreview", nil,
-            "With Move or /df unlock the window shows three example rows instead of an empty box.")
-        if D.CooldownManagerAvailable and D.CooldownManagerAvailable() then
-            f:MoreSection("Blizzard's Cooldown Manager")
-            f:Checkbox("Leave the target's debuffs to the Cooldown Manager", db, "dotManager", nil,
-                "A debuff that sits in one of the Cooldown Manager's two buff bars leaves this window's target column - the manager shows it for your target. Your focus, the enemies you switched away from and every debuff the manager does not offer stay here. The red empty capsule for a missing debuff goes with it. /df cooldowns prints which debuffs the manager shows.")
-            f:Checkbox("Hang the window below the Cooldown Manager's bars", db, "dotUnderManager", nil,
-                "The window follows the manager's buff bars - or its buff icons while the bars are hidden - instead of its own place. Move the manager's bars in the game's Edit Mode.")
-        end
     end,
 })
 

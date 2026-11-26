@@ -17,6 +17,22 @@ local oUF = ns.oUF
 -- (nameplate1..40), so the list knows what the game has a nameplate for:
 -- enemy nameplates must be on (Options > Interface > Nameplates).
 --
+-- Your debuffs on every enemy (enemyDots, on; owner 2026-11-26: "jetzt
+-- bauen wir Debuffs um, will das Fenster auch entfernen und mit dem
+-- Mobs-am-Kampf-beteiligt-Fenster verschmelzen"). After each row one round
+-- icon per debuff your class keeps up (debuffs.lua's list, ns.DotEntries),
+-- in a fixed place so they line up down the list: the engine's own aura
+-- button with a clock that closes as the debuff runs out and a gold rim in
+-- its last third. A debuff that is not on the enemy leaves its place
+-- empty - the dimmed "missing" icon with the red rim that stood there at
+-- first was taken out the same day (owner: "fehlende Debuffs nicht mehr
+-- anzeigen wird nicht mehr benoetigt"). Then up to four of your other
+-- debuffs. The containers are plain frames on the row's nameplate token
+-- and follow the row when the list shifts (SetUnit), in a fight too. This
+-- is what the debuff window's columns were - target, focus and the kept
+-- enemies - for every enemy at once; the window is gone. What the rows
+-- cannot do: an enemy without a nameplate has no row, and so no icons.
+--
 -- Secret values: names and health go straight to SetText / the StatusBar;
 -- "targets me" and "is my target" are booleans for the engine
 -- (SetAlphaFromBoolean). The filter needs plain answers - whatever the game
@@ -28,6 +44,7 @@ local HOSTILE = { 0.9, 0.35, 0.3 }
 local NEUTRAL = { 0.95, 0.8, 0.2 }   -- reaction 4, yellow as in the game
 local TAPPED = { 0.5, 0.5, 0.5 }
 local GROUP = { "player", "party1", "party2", "party3", "party4" }
+local DOT_ICON, DOT_GAP, DOT_OTHERS = 22, 2, 4   -- the icon as shipped (dotScale scales it), the gap, your other debuffs
 
 local function Secret(v) return issecretvalue and issecretvalue(v) end
 -- a plain answer, or nil when the game keeps it secret
@@ -143,8 +160,135 @@ for i = 1, MAX_ROWS do
     rows[i] = row
 end
 
+-------------------------------------------------------------------
+-- Your debuffs after each row
+-------------------------------------------------------------------
+local dotEntries, dotIDs = {}, {}
+local dotsBuilt = false   -- the list was read and the rows carry their slots
+local stale = {}          -- a nameplate token that changed hands: its containers read afresh
+
+local function DotsOn()
+    return DeckUIForeverOrbsDB.enemyList and DeckUIForeverOrbsDB.enemyDots ~= false and true or false
+end
+ns.EnemyDotsOn = DotsOn
+
+-- never taller than a row: the rows stand 28 pixels apart
+local function DotSize()
+    return math.max(10, math.min(ROW_H, math.floor(DOT_ICON * (ns.DeviceDB().dotScale or 100) / 100 + 0.5)))
+end
+
+local function DotSlot(row, i)
+    local s = row.dots[i]
+    if s then return s end
+    local size = DotSize()
+    s = CreateFrame("Frame", nil, row)
+    local auras = CreateFrame("AuraContainer", nil, s, "CustomAuraContainerTemplate")
+    auras:SetAllPoints(s)
+    auras:SetUnit(row.unit or "target")
+    auras:AddAuraSlot("dot", "HARMFUL|PLAYER", {
+        candidateFilters = { includeSpellIDs = {} },
+        initializeFrame = function(button)
+            button:SetAllPoints(s)
+            ns.AuraIconButton(button, size)
+        end,
+    })
+    s.auras = auras
+    row.dots[i] = s
+    return s
+end
+
+-- your other debuffs on the enemy, after the listed ones
+local function DotOthers(row)
+    if row.dotOthers then return row.dotOthers end
+    local size = DotSize()
+    local auras = CreateFrame("AuraContainer", nil, row, "CustomAuraContainerTemplate")
+    auras:SetUnit(row.unit or "target")
+    auras:SetFlowLayoutAnchorPoint("LEFT")
+    auras:SetFlowLayoutAxis(ns.FLOW.Horizontal)
+    auras:SetFlowLayoutMaximumLineSize(DOT_OTHERS * (ROW_H + DOT_GAP))
+    auras:SetFlowLayoutGrowthDirection(1, -1)
+    auras:AddAuraGroup("others", "HARMFUL|PLAYER", {
+        maxFrameCount = DOT_OTHERS,
+        candidateFilters = { excludeSpellIDs = dotIDs },
+        layout = { elementSpacing = DOT_GAP },
+        initializeFrame = function(button)
+            button:SetSize(size, size)
+            ns.AuraIconButton(button, size)
+        end,
+    })
+    row.dotOthers = auras
+    return auras
+end
+
+-- sizes, places and the list on every row; plain frames, so in a fight too
+local function ApplyDots()
+    local on = DotsOn()
+    if on and not dotsBuilt then
+        if not (ns.DotRebuild and ns.RoundIcon) then return end
+        dotsBuilt = true
+    end
+    if not dotsBuilt then return end
+    if on then
+        ns.DotRebuild()
+        local list, ids = ns.DotEntries()
+        dotEntries = list
+        wipe(dotIDs)
+        for id in pairs(ids or {}) do dotIDs[id] = true end
+    end
+    local size = DotSize()
+    local step = size + DOT_GAP
+    for _, row in ipairs(rows) do
+        row.dots = row.dots or {}
+        for i, e in ipairs(on and dotEntries or {}) do
+            local s = DotSlot(row, i)
+            s:SetSize(size, size)
+            s:ClearAllPoints()
+            s:SetPoint("LEFT", row, "RIGHT", 6 + (i - 1) * step, 0)
+            pcall(s.auras.SetAuraSlotCandidateFilters, s.auras, "dot", { includeSpellIDs = e.ids or {} })
+            pcall(s.auras.UpdateAllAuras, s.auras)
+            s:Show()
+        end
+        for i = (on and #dotEntries or 0) + 1, #row.dots do row.dots[i]:Hide() end
+        if on then
+            local others = DotOthers(row)
+            others:SetSize(DOT_OTHERS * step, size)
+            others:ClearAllPoints()
+            others:SetPoint("LEFT", row, "RIGHT", 6 + #dotEntries * step + (#dotEntries > 0 and 4 or 0), 0)
+            pcall(others.SetAuraGroupCandidateFilters, others, "others", { excludeSpellIDs = dotIDs })
+            pcall(others.UpdateAllAuras, others)
+            others:Show()
+        elseif row.dotOthers then
+            row.dotOthers:Hide()
+        end
+        row.dotUnit = nil   -- Fill points the containers at the row's unit again
+    end
+    if ns.ApplyDotExclusion then ns.ApplyDotExclusion() end
+end
+ns.ApplyEnemyDots = ApplyDots
+
+-- the row shows another enemy now, or its token changed hands
+local function DotUnit(row, unit)
+    if not (dotsBuilt and row.dots) then return end
+    if row.dotUnit == unit and not stale[unit] then return end
+    local fresh = row.dotUnit ~= unit
+    row.dotUnit = unit
+    for _, s in ipairs(row.dots) do
+        if fresh then pcall(s.auras.SetUnit, s.auras, unit) else pcall(s.auras.UpdateAllAuras, s.auras) end
+    end
+    if row.dotOthers then
+        if fresh then pcall(row.dotOthers.SetUnit, row.dotOthers, unit) else pcall(row.dotOthers.UpdateAllAuras, row.dotOthers) end
+    end
+end
+
+-- the engine's icons away while the sample rows show, and back
+local function DotsShown(row, shown)
+    for _, s in ipairs(row.dots or {}) do s.auras:SetShown(shown) end
+    if row.dotOthers then row.dotOthers:SetShown(shown and DotsOn()) end
+end
+
 local function Fill(row, unit)
     row.unit = unit
+    DotUnit(row, unit)
     row.name:SetText(UnitName(unit))
     row.bar:SetMinMaxValues(0, UnitHealthMax(unit))
     row.bar:SetValue(UnitHealth(unit))
@@ -202,6 +346,7 @@ local function Update()
     for i, row in ipairs(rows) do
         if list[i] then Fill(row, list[i]) else row.unit = nil; row:Hide() end
     end
+    wipe(stale)
 end
 
 local driver = CreateFrame("Frame")
@@ -214,16 +359,23 @@ local function Tick(_, dt)
 end
 -- a plate given to another unit keeps its token: start that one afresh
 -- a new target lights at once, not on the next poll
+local LIST_EVENTS = { ACTIVE_TALENT_GROUP_CHANGED = true, PLAYER_TALENT_UPDATE = true, SPELLS_CHANGED = true }
 driver:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_TARGET_CHANGED" then
         Update()
+    elseif LIST_EVENTS[event] then
+        ApplyDots()   -- a new spell or rank: the slots' list
+    elseif event == "NAME_PLATE_UNIT_ADDED" then
+        if unit then stale[unit] = true end
     elseif unit then
         joined[unit] = nil
+        stale[unit] = true
     end
 end)
 
 local function ShowPreview(on)
     preview = on
+    for _, row in ipairs(rows) do DotsShown(row, not on) end
     if not on then
         Update()
         return
@@ -250,22 +402,32 @@ end
 function ns.SetEnemyList(on)
     DeckUIForeverOrbsDB.enemyList = on and true or false
     if on then
-        driver:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-        driver:RegisterEvent("PLAYER_TARGET_CHANGED")
+        for _, e in ipairs({ "NAME_PLATE_UNIT_REMOVED", "NAME_PLATE_UNIT_ADDED", "PLAYER_TARGET_CHANGED",
+                             "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_TALENT_UPDATE", "SPELLS_CHANGED" }) do
+            if not C_EventUtils or C_EventUtils.IsEventValid(e) then driver:RegisterEvent(e) end
+        end
         driver:SetScript("OnUpdate", Tick)
         holder:Show()
+        ApplyDots()
         Update()
     else
         driver:UnregisterAllEvents()
         driver:SetScript("OnUpdate", nil)
         wipe(joined)
         holder:Hide()
+        if ns.ApplyDotExclusion then ns.ApplyDotExclusion() end   -- the target frame gets its icons back
     end
 end
 
 oUF:Factory(function()
     D.MakeMovable(holder, "Enemy list", DeckUIForeverOrbsDB)
     ns.SetEnemyList(DeckUIForeverOrbsDB.enemyList)
+    -- the debuff window is gone (2026-11-26): whoever had it on without the
+    -- enemy list is told once where the debuffs live now
+    if DeckUIForeverOrbsDB.dotTracker and not DeckUIForeverOrbsDB.enemyList and not DeckUIForeverOrbsDB.dotWindowGone then
+        DeckUIForeverOrbsDB.dotWindowGone = true
+        print("DeckUIForever: the debuff window has moved onto the enemy list. Switch on \"Enemy list\" under /df, Frames, Enemies and bosses - every enemy in the fight then shows your debuffs.")
+    end
     -- unlocked, three sample rows show where the list sits
     D.OnUnlock(function(state, only)
         if only and not only["Enemy list"] then state = false end
@@ -281,8 +443,9 @@ local function Show(v)
 end
 
 function ns.EnemyDebug()
-    print(("DeckUIForever enemy list: %s, %d in the list, raid %s."):format(
-        DeckUIForeverOrbsDB.enemyList and "on" or "off", #list, tostring(IsInRaid())))
+    print(("DeckUIForever enemy list: %s, %d in the list, raid %s; your debuffs on the rows %s (%d listed, icon %d px)."):format(
+        DeckUIForeverOrbsDB.enemyList and "on" or "off", #list, tostring(IsInRaid()),
+        DotsOn() and "on" or "off", #dotEntries, DotSize()))
     for i = 1, 40 do
         local unit = "nameplate" .. i
         if UnitExists(unit) then
