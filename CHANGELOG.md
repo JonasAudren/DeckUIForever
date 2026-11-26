@@ -1,48 +1,49 @@
 # Changelog
 
-## Unreleased
+## 1.6.0
 
-- The debuff window is gone - your debuffs live on the enemy list now:
-  after each enemy fighting you one round icon per debuff your class
-  keeps up, each in its fixed place, with a clock that closes as it runs
-  out and gold in the last third (a debuff that is not on the enemy
-  leaves its place empty); then up to four of your other debuffs ("Your debuffs on each enemy" on the
-  Enemies page, on with the enemy list). Whoever had the window on
-  without the enemy list is told so once in the chat. Gone with the
-  window: the capsule bars, the column at the target or focus frame, the
-  two Cooldown Manager options, and debuffs on an enemy that has no
-  nameplate. The settings page "Your debuffs" is gone too.
-- The HoT window is gone - its icons live on the party list now (next
-  entry). Whoever had the window on is told so once in the chat; the
-  settings page "Your HoTs" is gone too, its switches are under "Healing"
-  on the Group page. The new place needs our party list ("Show the party
-  list"), so with Blizzard's party frames there are no heal icons any
-  more. Gone without a successor: the window's own health bar sizes, the
-  dimmed cure for another kind of debuff, and the sample lines while
-  moving.
-- Group: "HoTs, heals and cures on the party list" (Group page, off, needs
-  a reload). The party list becomes the healer's window: after each row a
-  round icon per HoT of yours, then your heals, a cure while there is
-  something to remove, and the resurrection on a dead member. A click casts
-  it on that member, in combat too. Outside a group the list shows one
-  row of you, so your own icons are always there. The game sorts and fills the rows
-  itself during a fight, so a new member or a new order no longer waits
-  for the end of it. Deck Heal's
-  gold frame and the controller pictures are drawn on the rows. With
-  "Pets under their owners" each pet gets a small line under its owner's
-  row with its own icons, and "A line for a target outside the group"
-  puts a friendly target that is not in your group above the list while
-  you target it. "Heal icons under the raid tiles" gives every tile of
-  our raid frames the same icons in a line under it, sized to fit the
-  tile's width, and "Mana regeneration above the list" shows your mana
-  per five seconds above the party list (above the raid in a raid).
-  "Cooldown timers on the heal icons" and the blink and sound before a
-  HoT ends work on these icons too. Deck Heal no longer needs its bar
-  there: while the layer is on, the picked member's row shows each
-  button's picture on the icon it casts ("Keys on the party row instead
-  of the bar", on). In a raid without icons under the raid tiles the
-  party list stays and shows your raid group; "Every buff on the rows"
-  lists all buffs of a member; a click on a pet's name targets the pet.
+Two windows less: the party list is the healer's window now, and the
+enemy list shows your debuffs. The HoT window and the debuff window are
+gone.
+
+- Group: "HoTs, heals and cures on the party list" (Group page, section
+  "Healing", off, needs a reload and our party list). After each row a
+  round icon per HoT of yours - the clock closes as it runs out, gold in
+  the last third, red in combat while it is missing - then your heals, a
+  cure while there is something to remove, and the resurrection on a dead
+  member. A click casts it on that member, in combat too. The game sorts
+  and fills the rows itself during a fight, so a new member or a new
+  order no longer waits for the end of it. Outside a group the list shows
+  one row of you. In the same section:
+  - "Pets under their owners": a small line under each row with the
+    pet's name, health and its own icons; a click on the name targets it;
+  - "A line for a target outside the group": a friendly target that is
+    not in your group gets a line above the list while you target it;
+  - "Heal icons under the raid tiles": the same icons in a line under
+    every tile of our raid frames, sized to fit the tile's width. Off,
+    the party list stays in a raid and shows your raid group;
+  - "Every buff on the rows, not only yours", "Mana regeneration above
+    the list", "Cooldown timers on the heal icons", the blink and sound
+    before a HoT ends, your own spells as extra icons, and the icon size.
+- Deck Heal works on the party rows: the gold frame and the D-pad
+  pictures are drawn there, and while the layer is on the picked member's
+  row shows each button's picture on the icon it casts, so the bar stays
+  away ("Keys on the party row instead of the bar", on).
+- Enemy list: "Your debuffs on each enemy" (Enemies page, on with the
+  enemy list). After each enemy fighting you one round icon per debuff
+  your class keeps up, each in its fixed place, with a clock that closes
+  as it runs out and gold in the last third; then up to four of your
+  other debuffs. Every enemy of the fight at once.
+- Removed: the HoT window and its page "Your HoTs". Whoever had it on is
+  told once in the chat where the icons live now. The heal icons need
+  our party list ("Show the party list"); with Blizzard's party frames
+  there are none any more. Gone without a successor: the window's own
+  bar sizes and the dimmed cure for another kind of debuff.
+- Removed: the debuff window and its page "Your debuffs". Whoever had it
+  on without the enemy list is told once in the chat. Gone with it: the
+  capsule bars, the "missing" marks, the column at the target or focus
+  frame, the two Cooldown Manager options, and debuffs on an enemy that
+  has no nameplate.
 - Setup: "I am a healer" now switches on the party list with the heal
   icons instead of the HoT window.
 
